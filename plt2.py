@@ -8,7 +8,7 @@ Created on Tue Feb 13 10:42:06 2018
 
 import matplotlib.pyplot as plt
 import numpy as np
-from lib import np2
+import np2
 import numpy_groupies as npg
 
 #%%
@@ -74,7 +74,7 @@ def detach_axis(xy, amin=0, amax=None, ax=None):
 def detach_yaxis(ymin=0, ymax=None, ax=None):
     detach_axis('y', ymin, ymax, ax)
 
-def hide_ticklabels(xy, ax=None):
+def hide_ticklabels(xy='xy', ax=None):
     if ax is None:
         ax = plt.gca()
     if 'x' in xy:

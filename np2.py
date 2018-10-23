@@ -6,17 +6,20 @@ Created on Mon Mar 12 10:28:15 2018
 @author: yulkang
 """
 import numpy as np
+import torch
 from scipy import stats
 import numpy_groupies as npg
+
+npt = np # choose between torch and np
 
 #%% Shape
 def vec_on(arr, dim, n_dim=None):
     arr = np.array(arr)
     if n_dim is None:
-        n_dim = arr.ndim
+        n_dim = np.amax([arr.ndim, dim + 1])
     
-    if dim >= n_dim:
-        raise ValueError('dim=%d must be less than n_dim=%d' % (dim, n_dim))
+#    if dim >= n_dim:
+#        raise ValueError('dim=%d must be less than n_dim=%d' % (dim, n_dim))
     
     sh = [1] * n_dim
     sh[dim] = -1
@@ -159,8 +162,13 @@ def logistic(v):
     return 1 / (np.exp(-v) + 1)
 
 def softmax(dv):
-    edv = np.exp(dv)
-    p = edv / np.sum(edv)
+    if type(dv) is torch.Tensor:
+        edv = torch.exp(dv)
+        p = edv / torch.sum(edv)
+    else:
+        edv = np.exp(dv)
+        p = edv / np.sum(edv)
+        
     return p
 
 def softargmax(dv):
