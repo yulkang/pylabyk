@@ -9,8 +9,10 @@ import numpy as np
 import torch
 from scipy import stats
 import numpy_groupies as npg
+import pandas as pd
+from . import numpytorch
 
-npt = np # choose between torch and np
+npt = numpytorch.npt_torch # choose between torch and np
 
 #%% Shape
 def vec_on(arr, dim, n_dim=None):
@@ -46,6 +48,50 @@ def cell2mat2(l, max_len=None):
             m[ii,:] = l1
 
     return m     
+
+def dict_shapes(d):
+    sh = {}
+    for k in d.keys():
+        v = d[k]
+        if type(v) is list:
+            sh1 = len(v)
+            compo = type(v[0])
+        elif type(v) is np.ndarray:
+            sh1 = v.shape
+            compo = v.dtype.type
+        elif v is None:
+            sh1 = 0
+            compo = None
+        else:
+            sh1 = 1
+            compo = None
+        sh[k] = (type(v), compo, sh1)
+    return sh
+
+def DataFrame(dat):
+    """
+    Converts dict with 1- or 2-D np.ndarrays into DataFrame
+    with 2-level MultiIndex of (name, column index)
+    where all values are 2-D.
+    :param dat: a dict()
+    :return: pd.DataFrame
+    """
+    keys = dat.keys()
+    l = []
+    for key in keys:
+        v = dat[key]
+        assert type(v) is np.ndarray and v.ndim <= 2 and v.ndim >= 1, \
+            '%s must be np.ndarray with 1 <= ndim <= 2 !' % key
+
+        if v.ndim == 1:
+            ix = pd.MultiIndex.from_product([[key]] + [[0]])
+            l.append(pd.DataFrame(v[:,np.newaxis], columns=ix))
+        else:
+            ix = pd.MultiIndex.from_product([[key]] + [
+                np.arange(s) for s in v.shape[1:]
+            ])
+            l.append(pd.DataFrame(v, columns=ix))
+    return pd.concat(l, axis=1)
 
 #%% Type
 def is_None(v):
@@ -151,6 +197,23 @@ def argmax_margin(v, margin=0.1, margin_from='second',
 def argmin_margin(v, **kw):
     """argmin with margin. See argmax_margin for details."""
     return argmax_margin(-v, **kw)
+
+def sumto1(v, axis=None):
+    if type(v) is np.ndarray:
+        return v / v.sum(axis=axis, keepdims=True)
+    else: # v is torch.Tensor
+        return v / v.sum(axis, keepdim=True)
+
+#%% Distribution
+def pdf_trapezoid(x, center, width_top, width_bottom):
+    height = 1. / ((width_top + width_bottom) / 2.)
+    proportion_between = ((width_bottom - width_top) / width_bottom)
+    width2height = height / proportion_between
+
+    p = (1. - npt.abs(x - center) / (width_bottom / 2.)) * width2height
+    p[p > height] = height
+    p[p < 0] = 0
+    return p
 
 #%% Transform
 def logit(v):
