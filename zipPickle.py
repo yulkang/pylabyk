@@ -10,7 +10,6 @@ Created on Sun Oct 16 12:38:07 2016
 @author: Zach Dwiel
 """
 
-# import cPickle
 import pickle
 import gzip
 
@@ -28,5 +27,4 @@ def load(filename):
     file = gzip.GzipFile(filename, 'rb')
     object = pickle.load(file)
     file.close()
-
     return object

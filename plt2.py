@@ -8,15 +8,60 @@ Created on Tue Feb 13 10:42:06 2018
 
 import matplotlib.pyplot as plt
 import numpy as np
-import np2
+
 import numpy_groupies as npg
 
-#%%
+from . import np2
+
+#%% Subplots
 def subplotRC(nrow, ncol, row, col, **kwargs):
     iplot = (row - 1) * ncol + col
     ax = plt.subplot(nrow, ncol, iplot, **kwargs)
     return ax
-    
+
+def subplotRCs(nrow, ncol, **kwargs):
+    ax = np.empty([nrow, ncol], dtype=object)
+    for row in range(1, nrow+1):
+        for col in range(1, ncol+1):
+            ax[row-1, col-1] = subplotRC(nrow, ncol, row, col, **kwargs)
+    return ax
+
+#%% Axes & limits
+def sameaxes(ax, ax0=None, xy='xy'):
+    """
+    Match the chosen limits of axes in ax to ax0's (if given) or the max range.
+    :param ax: np.ndarray (as from subplotRCs) or list of axes.
+    :param ax0: a scalar axes to match limits to. if None (default),
+    match the maximum range among axes in ax.
+    :param xy: 'x'|'y'|'xy'(default)
+    :return: [[min, max]] of limits. If xy='xy', contains two pairs.
+    """
+    if type(ax) is np.ndarray:
+        ax = ax.reshape(-1)
+    def cat_lims(lims):
+        return np.concatenate([np.array(v1).reshape(1,2) for v1 in lims])
+    lims_res = []
+    for xy1 in xy:
+        if ax0 is None:
+            if xy1 == 'x':
+                lims = cat_lims([ax1.get_xlim() for ax1 in ax])
+            else:
+                lims = cat_lims([ax1.get_ylim() for ax1 in ax])
+            lims0 = [np.min(lims[:,0]), np.max(lims[:,1])]
+        else:
+            if xy1 == 'x':
+                lims0 = ax0.get_xlim()
+            else:
+                lims0 = ax0.get_ylim()
+        if xy1 == 'x':
+            for ax1 in ax:
+                ax1.set_xlim(lims0)
+        else:
+            for ax1 in ax:
+                ax1.set_ylim(lims0)
+        lims_res.append(lims0)
+    return lims_res
+
 def beautify_psychometric(ax=None, 
                           ylim=[0, 1],
                           axvline=False,
