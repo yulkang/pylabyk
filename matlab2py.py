@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import h5py
 
 #%%
 def unpackarray(s, max_unpack=5, squeeze=True):
@@ -41,4 +42,69 @@ def structlist2df(slist, obj2dict=False, unpack=0, return_df=False):
 
     if return_df:
         d = pd.DataFrame(data = d)
+    return d
+
+def hdf2dict(file_in, to_str=None, to_list=None, verbose=True):
+    def asc2str(v):
+        return np.squeeze(np.array(v, dtype=np.uint8)).tostring().decode(
+            'ascii')
+
+    def hdf2v(h):
+        try:
+            v = np.squeeze(np.array([hdf2v(h1) for h1 in h]))
+        except TypeError:
+            if type(h) == h5py.h5r.Reference:
+                v = f[h]
+                v = hdf2v(v)
+            else:
+                v = h
+        return v
+
+    # %%
+    f = h5py.File(file_in, 'r')
+    if verbose:
+        print('Loaded ' + file_in)
+
+    # %%
+    # print({k:f[k]})
+    d = {k: np.squeeze(np.array(f[k])) for k in f.keys() if k[0] != '#'}
+
+    for k in (set(d.keys()) - set(to_str) - set(to_list)):
+        if type(d[k][0]) == h5py.h5r.Reference:
+            if verbose:
+                print('Converting to referent: ' + k)
+            d[k] = [np.squeeze(np.array(f[v])) for v in d[k]]  # keep as lists
+
+    if to_str is not None:
+        for k in to_str:
+            if verbose:
+                print('Converting to str: ' + k)
+            d[k] = np.array([asc2str(f[v]) for v in d[k]])
+
+    if to_list is not None:
+        for k in to_list:
+            if verbose:
+                print('Converting to list: ' + k)
+            d[k] = [np.squeeze(np.array(f[v])) for v in d[k]]  # keep as lists
+
+    if verbose:
+        print('Conversion done!')
+
+    # %% Saving to zpkl can take a very long time
+    # pkl_file = pth + nam + '.zpkl'
+    # zpkl.save(d, pkl_file)
+    # print('Saved to ' + pkl_file)
+    #
+    # #%% Test
+    # dat = zpkl.load(pkl_file)
+    # dict_shapes(dat)
+
+    return d, f
+
+def get_dict_row(d, rows):
+    return {k:d[k][rows] for k in d.keys()}
+
+def set_dict_row(d, rows, values):
+    for k in values.keys():
+        d[k][rows] = values[k]
     return d
