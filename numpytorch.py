@@ -98,3 +98,8 @@ def append_dim(v, n_dim_to_append=1):
 
 def prepend_dim(v, n_dim_to_prepend=1):
     return attach_dim(v, n_dim_to_prepend=n_dim_to_prepend)
+
+def vec_on_dim(v, dim, ndim):
+    shape = [1] * ndim
+    shape[dim] = -1
+    return v.view(shape)
