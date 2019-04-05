@@ -103,3 +103,20 @@ def vec_on_dim(v, dim, ndim):
     shape = [1] * ndim
     shape[dim] = -1
     return v.view(shape)
+
+def repeat_all(*args):
+    """Repeat tensors so that all tensors are of the same size."""
+
+    ndim = args[0].ndimension()
+    max_shape = torch.ones(ndim, dtype=torch.long)
+    for arg in args:
+        max_shape, _ = torch.max(torch.cat([
+            torch.tensor(arg.shape)[None,:], max_shape[None,:]],
+            dim=0), dim=0)
+
+    out = []
+    for arg in args:
+        out.append(arg.repeat(
+            tuple((max_shape / torch.tensor(arg.shape)).long())))
+
+    return tuple(out)
