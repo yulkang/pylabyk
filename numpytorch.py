@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-#%%
+#%% Wrapper that allows numpy-style syntax for torch
 def kw_np2torch(kw):
     keys = kw.keys()
     for subs in [('axis', 'dim'),
@@ -64,3 +64,12 @@ class WrapTorch(object):
 #%%
 npt_torch = WrapTorch()
 npt_numpy = np # Perhaps not fine if torch syntax is used
+
+#%% Utility functions specifically for PyTorch
+def enforce_tensor(v, min_ndim=1):
+    if not torch.is_tensor(v):
+        v = torch.tensor(v)
+    if v.ndimension() < min_ndim:
+        v = v.expand(v.shape + torch.Size([1] * (min_ndim - v.ndimension())))
+    return v
+
