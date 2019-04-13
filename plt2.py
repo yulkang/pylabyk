@@ -211,10 +211,28 @@ def ecdf(x0, *args, **kw):
     plt.step(x, p, *args, **kw)
 
 #%% Gaussian
-def plot_centroid(mu=np.zeros(2), sigma=np.eye(2), *args, **kwargs):
+def plot_centroid(mu=np.zeros(2), sigma=np.eye(2),
+                  add_axis=True, *args, **kwargs):
     th = np.linspace(0, 2*np.pi, 100)[np.newaxis,:]
     u, s, _ = np.linalg.svd(sigma)
     x = np.concatenate((np.cos(th), np.sin(th)), axis=0)
-    x = u @ np.diag(np.sqrt(s)) @ x + mu[:,np.newaxis]
+    us = u @ np.diag(np.sqrt(s))
+    x = us @ x + mu[:,np.newaxis]
     h = plt.plot(x[0,:], x[1,:], *args, **kwargs)
-    return h, x
+    res = {
+        'u':u,
+        's':s,
+        'us':us,
+    }
+
+    if add_axis:
+        axis0 = us @ np.array([1, 0]) + mu
+        axis1 = us @ np.array([0, 1]) + mu
+        h0 = plt.plot([mu[0], axis0[0]], [mu[1], axis0[1]], *args, **kwargs)
+        h1 = plt.plot([mu[0], axis1[0]], [mu[1], axis1[1]], *args, **kwargs)
+        res['axis0'] = axis0
+        res['axis1'] = axis1
+        res['h_axis0'] = h0
+        res['h_axis1'] = h1
+
+    return h, res
