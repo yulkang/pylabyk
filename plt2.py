@@ -144,6 +144,7 @@ def axis_off(xy, ax=None):
         ax.spines['left'].set_visible(False)
         ax.get_yaxis().set_visible(False)
 
+#%% Heatmaps
 def cmap(name, **kw):
     import matplotlib as mpl
     from matplotlib.colors import ListedColormap    
@@ -173,6 +174,7 @@ def imshow_discrete(x, shade=None,
         
     plt.imshow(c, **kw)
 
+#%% Errorbar
 def errorbar_shade(x, y, yerr=None, **kw):
     if yerr is None:
         y1 = y[0,:]
@@ -193,6 +195,7 @@ def errorbar_shade(x, y, yerr=None, **kw):
     h = plt.fill_between(x, y1, y2, **kw)
     return h
 
+#%% Psychophysics
 def plot_binned_ch(x0, ch, n_bin=9, **kw):
     ix, x = np2.quantilize(x0, n_quantile=n_bin, return_summary=True)
     p = npg.aggregate(ix, ch, func='mean')
@@ -202,6 +205,16 @@ def plot_binned_ch(x0, ch, n_bin=9, **kw):
     
     return h, x, p, se
 
+#%% Stats/probability
 def ecdf(x0, *args, **kw):
     p, x = np2.ecdf(x0)
     plt.step(x, p, *args, **kw)
+
+#%% Gaussian
+def plot_centroid(mu=np.zeros(2), sigma=np.eye(2), *args, **kwargs):
+    th = np.linspace(0, 2*np.pi, 100)[np.newaxis,:]
+    u, s, _ = np.linalg.svd(sigma)
+    x = np.concatenate((np.cos(th), np.sin(th)), axis=0)
+    x = u @ np.diag(np.sqrt(s)) @ x + mu[:,np.newaxis]
+    h = plt.plot(x[0,:], x[1,:], *args, **kwargs)
+    return h, x
