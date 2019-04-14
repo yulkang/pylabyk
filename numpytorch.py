@@ -73,3 +73,12 @@ def enforce_tensor(v, min_ndim=1):
         v = v.expand(v.shape + torch.Size([1] * (min_ndim - v.ndimension())))
     return v
 
+def block_diag(matrices):
+    ns = torch.LongTensor([m.shape[-1] for m in matrices])
+    n = torch.sum(ns)
+    v = torch.zeros(list(matrices[0].shape[:-2]) + [n, n])
+    cn0 = 0
+    for n1, m1 in zip(ns, matrices):
+        v[cn0:(cn0 + n1), cn0:(cn0 + n1)] = m1
+        cn0 += n1
+    return v
