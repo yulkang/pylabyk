@@ -5,15 +5,9 @@ from torch import nn
 from torch.nn import functional as F
 
 #%% Bounded fit class
-def enforce_float_tensor(v):
-    if not torch.is_tensor(v) or not torch.is_floating_point(v):
-        return torch.tensor(v, dtype=torch.get_default_dtype())
-    else:
-        return v
-
 class BoundedModule(nn.Module):
-    def __init__(self, *args, **kwargs):
-        super(BoundedModule, self).__init__(*args, **kwargs)
+    def __init__(self):
+        super(BoundedModule, self).__init__()
         self._params_bounded = {} # {name:(lb, ub)}
         self._params_probability = {} # {name:probdim}
         self.epsilon = 1e-6
@@ -121,31 +115,34 @@ class BoundedModule(nn.Module):
     # Get/set
     def __getattr__(self, item):
         if item in ['_params_bounded', '_params_probability']:
-            return super(BoundedModule, self).__getattribute__(item)
+            try:
+                return super(BoundedModule, self).__getattribute__(item)
+            except:
+                return {}
 
         if hasattr(self, '_params_bounded'):
             _params_bounded = self.__dict__['_params_bounded']
-            # _params_bounded = super(BoundedModule, self).__getattribute__(
+            # _params_bounded = super().__getattribute__(
             #     '_params_bounded'
             # )
             if item in _params_bounded.keys():
                 info = _params_bounded[item]
-                param = super(BoundedModule, self).__getattr__(
+                param = super().__getattr__(
                     '_bounded_' + item)
                 return self.bounded_param2data(param, **info)
 
         if hasattr(self, '_params_probability'):
             _params_probability = self.__dict__['_params_probability']
-            # _params_probability = super(BoundedModule, self).__getattribute__(
+            # _params_probability = super().__getattribute__(
             #     '_params_probability'
             # )
             if item in _params_probability.keys():
                 info = _params_probability[item]
-                param = super(BoundedModule, self).__getattr__(
+                param = super().__getattr__(
                     '_conf_' + item)
                 return self.conf2prob(param, **info)
 
-        return super(BoundedModule, self).__getattr__(item)
+        return super().__getattr__(item)
 
     def __setattr__(self, item, value):
         if item in ['_params_bounded', '_params_probability']:
@@ -156,7 +153,7 @@ class BoundedModule(nn.Module):
             if item in _params_bounded.keys():
                 info = _params_bounded[item]
                 param = self.bounded_data2param(value, **info)
-                super(BoundedModule, self).__setattr__(
+                super().__setattr__(
                     '_bounded_' + item, nn.Parameter(param)
                 )
                 return
@@ -166,12 +163,18 @@ class BoundedModule(nn.Module):
             if item in _params_probability:
                 info = _params_probability[item]
                 param = self.prob2conf(value, **info)
-                super(BoundedModule, self).__setattr__(
+                super().__setattr__(
                     '_conf_' + item, nn.Parameter(param)
                 )
                 return
 
-        return super(BoundedModule, self).__setattr__(item, value)
+        return super().__setattr__(item, value)
+
+def enforce_float_tensor(v):
+    if not torch.is_tensor(v) or not torch.is_floating_point(v):
+        return torch.tensor(v, dtype=torch.get_default_dtype())
+    else:
+        return v
 
 #%% Test bounded module
 import unittest
