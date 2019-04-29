@@ -120,3 +120,14 @@ def repeat_all(*args):
             tuple((max_shape / torch.tensor(arg.shape)).long())))
 
     return tuple(out)
+
+def sumto1(v, dim=None, axis=None):
+    if axis is not None:
+        dim = axis
+    if dim is None:
+        return v / torch.sum(v)
+    else:
+        return v / torch.sum(v, dim, keepdim=True)
+
+def numpy(v):
+    return v.detach().numpy()
