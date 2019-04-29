@@ -82,3 +82,19 @@ def block_diag(matrices):
         v[cn0:(cn0 + n1), cn0:(cn0 + n1)] = m1
         cn0 += n1
     return v
+
+#%% Shortcuts for torch
+def float(v):
+    return v.type(torch.get_default_dtype())
+
+def attach_dim(v, n_dim_to_append=0, n_dim_to_prepend=0):
+    return v.reshape(
+        torch.Size([1] * n_dim_to_prepend)
+        + v.shape
+        + torch.Size([1] * n_dim_to_append))
+
+def append_dim(v, n_dim_to_append=1):
+    return attach_dim(v, n_dim_to_append=n_dim_to_append)
+
+def prepend_dim(v, n_dim_to_prepend=1):
+    return attach_dim(v, n_dim_to_prepend=n_dim_to_prepend)
