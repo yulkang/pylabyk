@@ -55,7 +55,10 @@ def dict_shapes(d):
         v = d[k]
         if type(v) is list:
             sh1 = len(v)
-            compo = type(v[0])
+            if sh1 == 0:
+                compo = None
+            else:
+                compo = type(v[0])
         elif type(v) is np.ndarray:
             sh1 = v.shape
             compo = v.dtype.type
