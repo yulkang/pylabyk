@@ -12,8 +12,8 @@ def enforce_float_tensor(v):
         return v
 
 class BoundedModule(nn.Module):
-    def __init__(self):
-        super(BoundedModule, self).__init__()
+    def __init__(self, *args, **kwargs):
+        super(BoundedModule, self).__init__(*args, **kwargs)
         self._params_bounded = {} # {name:(lb, ub)}
         self._params_probability = {} # {name:probdim}
         self.epsilon = 1e-6
