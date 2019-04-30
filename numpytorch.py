@@ -87,7 +87,7 @@ def block_diag(matrices):
 def float(v):
     return v.type(torch.get_default_dtype())
 
-def attach_dim(v, n_dim_to_append=0, n_dim_to_prepend=0):
+def attach_dim(v, n_dim_to_prepend=0, n_dim_to_append=0):
     return v.reshape(
         torch.Size([1] * n_dim_to_prepend)
         + v.shape
