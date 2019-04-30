@@ -10,7 +10,7 @@ class BoundedModule(nn.Module):
         super(BoundedModule, self).__init__()
         self._params_bounded = {} # {name:(lb, ub)}
         self._params_probability = {} # {name:probdim}
-        self._params_circular = {}
+        self._params_circular = {} # {name:(lb, ub)}
         self.epsilon = 1e-6
 
     def setslice(self, name, index, value):
@@ -69,32 +69,9 @@ class BoundedModule(nn.Module):
         prob[prob > 1. - self.epsilon] = 1. - self.epsilon
         prob = prob / torch.sum(prob, dim=probdim, keepdim=True)
 
-        # ndim = prob.ndimension()
-        # ix_conf = []
-        # for dim in range(ndim):
-        #     if dim == probdim:
-        #         ix_conf.append(torch.arange(prob.shape[dim] - 1))
-        #     else:
-        #         ix_conf.append(torch.arange(prob.shape[dim]))
-        # ix_conf = tuple(ix_conf)
-        #
-        # conf = torch.log(prob[ix_conf])
-        # return conf
-
         return torch.log(prob)
 
     def _conf2prob(self, conf, probdim=0):
-        # ndim = conf.ndimension()
-        # ix_conf = []
-        # for dim in range(ndim):
-        #     if dim == probdim:
-        #         ix_conf.append(torch.arange(conf.shape[dim] + 1))
-        #     else:
-        #         ix_conf.append(torch.arange(conf.shape[dim]))
-        # ix_conf = tuple(ix_conf)
-        #
-        # return prob
-
         return F.softmax(enforce_float_tensor(conf), dim=probdim)
 
     # Circular parameters: limited to (param - lb) % (ub - lb)
@@ -324,10 +301,13 @@ if __name__ == 'main':
     #%%
     bound = BoundedModule()
 
-    bound.register_probability_parameter('prob', [0.2, 0.8])
+    bound.register_probability_parameter('prob', [0, 1])
     print(bound.prob)
 
-    bound.prob = [0.7, 0.3]
+    bound.prob = [1, 0]
+    print(bound.prob)
+
+    bound.prob = [0.2, 0.8]
     print(bound.prob)
 
     bound.register_bounded_parameter('bounded', [0, 0.5, 1], 0, 1)
