@@ -128,7 +128,7 @@ def sumto1(v, dim=None, axis=None):
     :param v: tensor.
     :param dim: dimensions to be conditioned upon the rest.
     :param axis: if given, overrides dim.
-    :return:
+    :return: tensor of the same shape as v.
     """
     if axis is not None:
         dim = axis
