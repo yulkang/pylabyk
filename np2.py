@@ -62,6 +62,9 @@ def dict_shapes(d):
         elif type(v) is np.ndarray:
             sh1 = v.shape
             compo = v.dtype.type
+        elif torch.is_tensor(v):
+            sh1 = tuple(v.shape)
+            compo = v.dtype
         elif v is None:
             sh1 = 0
             compo = None
