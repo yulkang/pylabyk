@@ -122,6 +122,14 @@ def repeat_all(*args):
     return tuple(out)
 
 def sumto1(v, dim=None, axis=None):
+    """
+    Make v sum to 1 across dim, i.e., make dim conditioned on the rest.
+    dim can be a tuple.
+    :param v: tensor.
+    :param dim: dimensions to be conditioned upon the rest.
+    :param axis: if given, overrides dim.
+    :return:
+    """
     if axis is not None:
         dim = axis
     if dim is None:
