@@ -140,6 +140,11 @@ def sumto1(v, dim=None, axis=None):
 def numpy(v):
     return v.detach().numpy()
 
+npy = numpy
+
+def npys(*args):
+    return tuple([npy(v) for v in args])
+
 def isnan(v):
     if v.dtype is torch.long:
         return torch.tensor(np.nan).long() == v
