@@ -134,7 +134,7 @@ def repeat_all(*args):
 
     return tuple(out)
 
-def repeat_batch(*args):
+def repeat_batch(*args, repeat_existing_dims=False):
     """Repeat first dimensions, while keeping last dimensions the same"""
 
     ndims = [arg.ndimension() for arg in args]
@@ -144,7 +144,10 @@ def repeat_batch(*args):
     for (ndim, arg) in zip(ndims, args):
         out.append(attach_dim(arg, max_ndim - ndim, 0))
 
-    return repeat_all(*tuple(out))
+    if repeat_existing_dims:
+        return repeat_all(*tuple(out))
+    else:
+        return tuple(out)
 
 def sumto1(v, dim=None, axis=None):
     """
