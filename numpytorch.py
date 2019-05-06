@@ -76,11 +76,20 @@ def enforce_tensor(v, min_ndim=1):
 def block_diag(matrices):
     ns = torch.LongTensor([m.shape[-1] for m in matrices])
     n = torch.sum(ns)
-    v = torch.zeros(list(matrices[0].shape[:-2]) + [n, n])
+    batch_shape = matrices[0].shape[:-2]
+    ndim_batch = len(batch_shape)
+    # v = torch.zeros(list(matrices[0].shape[:-2]) + [n, n])
     cn0 = 0
+    vs = []
     for n1, m1 in zip(ns, matrices):
-        v[cn0:(cn0 + n1), cn0:(cn0 + n1)] = m1
+        vs.append(torch.cat((
+            torch.zeros(batch_shape + torch.Size([n1, cn0])),
+            m1,
+            torch.zeros(batch_shape + torch.Size([n1, n - cn0 - n1]))
+        ), dim=ndim_batch + 1))
+        # v[cn0:(cn0 + n1), cn0:(cn0 + n1)] = m1
         cn0 += n1
+    v = torch.cat(vs, dim=ndim_batch)
     return v
 
 #%% Shortcuts for torch
