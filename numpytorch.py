@@ -114,7 +114,11 @@ def vec_on_dim(v, dim, ndim):
     return v.view(shape)
 
 def repeat_all(*args):
-    """Repeat tensors so that all tensors are of the same size."""
+    """
+    Repeat tensors so that all tensors are of the same size.
+    Tensors must have the same number of dimensions;
+    otherwise, use repeat_batch() to prepend dimensions.
+    """
 
     ndim = args[0].ndimension()
     max_shape = torch.ones(ndim, dtype=torch.long)
@@ -129,6 +133,18 @@ def repeat_all(*args):
             tuple((max_shape / torch.tensor(arg.shape)).long())))
 
     return tuple(out)
+
+def repeat_batch(*args):
+    """Repeat first dimensions, while keeping last dimensions the same"""
+
+    ndims = [arg.ndimension() for arg in args]
+    max_ndim = np.amax(ndims)
+
+    out = []
+    for (ndim, arg) in zip(ndims, args):
+        out.append(attach_dim(arg, max_ndim - ndim, 0))
+
+    return repeat_all(*tuple(out))
 
 def sumto1(v, dim=None, axis=None):
     """
