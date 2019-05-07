@@ -181,3 +181,7 @@ def isnan(v):
         return torch.tensor(np.nan).long() == v
     else:
         return torch.isnan(v)
+
+def t(tensor):
+    nd = tensor.ndimension()
+    return tensor.permute(list(range(nd - 2)) + [nd - 1, nd - 2])
