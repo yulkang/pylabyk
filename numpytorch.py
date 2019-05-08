@@ -182,6 +182,27 @@ def isnan(v):
     else:
         return torch.isnan(v)
 
+#%% Permute
 def t(tensor):
     nd = tensor.ndimension()
     return tensor.permute(list(range(nd - 2)) + [nd - 1, nd - 2])
+
+def permute2st(v, ndim_en=1):
+    """
+    Permute last ndim_en of tensor v to the first
+    :type v: torch.Tensor
+    :type ndim_en: int
+    :rtype: torch.Tensor
+    """
+    nd = v.ndimension()
+    return v.permute([*range(-ndim_en, 0)] + [*range(nd - ndim_en)])
+
+def permute2en(v, ndim_st=1):
+    """
+    Permute last ndim_en of tensor v to the first
+    :type v: torch.Tensor
+    :type ndim_st: int
+    :rtype: torch.Tensor
+    """
+    nd = v.ndimension()
+    return v.permute([*range(ndim_st, nd)] + [*range(ndim_st)])
