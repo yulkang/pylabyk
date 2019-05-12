@@ -26,6 +26,41 @@ def subplotRCs(nrow, ncol, **kwargs):
             ax[row-1, col-1] = subplotRC(nrow, ncol, row, col, **kwargs)
     return ax
 
+def coltitle(cols, axes):
+    h = []
+    for ax, col in zip(axes[0,:], cols):
+        h.append(ax.set_title(col))
+    return np.array(h)
+
+def rowtitle(rows, axes, pad=5):
+    """
+    :param rows: list of string row title
+    :param axes: 2-D array of axes, as from subplotRCs()
+    :param pad: in points.
+    :return: n_rows array of row title handles
+    adapted from: https://stackoverflow.com/a/25814386/2565317
+    """
+    from matplotlib.transforms import offset_copy
+
+    labels = []
+    for ax, row in zip(axes[:, 0], rows):
+        label = ax.annotate(
+            row,
+            xy=(0, 0.5), xytext=(-ax.yaxis.labelpad - pad, 0),
+            xycoords=ax.yaxis.label, textcoords='offset points',
+            size='large', ha='right', va='center')
+        labels.append(label)
+
+    fig = axes[0,0].get_figure()
+    fig.tight_layout()
+
+    # tight_layout doesn't take these labels into account. We'll need
+    # to make some room. These numbers are are manually tweaked.
+    # You could automatically calculate them, but it's a pain.
+    fig.subplots_adjust(left=0.15, top=0.95)
+
+    return np.array(labels)
+
 #%% Axes & limits
 def sameaxes(ax, ax0=None, xy='xy'):
     """
