@@ -206,3 +206,16 @@ def permute2en(v, ndim_st=1):
     """
     nd = v.ndimension()
     return v.permute([*range(ndim_st, nd)] + [*range(ndim_st)])
+
+#%% Stats
+def entropy(tensor, *args, **kwargs):
+    """
+    :type tensor: torch.Tensor
+    :param tensor: probability. Optionally provide dim and keepdim for
+    summation.
+    :return: torch.Tensor
+    """
+    out = torch.log2(tensor) * tensor
+    out[tensor == 0] = 0.
+    return out.sum(*args, **kwargs)
+
