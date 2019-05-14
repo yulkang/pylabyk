@@ -207,6 +207,26 @@ def permute2en(v, ndim_st=1):
     nd = v.ndimension()
     return v.permute([*range(ndim_st, nd)] + [*range(ndim_st)])
 
+#%% Aggregate
+def aggregate(subs, val=1., func='sum', size=None):
+    """
+    :param subs: [dim, element]
+    :type subs: torch.LongTensor
+    :type size: torch.LongTensor
+    """
+    if size is None:
+        size = torch.max(subs, 1)
+    elif not torch.is_tensor(size):
+        size = torch.tensor(size)
+    #%%
+    cumsize = torch.cumprod(torch.cat((torch.tensor([1]), size.flip(0)),
+                                      0)).flip(0)
+    #%%
+    ind = subs * cumsize[:,None]
+
+    raise NotImplementedError(
+        'Not finished implementation! Use npg.aggregate meanwhile!')
+
 #%% Stats
 def entropy(tensor, *args, **kwargs):
     """
