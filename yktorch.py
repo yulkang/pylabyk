@@ -177,6 +177,10 @@ class BoundedModule(nn.Module):
         return super().__setattr__(item, value)
 
 def enforce_float_tensor(v):
+    """
+    :type v: torch.Tensor, np.ndarray
+    :rtype: torch.DoubleTensor, torch.FloatTensor
+    """
     if not torch.is_tensor(v) or not torch.is_floating_point(v):
         return torch.tensor(v, dtype=torch.get_default_dtype())
     else:
