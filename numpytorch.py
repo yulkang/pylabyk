@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import numpy_groupies as npg
 
 #%% Wrapper that allows numpy-style syntax for torch
 def kw_np2torch(kw):
@@ -208,24 +209,31 @@ def permute2en(v, ndim_st=1):
     return v.permute([*range(ndim_st, nd)] + [*range(ndim_st)])
 
 #%% Aggregate
-def aggregate(subs, val=1., func='sum', size=None):
+def aggregate(subs, val=1., *args, **kwargs):
     """
     :param subs: [dim, element]
-    :type subs: torch.LongTensor
+    :type subs: torch.LongTensor, (*torch.LongTensor)
     :type size: torch.LongTensor
     """
-    if size is None:
-        size = torch.max(subs, 1)
-    elif not torch.is_tensor(size):
-        size = torch.tensor(size)
-    #%%
-    cumsize = torch.cumprod(torch.cat((torch.tensor([1]), size.flip(0)),
-                                      0)).flip(0)
-    #%%
-    ind = subs * cumsize[:,None]
 
-    raise NotImplementedError(
-        'Not finished implementation! Use npg.aggregate meanwhile!')
+    if type(subs) is tuple or type(subs) is list:
+        subs = np.concatenate(npys(*(sub.reshape(1,-1) for sub in subs)), 0)
+    elif torch.is_tensor(subs):
+        subs = npy(subs)
+    return torch.tensor(npg.aggregate(subs, val, *args, **kwargs))
+
+    # if size is None:
+    #     size = torch.max(subs, 1)
+    # elif not torch.is_tensor(size):
+    #     size = torch.tensor(size)
+    # #%%
+    # cumsize = torch.cumprod(torch.cat((torch.tensor([1]), size.flip(0)),
+    #                                   0)).flip(0)
+    # #%%
+    # ind = subs * cumsize[:,None]
+    #
+    # raise NotImplementedError(
+    #     'Not finished implementation! Use npg.aggregate meanwhile!')
 
 #%% Stats
 def entropy(tensor, *args, **kwargs):
