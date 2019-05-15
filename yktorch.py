@@ -7,7 +7,7 @@ from torch.nn import functional as F
 #%% Bounded fit class
 class BoundedModule(nn.Module):
     def __init__(self):
-        super(BoundedModule, self).__init__()
+        super().__init__()
         self._params_bounded = {} # {name:(lb, ub)}
         self._params_probability = {} # {name:probdim}
         self._params_circular = {} # {name:(lb, ub)}
