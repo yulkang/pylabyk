@@ -114,29 +114,56 @@ def vec_on_dim(v, dim, ndim):
     shape[dim] = -1
     return v.view(shape)
 
-def repeat_all(*args):
+def repeat_all(*args, shape=None):
     """
     Repeat tensors so that all tensors are of the same size.
     Tensors must have the same number of dimensions;
     otherwise, use repeat_batch() to prepend dimensions.
+    :param shape: desired shape of the output. Give None to match max shape
+    of each dim. Give -1 at dims where the max shape is desired.
     """
 
     ndim = args[0].ndimension()
     max_shape = torch.ones(ndim, dtype=torch.long)
     for arg in args:
         max_shape, _ = torch.max(torch.cat([
-            torch.tensor(arg.shape)[None,:], max_shape[None,:]],
+            torch.tensor(arg.shape)[None, :], max_shape[None, :]],
             dim=0), dim=0)
+    if shape is None:
+        shape = max_shape
+    else:
+        shape = torch.tensor(shape)
+        is_free = shape == -1
+        shape[is_free] = max_shape[is_free]
 
     out = []
     for arg in args:
         out.append(arg.repeat(
-            tuple((max_shape / torch.tensor(arg.shape)).long())))
+            *tuple((shape / torch.tensor(arg.shape)).long())))
 
     return tuple(out)
 
-def repeat_batch(*args, repeat_existing_dims=False, to_append_dims=False):
-    """Repeat first dimensions, while keeping last dimensions the same"""
+def repeat_to_shape(arg, shape):
+    """
+    :type arg: torch.Tensor
+    :param shape: desired shape of the output
+    :rtype: torch.Tensor
+    """
+    return repeat_all(arg, shape=shape)[0]
+
+def repeat_batch(*args,
+                 repeat_existing_dims=False, to_append_dims=False,
+                 shape=None):
+    """
+    Repeat first dimensions, while keeping last dimensions the same
+    :type args: (*torch.Tensor)
+    :param args: tuple of tensors to repeat.
+    :param repeat_existing_dims: whether to repeat singleton dims.
+    :param to_append_dims: if True, append dims if needed; if False, prepend.
+    :param shape: desired shape of the output. Give None to match max shape
+    of each dim. Give -1 at dims where the max shape is desired.
+    :return:
+    """
 
     ndims = [arg.ndimension() for arg in args]
     max_ndim = np.amax(ndims)
@@ -149,7 +176,7 @@ def repeat_batch(*args, repeat_existing_dims=False, to_append_dims=False):
             out.append(attach_dim(arg, max_ndim - ndim, 0))
 
     if repeat_existing_dims:
-        return repeat_all(*tuple(out))
+        return repeat_all(*tuple(out), shape=shape)
     else:
         return tuple(out)
 
