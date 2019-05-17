@@ -109,6 +109,12 @@ def append_dim(v, n_dim_to_append=1):
 def prepend_dim(v, n_dim_to_prepend=1):
     return attach_dim(v, n_dim_to_prepend=n_dim_to_prepend)
 
+def append_to_ndim(v, n_dim_desired):
+    return attach_dim(v, n_dim_to_append=n_dim_desired - v.dim())
+
+def prepend_to_ndim(v, n_dim_desired):
+    return attach_dim(v, n_dim_to_prepend=n_dim_desired - v.dim())
+
 def vec_on_dim(v, dim, ndim):
     shape = [1] * ndim
     shape[dim] = -1
