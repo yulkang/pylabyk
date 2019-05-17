@@ -120,7 +120,7 @@ def vec_on_dim(v, dim, ndim):
     shape[dim] = -1
     return v.view(shape)
 
-def repeat_all(*args, shape=None):
+def repeat_all(*args, shape=None, use_expand=False):
     """
     Repeat tensors so that all tensors are of the same size.
     Tensors must have the same number of dimensions;
@@ -144,10 +144,18 @@ def repeat_all(*args, shape=None):
 
     out = []
     for arg in args:
-        out.append(arg.repeat(
-            *tuple((shape / torch.tensor(arg.shape)).long())))
+        if use_expand:
+            out.append(arg.expand(
+                *tuple(shape)))
+                # *tuple((shape / torch.tensor(arg.shape)).long())))
+        else:
+            out.append(arg.repeat(
+                *tuple((shape / torch.tensor(arg.shape)).long())))
 
     return tuple(out)
+
+def expand_all(*args, shape=None):
+    return repeat_all(*args, shape=shape, use_expand=True)
 
 def repeat_to_shape(arg, shape):
     """
