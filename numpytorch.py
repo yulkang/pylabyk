@@ -167,16 +167,19 @@ def repeat_to_shape(arg, shape):
 
 def repeat_batch(*args,
                  repeat_existing_dims=False, to_append_dims=False,
-                 shape=None):
+                 shape=None,
+                 use_expand=False):
     """
-    Repeat first dimensions, while keeping last dimensions the same
-    :type args: (*torch.Tensor)
+    Repeat first dimensions, while keeping last dimensions the same.
+
     :param args: tuple of tensors to repeat.
     :param repeat_existing_dims: whether to repeat singleton dims.
     :param to_append_dims: if True, append dims if needed; if False, prepend.
     :param shape: desired shape of the output. Give None to match max shape
     of each dim. Give -1 at dims where the max shape is desired.
-    :return:
+    :param use_expand: True to use torch.expand instead of torch.repeat,
+    to share the same memory across repeats.
+    :return: tuple of repeated tensors.
     """
 
     ndims = [arg.ndimension() for arg in args]
@@ -190,14 +193,30 @@ def repeat_batch(*args,
             out.append(attach_dim(arg, max_ndim - ndim, 0))
 
     if repeat_existing_dims:
-        return repeat_all(*tuple(out), shape=shape)
+        return repeat_all(*tuple(out), shape=shape, use_expand=use_expand)
     else:
         return tuple(out)
+
+def expand_batch(*args, **kwargs):
+    """
+    Same as repeat_batch except forcing use_expand=True, to share memory
+    across repeats.
+    Repeat first dimensions, while keeping last dimensions the same
+
+    :param args: tuple of tensors to repeat.
+    :param repeat_existing_dims: whether to repeat singleton dims.
+    :param to_append_dims: if True, append dims if needed; if False, prepend.
+    :param shape: desired shape of the output. Give None to match max shape
+    of each dim. Give -1 at dims where the max shape is desired.
+    :return: tuple of repeated tensors.
+    """
+    return repeat_batch(*args, use_expand=True, **kwargs)
 
 def sumto1(v, dim=None, axis=None):
     """
     Make v sum to 1 across dim, i.e., make dim conditioned on the rest.
     dim can be a tuple.
+
     :param v: tensor.
     :param dim: dimensions to be conditioned upon the rest.
     :param axis: if given, overrides dim.
