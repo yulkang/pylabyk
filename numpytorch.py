@@ -128,7 +128,6 @@ def repeat_all(*args, shape=None, use_expand=False):
     :param shape: desired shape of the output. Give None to match max shape
     of each dim. Give -1 at dims where the max shape is desired.
     """
-
     ndim = args[0].ndimension()
     max_shape = torch.ones(ndim, dtype=torch.long)
     for arg in args:
@@ -171,7 +170,6 @@ def repeat_batch(*args,
                  use_expand=False):
     """
     Repeat first dimensions, while keeping last dimensions the same.
-
     :param args: tuple of tensors to repeat.
     :param repeat_existing_dims: whether to repeat singleton dims.
     :param to_append_dims: if True, append dims if needed; if False, prepend.
@@ -200,9 +198,8 @@ def repeat_batch(*args,
 def expand_batch(*args, **kwargs):
     """
     Same as repeat_batch except forcing use_expand=True, to share memory
-    across repeats.
-    Repeat first dimensions, while keeping last dimensions the same
-
+    across repeats, i.e., expand first dimensions, while keeping last
+    dimensions the same
     :param args: tuple of tensors to repeat.
     :param repeat_existing_dims: whether to repeat singleton dims.
     :param to_append_dims: if True, append dims if needed; if False, prepend.
