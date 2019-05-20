@@ -209,6 +209,70 @@ def expand_batch(*args, **kwargs):
     """
     return repeat_batch(*args, use_expand=True, **kwargs)
 
+def expand_batch_upto_dim(args, dim, to_expand_left=True):
+    """
+    Similar to expand_batch(), but keeps some dims unexpanded even if they
+    don't match.
+    :param args: iterable yielding torch.Tensor
+    :param dim: if to_expand_left=True, then arg[:dim] is expanded,
+    otherwise, arg[dim:] is expanded, for each arg in args.
+    :param to_expand_left: if True, left of dim is expanded while the rest of
+    the dims are kept unchanged.
+    :return: tuple of expanded args
+    """
+    ndims = [arg.ndimension() for arg in args]
+    max_ndim = np.amax(ndims)
+
+    out = []
+    for (ndim, arg) in zip(ndims, args):
+        if to_expand_left:
+            # prepend dims
+            out.append(attach_dim(arg, max_ndim - ndim, 0))
+        else:
+            # append dims
+            out.append(attach_dim(arg, 0, max_ndim - ndim))
+
+    if to_expand_left:
+        if dim > 0:
+            ndim_expand = dim
+        else:
+            ndim_expand = max_ndim + dim
+        max_shape = torch.zeros(ndim_expand, dtype=torch.long)
+        for out1 in out:
+            max_shape, _ = torch.max(torch.cat([
+                max_shape[None,:],
+                torch.tensor(out1.shape[:dim])[None,:]
+            ], dim=0), dim=0)
+        out2 = []
+        ndim_kept = len(out[0].shape[dim:])
+        for arg in args:
+            out2.append(arg.repeat([
+                int(a) for a in torch.cat([
+                    max_shape / torch.tensor(arg.shape[:dim]),
+                    torch.ones(ndim_kept, dtype=torch.long)
+                ], 0)
+            ]))
+    else:
+        raise NotImplementedError(
+            'to_expand_left=False not implemented/tested yet!')
+        # if dim > 0:
+        #     ndim_expand = max_ndim - dim
+        # else:
+        #     ndim_expand = -dim
+        # max_shape = torch.zeros(ndim_expand)
+        # for out1 in out:
+        #     max_shape = torch.max(torch.cat([
+        #         max_shape[None,:],
+        #         torch.tensor(arg.shape[dim:])[None,:]
+        #     ], dim=0), dim=0)
+        # out2 = []
+        # ndim_kept = len(out[0].shape[dim:])
+        # for arg in args:
+        #     out2.append(arg.repeat(
+        #         [1] * ndim_kept
+        #         + list(max_shape / torch.tensor(arg.shape[:dim]))))
+    return tuple(out2)
+
 def sumto1(v, dim=None, axis=None):
     """
     Make v sum to 1 across dim, i.e., make dim conditioned on the rest.
