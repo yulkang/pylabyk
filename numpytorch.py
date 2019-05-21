@@ -209,7 +209,7 @@ def expand_batch(*args, **kwargs):
     """
     return repeat_batch(*args, use_expand=True, **kwargs)
 
-def expand_batch_upto_dim(args, dim, to_expand_left=True):
+def expand_upto_dim(args, dim, to_expand_left=True):
     """
     Similar to expand_batch(), but keeps some dims unexpanded even if they
     don't match.
@@ -223,14 +223,14 @@ def expand_batch_upto_dim(args, dim, to_expand_left=True):
     ndims = [arg.ndimension() for arg in args]
     max_ndim = np.amax(ndims)
 
-    out = []
+    out1 = []
     for (ndim, arg) in zip(ndims, args):
         if to_expand_left:
             # prepend dims
-            out.append(attach_dim(arg, max_ndim - ndim, 0))
+            out1.append(attach_dim(arg, max_ndim - ndim, 0))
         else:
             # append dims
-            out.append(attach_dim(arg, 0, max_ndim - ndim))
+            out1.append(attach_dim(arg, 0, max_ndim - ndim))
 
     if to_expand_left:
         if dim > 0:
@@ -238,17 +238,18 @@ def expand_batch_upto_dim(args, dim, to_expand_left=True):
         else:
             ndim_expand = max_ndim + dim
         max_shape = torch.zeros(ndim_expand, dtype=torch.long)
-        for out1 in out:
+        for o1 in out1:
             max_shape, _ = torch.max(torch.cat([
                 max_shape[None,:],
-                torch.tensor(out1.shape[:dim])[None,:]
+                torch.tensor(o1.shape[:dim])[None,:]
             ], dim=0), dim=0)
         out2 = []
-        ndim_kept = len(out[0].shape[dim:])
-        for arg in args:
-            out2.append(arg.repeat([
+        ndim_kept = len(out1[0].shape[dim:])
+        for o1 in out1:
+            out2.append(o1.repeat([
                 int(a) for a in torch.cat([
-                    max_shape / torch.tensor(arg.shape[:dim]),
+                    max_shape / torch.tensor(o1.shape[:dim],
+                                              dtype=torch.long),
                     torch.ones(ndim_kept, dtype=torch.long)
                 ], 0)
             ]))
@@ -260,13 +261,13 @@ def expand_batch_upto_dim(args, dim, to_expand_left=True):
         # else:
         #     ndim_expand = -dim
         # max_shape = torch.zeros(ndim_expand)
-        # for out1 in out:
+        # for o1 in out1:
         #     max_shape = torch.max(torch.cat([
         #         max_shape[None,:],
         #         torch.tensor(arg.shape[dim:])[None,:]
         #     ], dim=0), dim=0)
         # out2 = []
-        # ndim_kept = len(out[0].shape[dim:])
+        # ndim_kept = len(out1[0].shape[dim:])
         # for arg in args:
         #     out2.append(arg.repeat(
         #         [1] * ndim_kept
