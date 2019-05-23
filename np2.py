@@ -103,6 +103,9 @@ def DataFrame(dat):
 def is_None(v):
     return v is None or (type(v) is np.ndarray and v.ndim == 0)
 
+def is_iter(v):
+    return hasattr(v, '__iter__')
+
 #%% Stat
 def sem(v, axis=0):
     v = np.array(v)
