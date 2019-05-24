@@ -1,5 +1,25 @@
 import os
-import pickle
+from . import zipPickle
+from collections import OrderedDict
+
+def dict_except(d, keys_to_excl):
+    return {k:d[k] for k in d if k not in keys_to_excl}
+
+def obj2dict(obj, keys_to_excl=[], exclude_hidden=True):
+    d = obj.__dict__
+    if exclude_hidden:
+        d = {k:d[k] for k in d if k[0] != '_'}
+    if len(keys_to_excl) > 0:
+        d = {k:d[k] for k in d if k not in keys_to_excl}
+    return d
+
+def dict2fname(d):
+    return '+'.join(['%s=%s' % (k, d[k]) for k in d])
+
+def dict2obj(d, obj):
+    for k in d:
+        obj.__dict__[k] = d[k]
+    return obj
 
 class Cache(object):
     """
@@ -38,8 +58,9 @@ class Cache(object):
         else:
             self.key = None
         if os.path.exists(self.fullpath):
-            with open(self.fullpath, 'r+b') as cache_file:
-                self.dict = pickle.load(cache_file)
+            self.dict = zipPickle.load(self.fullpath)
+            # with open(self.fullpath, 'r+b') as cache_file:
+            #     self.dict = pickle.load(cache_file)
 
     def format_key(self, key):
         """
@@ -74,13 +95,15 @@ class Cache(object):
         if subkeys is None:
             return v
         else:
+            if type(subkeys) is str:
+                subkeys = [subkeys]
             return (v[k] for k in subkeys)
 
     def getdict(self, subkeys=None):
         """
         Return a tuple of values corresponding to subkeys from default key.
         Assumes that self.dict[key] is itself a dict.
-        :type subkeys: list
+        :type subkeys: list, str
         :param subkeys: list of keys to the cached dict (self.dict[key]).
         :return: a tuple of values corresponding to subkeys from default key.
         """
@@ -104,10 +127,13 @@ class Cache(object):
             pth = os.path.dirname(self.fullpath)
             if not os.path.exists(pth) and pth != '':
                 os.mkdir(pth)
-            with open(self.fullpath, 'w+b') as cache_file:
-                pickle.dump(self.dict, cache_file)
-                if self.verbose:
-                    print('Saved cache to %s' % self.fullpath)
+            zipPickle.save(self.dict, self.fullpath)
+            if self.verbose:
+                print('Saved cache to %s' % self.fullpath)
+            # with open(self.fullpath, 'w+b') as cache_file:
+            #     pickle.dump(self.dict, cache_file)
+            #     if self.verbose:
+            #         print('Saved cache to %s' % self.fullpath)
 
 # if __name__ == '__main__':
 #     def fun(test_param=1, to_recompute=False):
