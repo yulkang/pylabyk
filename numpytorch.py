@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import numpy_groupies as npg
+from matplotlib import pyplot as plt
 
 #%% Wrapper that allows numpy-style syntax for torch
 def kw_np2torch(kw):
@@ -368,6 +369,59 @@ def entropy(tensor, *args, **kwargs):
     out = torch.log2(tensor) * tensor
     out[tensor == 0] = 0.
     return out.sum(*args, **kwargs)
+
+def softmax_bias(p, slope, bias):
+    """
+    Symmetric softmax with bias. Only works for binary. Works elementwise.
+    Cannot use too small or large bias (roughly < 1e-3 or > 1 - 1e-3)
+    :param p: between 0 and 1.
+    :param slope: arbitary real value. 1 gives identity mapping, 0 always 0.5.
+    :param bias: between 1e-3 and 1 - 1e-3. Giving p=bias returns 0.5.
+    :return: transformed probability.
+    :type p: torch.FloatTensor
+    :type slope: torch.FloatTensor
+    :type bias: torch.FloatTensor
+    :rtype: torch.FloatTensor
+    """
+    k = (1. - bias) ** slope
+    k = k / (bias ** slope + k)
+    q = k * p ** slope
+    q = q / (q + (1. - k) * (1. - p) ** slope)
+    return q
+
+    # k = -torch.log(torch.tensor(2.)) / torch.log(torch.tensor(bias))
+    # q = (p ** k ** slope)
+    # return q / (q + (1. - p ** k) ** slope)
+
+def test_softmax_bias():
+    p = torch.linspace(1e-4, 1 - 1e-4, 100);
+    q = softmax_bias(p, torch.tensor(1.), p)
+    plt.subplot(2, 3, 1)
+    plt.plot(*npys(p, q))
+    plt.xlabel('bias \& p')
+
+    plt.subplot(2, 3, 2)
+    biases = torch.linspace(1e-6, 1 - 1e-6, 5)
+    for bias in biases:
+        q = softmax_bias(p, torch.tensor(1.), bias)
+        plt.plot(*npys(p, q))
+    plt.xticks(npy(biases))
+    plt.yticks(npy(biases))
+    plt.grid(True)
+    plt.axis('square')
+
+    for col, bias in enumerate(torch.tensor([0.25, 0.5, 0.75])):
+        plt.subplot(2, 3, 4 + col)
+        for slope in torch.tensor([0., 1., 2.]):
+            q = softmax_bias(p, slope, bias)
+            plt.plot(*npys(p, q))
+        plt.xticks(npy(biases))
+        plt.yticks(npy(biases))
+        plt.grid(True)
+        plt.axis('square')
+
+    plt.show()
+    print('--')
 
 #%% Cross-validation
 def crossvalincl(n_tr, i_fold, n_fold=10, mode='consec'):
