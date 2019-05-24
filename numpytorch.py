@@ -369,3 +369,21 @@ def entropy(tensor, *args, **kwargs):
     out[tensor == 0] = 0.
     return out.sum(*args, **kwargs)
 
+#%% Cross-validation
+def crossvalincl(n_tr, i_fold, n_fold=10, mode='consec'):
+    """
+    :param n_tr: Number of trials
+    :param i_fold: Index of fold
+    :param n_fold: Number of folds
+    :param mode: 'consec': consecutive trials; 'mod': interleaved
+    :return: boolean (Byte) tensor
+    """
+    if mode == 'mod':
+        return (torch.arange(n_tr) % n_fold) == i_fold
+    elif mode == 'consec':
+        ix = (torch.arange(n_tr, dtype=torch.double) / n_tr *
+              n_fold).long()
+        return ix == i_fold
+    else:
+        raise NotImplementedError('mode=%s is not implemented!' % mode)
+
