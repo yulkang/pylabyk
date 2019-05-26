@@ -248,6 +248,20 @@ def softargmax(dv):
     a = np.nonzero(np.random.multinomial(1, p))[0][0]
     return a
 
+def project(a, b, axis=None, scalar_proj=False):
+    """
+    Project vector a onto b (vector dimensions are along axis).
+    :type a: np.array
+    :type b: np.array
+    :type axis: None, int
+    :rtype: np.array
+    """
+    proj = np.sum(a * b, axis) / np.sum(b**2, axis)
+    if scalar_proj:
+        return proj
+    else:
+        return proj * b
+
 #%% Binary operations
 def conv_circ( signal, ker ):
     '''
