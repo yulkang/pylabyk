@@ -15,3 +15,8 @@ def varargin2props(obj, kw, skip_absent=True, error_absent=False):
             raise AttributeError('Attribute %s does not exist!' % key)
         elif not skip_absent:
             obj.__dict__[key] = kw[key]
+
+def kwdefault(kw_given, **kw_default):
+    for k in kw_given:
+        kw_default[k] = kw_given[k]
+    return kw_default
