@@ -243,7 +243,9 @@ def plot_binned_ch(x0, ch, n_bin=9, **kw):
 #%% Stats/probability
 def ecdf(x0, *args, **kw):
     p, x = np2.ecdf(x0)
-    return plt.step(x, p, *args, **kw)
+    return plt.step(np.concatenate([x[:1], x], 0),
+                    np.concatenate([np.array([0.]), p], 0),
+                    *args, **kw)
 
 #%% Gaussian
 def plot_centroid(mu=np.zeros(2), sigma=np.eye(2),
