@@ -122,18 +122,21 @@ class Cache(object):
         self.dict[key] = data
         self.to_save = True
 
+    def save(self):
+        pth = os.path.dirname(self.fullpath)
+        if not os.path.exists(pth) and pth != '':
+            os.mkdir(pth)
+        zipPickle.save(self.dict, self.fullpath)
+        if self.verbose:
+            print('Saved cache to %s' % self.fullpath)
+        # with open(self.fullpath, 'w+b') as cache_file:
+        #     pickle.dump(self.dict, cache_file)
+        #     if self.verbose:
+        #         print('Saved cache to %s' % self.fullpath)
+
     def __del__(self):
         if self.to_save:
-            pth = os.path.dirname(self.fullpath)
-            if not os.path.exists(pth) and pth != '':
-                os.mkdir(pth)
-            zipPickle.save(self.dict, self.fullpath)
-            if self.verbose:
-                print('Saved cache to %s' % self.fullpath)
-            # with open(self.fullpath, 'w+b') as cache_file:
-            #     pickle.dump(self.dict, cache_file)
-            #     if self.verbose:
-            #         print('Saved cache to %s' % self.fullpath)
+            self.save()
 
 # if __name__ == '__main__':
 #     def fun(test_param=1, to_recompute=False):
