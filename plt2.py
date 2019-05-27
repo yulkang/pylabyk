@@ -123,7 +123,7 @@ def beautify_psychometric(ax=None,
                     linestyle='-', zorder=-1,
                     linewidth=0.5)
 
-def detach_axis(xy, amin=0, amax=None, ax=None):
+def detach_axis(xy, amin=0, amax=None, ax=None, spine=None):
     if xy == 'xy':
         for xy1 in ['x', 'y']:
             detach_axis(xy1, amin, amax, ax)
@@ -133,23 +133,25 @@ def detach_axis(xy, amin=0, amax=None, ax=None):
         ax = plt.gca()
         
     if xy == 'x':
+        if spine is None:
+            spine = 'bottom'
         lim = list(plt.xlim())
         if amin is not None:
             lim[0] = amin
         if amax is not None:
             lim[1] = amax
-        
-        ax.spines['bottom'].set_bounds(lim[0], lim[-1])
-    else:
-        assert xy == 'y', "xy must be 'x', 'y', or 'xy'!"
-        
+        ax.spines[spine].set_bounds(lim[0], lim[-1])
+    elif xy == 'y':
+        if spine is None:
+            spine = 'left'
         lim = list(plt.ylim())
         if amin is not None:
             lim[0] = amin
         if amax is not None:
             lim[1] = amax
-        
-        ax.spines['left'].set_bounds(lim[0], lim[-1])
+        ax.spines[spine].set_bounds(lim[0], lim[-1])
+    else:
+        raise ValueError("xy must be 'x', 'y', or 'xy'!")
 
 def detach_yaxis(ymin=0, ymax=None, ax=None):
     detach_axis('y', ymin, ymax, ax)
