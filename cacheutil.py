@@ -48,11 +48,13 @@ class Cache(object):
     for test_param_main in range(5):
         fun(test_param_main)
     """
-    def __init__(self, fullpath, key=None, verbose=True):
+    def __init__(self, fullpath, key=None, verbose=True,
+                 ignore_key=False):
         self.fullpath = fullpath
         self.verbose = verbose
         self.dict = {}
         self.to_save = False
+        self.ignore_key = ignore_key
         if key is not None:
             self.key = self.format_key(key)
         else:
@@ -74,6 +76,8 @@ class Cache(object):
         :param key: non-None object that converts into a string, e.g., locals()
         :rtype: bool
         """
+        if self.ignore_key:
+            return self.dict.__len__() > 0
         if key is None:
             assert self.key is not None, 'default key is not specified!'
             key = self.key
@@ -85,13 +89,15 @@ class Cache(object):
         :param subkeys: if list, return a tuple of values for the subkeys
         :rtype: Any
         """
-        if key is None:
+        if self.ignore_key:
+            key = list(self.dict.keys())[0]
+        elif key is None:
             assert self.key is not None, 'default key is not specified!'
             key = self.key
         if self.verbose and self.exists(key):
             print('Loaded cache from %s' % self.fullpath)
-
         v = self.dict[self.format_key(key)]
+
         if subkeys is None:
             return v
         else:
