@@ -213,6 +213,11 @@ def sumto1(v, axis=None):
     else: # v is torch.Tensor
         return v / v.sum(axis, keepdim=True)
 
+def nansem(v, **kwargs):
+    s = np.nanstd(v, **kwargs)
+    n = np.sum(~np.isnan(v), **kwargs)
+    return s / np.sqrt(n)
+
 #%% Distribution
 def pdf_trapezoid(x, center, width_top, width_bottom):
     height = 1. / ((width_top + width_bottom) / 2.)
