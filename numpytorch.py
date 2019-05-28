@@ -94,10 +94,26 @@ def block_diag(matrices):
     v = torch.cat(vs, dim=ndim_batch)
     return v
 
-#%% Shortcuts for torch
+#%% Types
 def float(v):
     return v.type(torch.get_default_dtype())
 
+def numpy(v):
+    return v.detach().numpy()
+npy = numpy
+
+def npys(*args):
+    return tuple([npy(v) for v in args])
+
+nanint = torch.tensor(np.nan).long()
+
+def isnan(v):
+    if v.dtype is torch.long:
+        return v == nanint
+    else:
+        return torch.isnan(v)
+
+#%% Shape manipulation
 def attach_dim(v, n_dim_to_prepend=0, n_dim_to_append=0):
     return v.reshape(
         torch.Size([1] * n_dim_to_prepend)
@@ -275,37 +291,6 @@ def expand_upto_dim(args, dim, to_expand_left=True):
         #         + list(max_shape / torch.tensor(arg.shape[:dim]))))
     return tuple(out2)
 
-def sumto1(v, dim=None, axis=None):
-    """
-    Make v sum to 1 across dim, i.e., make dim conditioned on the rest.
-    dim can be a tuple.
-
-    :param v: tensor.
-    :param dim: dimensions to be conditioned upon the rest.
-    :param axis: if given, overrides dim.
-    :return: tensor of the same shape as v.
-    """
-    if axis is not None:
-        dim = axis
-    if dim is None:
-        return v / torch.sum(v)
-    else:
-        return v / torch.sum(v, dim, keepdim=True)
-
-def numpy(v):
-    return v.detach().numpy()
-
-npy = numpy
-
-def npys(*args):
-    return tuple([npy(v) for v in args])
-
-def isnan(v):
-    if v.dtype is torch.long:
-        return torch.tensor(np.nan).long() == v
-    else:
-        return torch.isnan(v)
-
 #%% Permute
 def t(tensor):
     nd = tensor.ndimension()
@@ -330,6 +315,45 @@ def permute2en(v, ndim_st=1):
     """
     nd = v.ndimension()
     return v.permute([*range(ndim_st, nd)] + [*range(ndim_st)])
+
+#%% Indices
+def unravel_index(v, shape, **kwargs):
+    """
+    For now, just use np.unravel_index()
+    :type v: torch.LongTensor
+    :type shape: torch.Size, tuple, list
+    :type kwargs: dict
+    :return: torch.LongTensor
+    """
+    return torch.tensor(np.unravel_index(v, shape, **kwargs))
+
+def ravel_multi_index(v, shape, **kwargs):
+    """
+    For now, just use np.ravel_multi_index()
+    :type v: torch.LongTensor
+    :type shape: torch.Size, tuple, list
+    :type kwargs: dict
+    :return: torch.LongTensor
+    """
+    return torch.tensor(np.ravel_multi_index(v, shape, **kwargs))
+
+#%% Algebra
+def sumto1(v, dim=None, axis=None):
+    """
+    Make v sum to 1 across dim, i.e., make dim conditioned on the rest.
+    dim can be a tuple.
+
+    :param v: tensor.
+    :param dim: dimensions to be conditioned upon the rest.
+    :param axis: if given, overrides dim.
+    :return: tensor of the same shape as v.
+    """
+    if axis is not None:
+        dim = axis
+    if dim is None:
+        return v / torch.sum(v)
+    else:
+        return v / torch.sum(v, dim, keepdim=True)
 
 #%% Aggregate
 def aggregate(subs, val=1., *args, **kwargs):
@@ -428,10 +452,15 @@ def crossvalincl(n_tr, i_fold, n_fold=10, mode='consec'):
     """
     :param n_tr: Number of trials
     :param i_fold: Index of fold
-    :param n_fold: Number of folds
+    :param n_fold: Number of folds. If 1, training set = test set.
     :param mode: 'consec': consecutive trials; 'mod': interleaved
     :return: boolean (Byte) tensor
     """
+    if n_fold == 1:
+        return torch.ones(n_tr, dtype=torch.uint8)
+    elif n_fold < 1:
+        raise ValueError('n_fold must be >= 1')
+
     if mode == 'mod':
         return (torch.arange(n_tr) % n_fold) == i_fold
     elif mode == 'consec':
