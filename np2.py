@@ -213,9 +213,9 @@ def sumto1(v, axis=None):
     else: # v is torch.Tensor
         return v / v.sum(axis, keepdim=True)
 
-def nansem(v, **kwargs):
-    s = np.nanstd(v, **kwargs)
-    n = np.sum(~np.isnan(v), **kwargs)
+def nansem(v, axis=None, **kwargs):
+    s = np.nanstd(v, axis=axis, **kwargs)
+    n = np.sum(~np.isnan(v), axis=axis, **kwargs)
     return s / np.sqrt(n)
 
 #%% Distribution
