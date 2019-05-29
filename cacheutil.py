@@ -102,8 +102,9 @@ class Cache(object):
             return v
         else:
             if type(subkeys) is str:
-                subkeys = [subkeys]
-            return (v[k] for k in subkeys)
+                return v[subkeys]
+            else:
+                return (v[k] for k in subkeys)
 
     def getdict(self, subkeys=None):
         """
