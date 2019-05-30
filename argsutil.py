@@ -20,3 +20,11 @@ def kwdefault(kw_given, **kw_default):
     for k in kw_given:
         kw_default[k] = kw_given[k]
     return kw_default
+
+def dict2fname(d, skip_None=True):
+    def to_include(k):
+        if skip_None:
+            return d[k] is not None
+        else:
+            return True
+    return '+'.join(['%s=%s' % (k, d[k]) for k in d if to_include(k)])

@@ -1,6 +1,7 @@
 import os
 from . import zipPickle
 from collections import OrderedDict
+from .argsutil import dict2fname
 
 def dict_except(d, keys_to_excl):
     return {k:d[k] for k in d if k not in keys_to_excl}
@@ -12,9 +13,6 @@ def obj2dict(obj, keys_to_excl=[], exclude_hidden=True):
     if len(keys_to_excl) > 0:
         d = {k:d[k] for k in d if k not in keys_to_excl}
     return d
-
-def dict2fname(d):
-    return '+'.join(['%s=%s' % (k, d[k]) for k in d])
 
 def dict2obj(d, obj):
     for k in d:
