@@ -48,21 +48,19 @@ class Cache(object):
     for test_param_main in range(5):
         fun(test_param_main)
     """
-    def __init__(self, fullpath, key=None, verbose=True,
+    def __init__(self, fullpath='cache.zpkl', key=None, verbose=True,
                  ignore_key=False):
         self.fullpath = fullpath
         self.verbose = verbose
         self.dict = {}
         self.to_save = False
-        self.ignore_key = ignore_key
-        if key is not None:
-            self.key = self.format_key(key)
-        else:
+        if key is None:
             self.key = None
+        else:
+            self.key = self.format_key(key)
+        self.ignore_key = ignore_key
         if os.path.exists(self.fullpath):
             self.dict = zipPickle.load(self.fullpath)
-            # with open(self.fullpath, 'r+b') as cache_file:
-            #     self.dict = pickle.load(cache_file)
 
     def format_key(self, key):
         """
@@ -79,7 +77,6 @@ class Cache(object):
         if self.ignore_key:
             return self.dict.__len__() > 0
         if key is None:
-            assert self.key is not None, 'default key is not specified!'
             key = self.key
         return self.format_key(key) in self.dict
 
@@ -92,7 +89,6 @@ class Cache(object):
         if self.ignore_key:
             key = list(self.dict.keys())[0]
         elif key is None:
-            assert self.key is not None, 'default key is not specified!'
             key = self.key
         if self.verbose and self.exists(key):
             print('Loaded cache from %s' % self.fullpath)
@@ -124,9 +120,9 @@ class Cache(object):
         :rtype: None
         """
         if key is None:
-            assert self.key is not None, 'default key is not specified!'
+            # assert self.key is not None, 'default key is not specified!'
             key = self.key
-        self.dict[key] = data
+        self.dict[self.format_key(key)] = data
         self.to_save = True
 
     def save(self):
