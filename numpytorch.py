@@ -3,7 +3,13 @@ import torch
 import numpy_groupies as npg
 from matplotlib import pyplot as plt
 
+from torch.distributions import MultivariateNormal, Uniform
+from hyperspherical_vae.distributions import von_mises_fisher as vmf
+
 #%% Wrapper that allows numpy-style syntax for torch
+def ____NUMPY_COMPATIBILITY____():
+    pass
+
 def kw_np2torch(kw):
     keys = kw.keys()
     for subs in [('axis', 'dim'),
@@ -95,6 +101,9 @@ def block_diag(matrices):
     return v
 
 #%% Types
+def ____TYPE____():
+    pass
+
 def float(v):
     return v.type(torch.get_default_dtype())
 
@@ -114,6 +123,9 @@ def isnan(v):
         return torch.isnan(v)
 
 #%% Shape manipulation
+def ____SHAPE____():
+    pass
+
 def attach_dim(v, n_dim_to_prepend=0, n_dim_to_append=0):
     return v.reshape(
         torch.Size([1] * n_dim_to_prepend)
@@ -292,6 +304,9 @@ def expand_upto_dim(args, dim, to_expand_left=True):
     return tuple(out2)
 
 #%% Permute
+def ____PERMUTE____():
+    pass
+
 def t(tensor):
     nd = tensor.ndimension()
     return tensor.permute(list(range(nd - 2)) + [nd - 1, nd - 2])
@@ -317,6 +332,9 @@ def permute2en(v, ndim_st=1):
     return v.permute([*range(ndim_st, nd)] + [*range(ndim_st)])
 
 #%% Indices
+def ____INDICES____():
+    pass
+
 def unravel_index(v, shape, **kwargs):
     """
     For now, just use np.unravel_index()
@@ -356,6 +374,9 @@ def sumto1(v, dim=None, axis=None):
         return v / torch.sum(v, dim, keepdim=True)
 
 #%% Aggregate
+def ____AGGREGATE____():
+    pass
+
 def aggregate(subs, val=1., *args, **kwargs):
     """
     :param subs: [dim, element]
@@ -383,6 +404,9 @@ def aggregate(subs, val=1., *args, **kwargs):
     #     'Not finished implementation! Use npg.aggregate meanwhile!')
 
 #%% Stats
+def ____STATS____():
+    pass
+
 def entropy(tensor, *args, **kwargs):
     """
     :type tensor: torch.Tensor
@@ -447,7 +471,29 @@ def test_softmax_bias():
     plt.show()
     print('--')
 
+#%% Distributions/Sampling
+def ____DISTRIBUTIONS_SAMPLING____():
+    pass
+
+def rand(shape, low=0, high=1):
+    d = Uniform(low=low, high=high)
+    return d.rsample(shape)
+
+def mvnrnd(mu, sigma, sample_shape=torch.Size([])):
+    d = MultivariateNormal(loc=mu, covariance_matrix=sigma)
+    return d.rsample(sample_shape)
+
+def vmpdf(x, mu, scale, normalize=True):
+    vm = vmf.VonMisesFisher(mu, scale + torch.zeros([1,1]))
+    p = torch.exp(vm.log_prob(x))
+    if normalize:
+        p = sumto1(p)
+    return p
+
 #%% Cross-validation
+def ____CROSS_VALIDATION____():
+    pass
+
 def crossvalincl(n_tr, i_fold, n_fold=10, mode='consec'):
     """
     :param n_tr: Number of trials
