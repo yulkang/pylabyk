@@ -30,7 +30,7 @@ def beta_mixture_of_betas(a0, b0, a, b):
     n = p.size
     pp = np.zeros(n)
     
-    raise valueError('Not implemented yet!')
+    raise ValueError('Not implemented yet!')
     
     # for [] = stats.beta.pdf(p, a, b)
     pass
