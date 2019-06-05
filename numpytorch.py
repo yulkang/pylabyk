@@ -108,6 +108,10 @@ def float(v):
     return v.type(torch.get_default_dtype())
 
 def numpy(v):
+    """
+    :type v: torch.Tensor
+    :rtype: np.ndarray
+    """
     return v.detach().numpy()
 npy = numpy
 
@@ -302,6 +306,20 @@ def expand_upto_dim(args, dim, to_expand_left=True):
         #         [1] * ndim_kept
         #         + list(max_shape / torch.tensor(arg.shape[:dim]))))
     return tuple(out2)
+
+def vec2matmul(vec):
+    """
+    :type vec: torch.Tensor
+    :rtype: torch.Tensor
+    """
+    return vec.unsqueeze(-1)
+
+def matmul2vec(mm):
+    """
+    :type mm: torch.Tensor
+    :rtype: torch.Tensor
+    """
+    return mm.squeeze(-1)
 
 #%% Permute
 def ____PERMUTE____():
