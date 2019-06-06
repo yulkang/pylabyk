@@ -110,6 +110,8 @@ def beautify_psychometric(ax=None,
     detach_yaxis(ymin=ylim[0], ymax=ylim[1])
     if ylim[0] == 0.5 and ylim[1] == 1:
         plt.yticks([0.5, 0.75, 1])
+    elif ylim[0] == 0 and ylim[1] == 1:
+        plt.yticks([0, 0.5, 1])
     
     box_off()
     if axvline:
