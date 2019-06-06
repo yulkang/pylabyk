@@ -508,6 +508,15 @@ def vmpdf(x, mu, scale, normalize=True):
         p = sumto1(p)
     return p
 
+def bootstrap(fun, samp, n_boot=100):
+    n_samp = len(samp)
+    ix = torch.randint(n_samp, (n_boot, n_samp))
+    res = []
+    for i_boot in range(n_boot):
+        samp1 = [samp[s] for s in ix[i_boot,:]]
+        res.append(fun(samp1))
+    return res, ix
+
 #%% Cross-validation
 def ____CROSS_VALIDATION____():
     pass
