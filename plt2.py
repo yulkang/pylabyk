@@ -220,6 +220,13 @@ def errorbar_shade(x, y, yerr=None, **kw):
         if yerr.ndim == 1:
             yerr = np.concatenate([-yerr[np.newaxis,:],
                                    yerr[np.newaxis,:]], axis=0)
+        elif yerr.ndim == 2:
+            # assume yerr[0,:] = err_low, yerr[1,:] = err_high
+            # (both positive), as in plt.errorbar
+            raise NotImplementedError()
+
+        else:
+            raise ValueError()
         
         y1 = y + yerr[0,:]
         y2 = y + yerr[1,:]
