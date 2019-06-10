@@ -99,13 +99,14 @@ def sameaxes(ax, ax0=None, xy='xy'):
 
 def beautify_psychometric(ax=None, 
                           ylim=[0, 1],
+                          y_margin=0.05,
                           axvline=False,
                           axhline=False):
     if ax is None:
         ax = plt.gca()
         
     dylim = ylim[1] - ylim[0]
-    ylim_actual = [ylim[0] - dylim / 20., ylim[1] + dylim / 20.]
+    ylim_actual = [ylim[0] - dylim * y_margin, ylim[1] + dylim * y_margin]
     plt.ylim(ylim_actual)
     detach_yaxis(ymin=ylim[0], ymax=ylim[1])
     if ylim[0] == 0.5 and ylim[1] == 1:
