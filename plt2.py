@@ -6,8 +6,12 @@ Created on Tue Feb 13 10:42:06 2018
 @author: yulkang
 """
 
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+# import PyQt5
+from PyQt5.QtCore import QRect
+from PyQt5 import QtGui
 
 import numpy_groupies as npg
 
@@ -285,3 +289,23 @@ def plot_centroid(mu=np.zeros(2), sigma=np.eye(2),
         res['h_axis1'] = h1
 
     return h, res
+
+#%% Window management
+def use_interactive():
+    mpl.use('Qt5Agg')
+
+def get_screen_size():
+    return QtGui.QGuiApplication.screens()[0].geometry().getRect()[2:4]
+
+def subfigureRC(nr, nc, r, c, set_size=False, fig=None):
+    siz = np.array(get_screen_size())
+    siz1 = siz / np.array([nc, nr])
+    st = siz1 * np.array([c-1, r-1])
+    if fig is None:
+        fig = plt.gcf()
+    mgr = fig.canvas.manager
+    if set_size:
+        mgr.window.setGeometry(QRect(st[0], st[1], siz[0], siz[1]))
+    else:
+        c_size = mgr.window.geometry().getRect()
+        mgr.window.setGeometry(QRect(st[0], st[1], c_size[2], c_size[3]))
