@@ -73,6 +73,11 @@ class WrapTorch(object):
 npt_torch = WrapTorch()
 npt_numpy = np # Perhaps not fine if torch syntax is used
 
+#%% Constants
+nan = torch.tensor(np.nan)
+pi = torch.tensor(np.pi)
+pi2 = torch.tensor(np.pi * 2)
+
 #%% Utility functions specifically for PyTorch
 def enforce_tensor(v, min_ndim=1):
     if not torch.is_tensor(v):
