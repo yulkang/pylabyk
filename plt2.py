@@ -305,7 +305,7 @@ def subfigureRC(nr, nc, r, c, set_size=False, fig=None):
         fig = plt.gcf()
     mgr = fig.canvas.manager
     if set_size:
-        mgr.window.setGeometry(QRect(st[0], st[1], siz[0], siz[1]))
+        mgr.window.setGeometry(QRect(st[0], st[1], siz1[0], siz1[1]))
     else:
         c_size = mgr.window.geometry().getRect()
         mgr.window.setGeometry(QRect(st[0], st[1], c_size[2], c_size[3]))
