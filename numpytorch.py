@@ -522,6 +522,26 @@ def bootstrap(fun, samp, n_boot=100):
         res.append(fun(samp1))
     return res, ix
 
+#%% Linear algebra
+def ____LINEAR_ALGEBRA____():
+    pass
+
+def get_jacobian(net, x, noutputs):
+    """
+    From https://gist.github.com/sbarratt/37356c46ad1350d4c30aefbd488a4faa
+    :type net: torch.nn.Module
+    :type x: torch.Tensor
+    :type noutputs: int
+    :rtype: torch.Tensor
+    """
+    x = x.squeeze()
+    n = x.size()[0]
+    x = x.repeat(noutputs, 1)
+    x.requires_grad_(True)
+    y = net(x)
+    y.backward(torch.eye(noutputs))
+    return x.grad.data
+
 #%% Cross-validation
 def ____CROSS_VALIDATION____():
     pass
