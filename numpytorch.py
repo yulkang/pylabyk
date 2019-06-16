@@ -318,6 +318,7 @@ def vec2matmul(vec):
     :rtype: torch.Tensor
     """
     return vec.unsqueeze(-1)
+v2m = vec2matmul
 
 def matmul2vec(mm):
     """
@@ -325,6 +326,7 @@ def matmul2vec(mm):
     :rtype: torch.Tensor
     """
     return mm.squeeze(-1)
+m2v = matmul2vec
 
 #%% Permute
 def ____PERMUTE____():
@@ -343,6 +345,7 @@ def permute2st(v, ndim_en=1):
     """
     nd = v.ndimension()
     return v.permute([*range(-ndim_en, 0)] + [*range(nd - ndim_en)])
+p2st = permute2st
 
 def permute2en(v, ndim_st=1):
     """
@@ -353,6 +356,7 @@ def permute2en(v, ndim_st=1):
     """
     nd = v.ndimension()
     return v.permute([*range(ndim_st, nd)] + [*range(ndim_st)])
+p2en = permute2en
 
 #%% Indices
 def ____INDICES____():
