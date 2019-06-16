@@ -253,7 +253,9 @@ def expand_upto_dim(args, dim, to_expand_left=True):
     don't match.
     :param args: iterable yielding torch.Tensor
     :param dim: if to_expand_left=True, then arg[:dim] is expanded,
-    otherwise, arg[dim:] is expanded, for each arg in args.
+        otherwise, arg[dim:] is expanded, for each arg in args.
+        Note that dim=-1 leaves the last dim unexpanded.
+        This is necessary to make dim=0 expand the first.
     :param to_expand_left: if True, left of dim is expanded while the rest of
     the dims are kept unchanged.
     :return: tuple of expanded args
