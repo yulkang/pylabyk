@@ -541,7 +541,7 @@ def get_jacobian(net, x, noutputs):
     :rtype: torch.Tensor
     """
     x = x.squeeze()
-    n = x.size()[0]
+    # n = x.size()[0]
     x = x.repeat(noutputs, 1)
     x.requires_grad_(True)
     y = net(x)
