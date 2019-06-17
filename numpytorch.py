@@ -202,6 +202,14 @@ def repeat_to_shape(arg, shape):
     """
     return repeat_all(arg, shape=shape)[0]
 
+def max_shape(shapes):
+    return torch.Size(
+        torch.max(
+            torch.stack([torch.tensor(v) for v in shapes]),
+            dim=0
+        )[0]
+    )
+
 def repeat_batch(*args,
                  repeat_existing_dims=False, to_append_dims=False,
                  shape=None,
