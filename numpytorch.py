@@ -353,7 +353,7 @@ def ____PERMUTE____():
     pass
 
 def t(tensor):
-    nd = tensor.ndimension()
+    nd = tensor.dim()
     return tensor.permute(list(range(nd - 2)) + [nd - 1, nd - 2])
 
 def permute2st(v, ndim_en=1):
@@ -565,6 +565,34 @@ def get_jacobian(net, x, noutputs):
     y = net(x)
     y.backward(torch.eye(noutputs))
     return x.grad.data
+
+def kron(a, b):
+    """
+    Kronecker product of matrices a and b with leading batch dimensions.
+    Batch dimensions are broadcast. The number of them mush
+    :type a: torch.Tensor
+    :type b: torch.Tensor
+    :rtype: torch.Tensor
+    """
+    siz1 = torch.Size(torch.tensor(a.shape[-2:]) * torch.tensor(b.shape[-2:]))
+    res = a.unsqueeze(-1).unsqueeze(-3) * b.unsqueeze(-2).unsqueeze(-4)
+    siz0 = res.shape[:-4]
+    return res.view(siz0 + siz1)
+
+def block_diag(m):
+    """
+    Make a block diagonal matrix along dim=-3
+    :type m: torch.Tensor
+    :rtype: torch.Tensor
+    """
+    d = m.dim()
+    n = m.shape[-3]
+    siz0 = m.shape[:-3]
+    siz1 = m.shape[-2:]
+    m2 = m.unsqueeze(-4)
+    eye = append_dim(prepend_dim(torch.eye(n), d - 2), 2)
+    return (m2 * eye).view(siz0
+                           + torch.Size(torch.tensor(siz1) * n))
 
 #%% Cross-validation
 def ____CROSS_VALIDATION____():
