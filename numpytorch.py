@@ -86,25 +86,6 @@ def enforce_tensor(v, min_ndim=1):
         v = v.expand(v.shape + torch.Size([1] * (min_ndim - v.ndimension())))
     return v
 
-def block_diag(matrices):
-    ns = torch.LongTensor([m.shape[-1] for m in matrices])
-    n = torch.sum(ns)
-    batch_shape = matrices[0].shape[:-2]
-    ndim_batch = len(batch_shape)
-    # v = torch.zeros(list(matrices[0].shape[:-2]) + [n, n])
-    cn0 = 0
-    vs = []
-    for n1, m1 in zip(ns, matrices):
-        vs.append(torch.cat((
-            torch.zeros(batch_shape + torch.Size([n1, cn0])),
-            m1,
-            torch.zeros(batch_shape + torch.Size([n1, n - cn0 - n1]))
-        ), dim=ndim_batch + 1))
-        # v[cn0:(cn0 + n1), cn0:(cn0 + n1)] = m1
-        cn0 += n1
-    v = torch.cat(vs, dim=ndim_batch)
-    return v
-
 #%% Types
 def ____TYPE____():
     pass
@@ -579,18 +560,53 @@ def kron(a, b):
     siz0 = res.shape[:-4]
     return res.view(siz0 + siz1)
 
+def test_kron():
+    a = repeat_dim(torch.tensor([
+        [1., 0., 0., 0.],
+        [0., 0., 1., 0.],
+        [0., 0., 0., 1.]
+    ]).unsqueeze(0), 5, 0)
+    b = torch.tensor([[1.,1.,0.],[0.,1.,1.]]).unsqueeze(0)
+    res = kron(a, b)
+    print(res)
+    print(a.shape)
+    print(b.shape)
+    print(res.shape)
+
+# def block_diag(matrices):
+#     ns = torch.LongTensor([m.shape[-1] for m in matrices])
+#     n = torch.sum(ns)
+#     batch_shape = matrices[0].shape[:-2]
+#     ndim_batch = len(batch_shape)
+#     # v = torch.zeros(list(matrices[0].shape[:-2]) + [n, n])
+#     cn0 = 0
+#     vs = []
+#     for n1, m1 in zip(ns, matrices):
+#         vs.append(torch.cat((
+#             torch.zeros(batch_shape + torch.Size([n1, cn0])),
+#             m1,
+#             torch.zeros(batch_shape + torch.Size([n1, n - cn0 - n1]))
+#         ), dim=ndim_batch + 1))
+#         # v[cn0:(cn0 + n1), cn0:(cn0 + n1)] = m1
+#         cn0 += n1
+#     v = torch.cat(vs, dim=ndim_batch)
+#     return v
+
 def block_diag(m):
     """
     Make a block diagonal matrix along dim=-3
-    :type m: torch.Tensor
+    :type m: torch.Tensor, list
     :rtype: torch.Tensor
     """
+    if m is list:
+        m = torch.cat([m1.unsqueeze(-3) for m1 in m], -3)
+
     d = m.dim()
     n = m.shape[-3]
     siz0 = m.shape[:-3]
     siz1 = m.shape[-2:]
-    m2 = m.unsqueeze(-4)
-    eye = append_dim(prepend_dim(torch.eye(n), d - 2), 2)
+    m2 = m.unsqueeze(-2)
+    eye = append_dim(prepend_dim(torch.eye(n).unsqueeze(-2), d - 3), 1)
     return (m2 * eye).view(siz0
                            + torch.Size(torch.tensor(siz1) * n))
 
