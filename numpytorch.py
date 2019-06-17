@@ -595,10 +595,15 @@ def test_kron():
 def block_diag(m):
     """
     Make a block diagonal matrix along dim=-3
+    EXAMPLE:
+    block_diag(torch.ones(4,3,2))
+    should give a 12 x 8 matrix with blocks of 3 x 2 ones.
+    Prepend batch dimensions if needed.
+    You can also give a list of matrices.
     :type m: torch.Tensor, list
     :rtype: torch.Tensor
     """
-    if m is list:
+    if type(m) is list:
         m = torch.cat([m1.unsqueeze(-3) for m1 in m], -3)
 
     d = m.dim()
