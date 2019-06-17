@@ -210,6 +210,16 @@ def max_shape(shapes):
         )[0]
     )
 
+def repeat_dim(tensor, repeat, dim):
+    """
+    :type tensor: torch.Tensor
+    :type repeat: int
+    :type dim: int
+    """
+    rep = torch.ones(tensor.dim(), dtype=torch.long)
+    rep[dim] = torch.tensor(repeat)
+    return tensor.repeat(torch.Size(rep))
+
 def repeat_batch(*args,
                  repeat_existing_dims=False, to_append_dims=False,
                  shape=None,
