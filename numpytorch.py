@@ -333,6 +333,19 @@ def matmul2vec(mm):
     return mm.squeeze(-1)
 m2v = matmul2vec
 
+def matsum(*tensors):
+    """
+    Apply expand_upto_dim(tensors, -2) before adding them together,
+    consistent with torch.matmul()
+    :param tensors: iterable of tensors
+    :return: sum of tensors, expanded except for the last two dimensions.
+    """
+    tensors = expand_upto_dim(tensors, -2)
+    res = 0.
+    for tensor in tensors:
+        res = res + tensor
+    return res
+
 #%% Permute
 def ____PERMUTE____():
     pass
