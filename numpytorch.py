@@ -611,9 +611,10 @@ def block_diag(m):
     siz0 = m.shape[:-3]
     siz1 = m.shape[-2:]
     m2 = m.unsqueeze(-2)
-    eye = append_dim(prepend_dim(torch.eye(n).unsqueeze(-2), d - 3), 1)
-    return (m2 * eye).view(siz0
-                           + torch.Size(torch.tensor(siz1) * n))
+    eye = attach_dim(torch.eye(n).unsqueeze(-2), d - 3, 1)
+    return (m2 * eye).reshape(
+        siz0 + torch.Size(torch.tensor(siz1) * n)
+    )
 
 #%% Cross-validation
 def ____CROSS_VALIDATION____():
