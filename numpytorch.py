@@ -272,13 +272,13 @@ def expand_upto_dim(args, dim, to_expand_left=True):
             out1.append(attach_dim(arg, 0, max_ndim - ndim))
 
     if to_expand_left:
-        if dim > 0:
+        if dim >= 0:
             ndim_expand = dim
         else:
             ndim_expand = max_ndim + dim
-            if ndim_expand < 0:
-                # Nothing to expand - return
-                return tuple(args)
+        if ndim_expand <= 0:
+            # Nothing to expand - return
+            return tuple(args)
 
         max_shape = torch.zeros(ndim_expand, dtype=torch.long)
         for o1 in out1:
