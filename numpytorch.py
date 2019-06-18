@@ -276,6 +276,10 @@ def expand_upto_dim(args, dim, to_expand_left=True):
             ndim_expand = dim
         else:
             ndim_expand = max_ndim + dim
+            if ndim_expand < 0:
+                # Nothing to expand - return
+                return tuple(args)
+
         max_shape = torch.zeros(ndim_expand, dtype=torch.long)
         for o1 in out1:
             max_shape, _ = torch.max(torch.cat([
