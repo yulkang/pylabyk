@@ -633,6 +633,34 @@ def block_diag(m):
         siz0 + torch.Size(torch.tensor(siz1) * n)
     )
 
+def unblock_diag(m, n=None, size_block=None):
+    """
+    The inverse of block_diag(). Not vectorized yet.
+    :param m: block diagonal matrix
+    :param n: int. Number of blocks
+    :size_block: torch.Size. Size of a block.
+    :return: tensor unblocked such that the last sizes are [n] + size_block
+    """
+    # not vectorized yet
+    if size_block is None:
+        size_block = torch.Size(torch.tensor(m.shape[-2:]) // n)
+    elif n is None:
+        n = m.shape[-2] // torch.tensor(size_block[0])
+        assert n == m.shape[-1] // torch.tensor(size_block[1])
+    else:
+        raise ValueError('n or size_block must be given!')
+    m = p2st(m, 2)
+
+    res = torch.zeros(torch.Size([n]) + size_block + m.shape[2:])
+    for i_block in range(n):
+        st_row = size_block[0] * i_block
+        en_row = size_block[0] * (i_block + 1)
+        st_col = size_block[1] * i_block
+        en_col = size_block[1] * (i_block + 1)
+        res[i_block,:] = m[st_row:en_row, st_col:en_col, :]
+
+    return p2en(res, 3)
+
 #%% Cross-validation
 def ____CROSS_VALIDATION____():
     pass
