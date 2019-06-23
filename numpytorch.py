@@ -687,3 +687,15 @@ def crossvalincl(n_tr, i_fold, n_fold=10, mode='consec'):
     else:
         raise NotImplementedError('mode=%s is not implemented!' % mode)
 
+def ____CIRCULAR_STATS____():
+    pass
+
+def circdiff(angle1, angle2, maxangle=pi2):
+    """
+    :param angle1: angle scaled to be between 0 and maxangle
+    :param angle2: angle scaled to be between 0 and maxangle
+    :param maxangle: max angle. defaults to 2 * pi.
+    :return: angular difference, between -.5 and +.5 * maxangle
+    """
+    return (((angle1 / maxangle) - (angle2 / maxangle) + .5) % 1. - .5) * maxangle
+
