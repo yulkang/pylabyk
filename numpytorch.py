@@ -699,3 +699,5 @@ def circdiff(angle1, angle2, maxangle=pi2):
     """
     return (((angle1 / maxangle) - (angle2 / maxangle) + .5) % 1. - .5) * maxangle
 
+def rad2deg(rad):
+    return rad / pi * 180.
