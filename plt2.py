@@ -276,6 +276,7 @@ def plot_centroid(mu=np.zeros(2), sigma=np.eye(2),
         'u':u,
         's':s,
         'us':us,
+        'x':x,
     }
 
     if add_axis:
