@@ -3,8 +3,7 @@ import torch
 import numpy_groupies as npg
 from matplotlib import pyplot as plt
 
-from torch.distributions import MultivariateNormal, Uniform
-from hyperspherical_vae.distributions import von_mises_fisher as vmf
+from torch.distributions import MultivariateNormal, Uniform, Normal
 
 #%% Wrapper that allows numpy-style syntax for torch
 def ____NUMPY_COMPATIBILITY____():
@@ -528,7 +527,13 @@ def mvnrnd(mu, sigma, sample_shape=torch.Size([])):
     d = MultivariateNormal(loc=mu, covariance_matrix=sigma)
     return d.rsample(sample_shape)
 
+def normrnd(mu=0., sigma=1., sample_shape=(1,)):
+    d = Normal(loc=mu, scale=sigma)
+    return d.rsample(sample_shape)
+
 def vmpdf(x, mu, scale, normalize=True):
+    from .hyperspherical_vae.distributions import von_mises_fisher as vmf
+
     vm = vmf.VonMisesFisher(mu, scale + torch.zeros([1,1]))
     p = torch.exp(vm.log_prob(x))
     if normalize:
