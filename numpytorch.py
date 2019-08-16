@@ -97,7 +97,7 @@ def numpy(v):
     :type v: torch.Tensor
     :rtype: np.ndarray
     """
-    return v.detach().numpy()
+    return v.clone().detach().numpy()
 npy = numpy
 
 def npys(*args):
