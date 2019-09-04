@@ -18,6 +18,9 @@ import numpy_groupies as npg
 from . import np2
 
 #%% Subplots
+def ____Subplots____():
+    pass
+
 def subplotRC(nrow, ncol, row, col, **kwargs):
     iplot = (row - 1) * ncol + col
     ax = plt.subplot(nrow, ncol, iplot, **kwargs)
@@ -66,6 +69,9 @@ def rowtitle(rows, axes, pad=5):
     return np.array(labels)
 
 #%% Axes & limits
+def ____Axes_Limits____():
+    pass
+
 def sameaxes(ax, ax0=None, xy='xy'):
     """
     Match the chosen limits of axes in ax to ax0's (if given) or the max range.
@@ -188,7 +194,23 @@ def axis_off(xy, ax=None):
         ax.spines['left'].set_visible(False)
         ax.get_yaxis().set_visible(False)
 
+def tick_color(xy, ticks, labels, colors):
+    def set_tick_colors(ticks):
+        for tick, color in zip(ticks, colors):
+            tick.set_color(color)
+
+    if 'x' in xy:
+        _, labels = plt.xticks(ticks, labels)
+        set_tick_colors(labels)
+
+    if 'y' in xy:
+        _, labels = plt.yticks(ticks, labels)
+        set_tick_colors(labels)
+
 #%% Heatmaps
+def ____Heatmaps____():
+    pass
+
 def cmap(name, **kw):
     import matplotlib as mpl
     from matplotlib.colors import ListedColormap    
@@ -219,6 +241,9 @@ def imshow_discrete(x, shade=None,
     plt.imshow(c, **kw)
 
 #%% Errorbar
+def ____Errorbar____():
+    pass
+
 def errorbar_shade(x, y, yerr=None, **kw):
     if yerr is None:
         y1 = y[0,:]
@@ -247,6 +272,9 @@ def errorbar_shade(x, y, yerr=None, **kw):
     return h
 
 #%% Psychophysics
+def ____Psychophysics____():
+    pass
+
 def plot_binned_ch(x0, ch, n_bin=9, **kw):
     ix, x = np2.quantilize(x0, n_quantile=n_bin, return_summary=True)
     p = npg.aggregate(ix, ch, func='mean')
@@ -257,6 +285,9 @@ def plot_binned_ch(x0, ch, n_bin=9, **kw):
     return h, x, p, se
 
 #%% Stats/probability
+def ____Stats_Probability____():
+    pass
+
 def ecdf(x0, *args, **kw):
     p, x = np2.ecdf(x0)
     return plt.step(np.concatenate([x[:1], x], 0),
@@ -264,6 +295,9 @@ def ecdf(x0, *args, **kw):
                     *args, **kw)
 
 #%% Gaussian
+def ____Gaussian____():
+    pass
+
 def plot_centroid(mu=np.zeros(2), sigma=np.eye(2),
                   add_axis=True, *args, **kwargs):
     th = np.linspace(0, 2*np.pi, 100)[np.newaxis,:]
@@ -291,7 +325,10 @@ def plot_centroid(mu=np.zeros(2), sigma=np.eye(2),
 
     return h, res
 
-#%% Window management
+#%% Window Management
+def ____Window_Management____():
+    pass
+
 def use_interactive():
     mpl.use('Qt5Agg')
 
