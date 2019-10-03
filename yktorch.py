@@ -4,6 +4,27 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+#%% Bounded parameters (under construction)
+# this is for better autocompletion, etc.
+# it should run backward() on the variables hidden in it.
+# See torch.tensor.Tensor for more.
+class BoundedParameter(nn.Parameter):
+    def __init__(self, *args, lb=0., ub=1., **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lb = lb
+        self.ub = ub
+        raise NotImplementedError()
+
+class ProbabilityParameter(nn.Parameter):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        raise NotImplementedError()
+
+class CircularParameter(nn.Parameter):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        raise NotImplementedError()
+
 #%% Bounded fit class
 class BoundedModule(nn.Module):
     def __init__(self):
