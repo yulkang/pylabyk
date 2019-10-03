@@ -531,6 +531,11 @@ def normrnd(mu=0., sigma=1., sample_shape=(1,)):
     d = Normal(loc=mu, scale=sigma)
     return d.rsample(sample_shape)
 
+def mvnpdf_log(x, mu=(0.,), sigma=((1.,),)):
+    d = MultivariateNormal(loc=torch.tensor(mu),
+                           covariance_matrix=torch.tensor(sigma))
+    return d.log_prob(x)
+
 def vmpdf(x, mu, scale, normalize=True):
     from .hyperspherical_vae.distributions import von_mises_fisher as vmf
 
