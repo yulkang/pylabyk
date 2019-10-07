@@ -3,6 +3,12 @@ from . import zipPickle
 from collections import OrderedDict
 from .argsutil import dict2fname
 
+"""
+Deprecated subkeys separate from keys. 
+Now all input/output must be done using key to Cache._dict[key].
+Use Cache.get_dict() to get the whole _dict.
+"""
+
 def dict_except(d, keys_to_excl):
     return {k:d[k] for k in d if k not in keys_to_excl}
 
@@ -24,13 +30,11 @@ class Cache(object):
     Caches to file for fast retrieval.
 
     EXAMPLE:
+    import cacheutil
     def fun(test_param=1, to_recompute=False):
-        cache = Cache(
-            os.path.join('cache.pkl'),
-            locals()
-        )
-        if cache.exists() and not to_recompute:
-            a, b = cache.getdict([
+        cache = cacheutil.Cache()
+        if cache.exists(['a', 'b']) and not to_recompute:
+            a, b = cache.gets([
                 'a', 'b'
             ])
         else:
@@ -46,26 +50,14 @@ class Cache(object):
     for test_param_main in range(5):
         fun(test_param_main)
     """
-    def __init__(self, fullpath='cache.pkl.zip', key=None, verbose=True,
-                 ignore_key=False):
-        """
-        :param fullpath: use cacheutil.dict2fname(dict) for human-readable
-        names, or use 'cache.zpkl' if using an old cache file.
-        :param key: anything, e.g., locals(), that can serve as a key for dict.
-        :param verbose: bool.
-        :param ignore_key: bool.
-        """
+    def __init__(self, fullpath='cache.zip.pkl', verbose=True, key=None):
         self.fullpath = fullpath
         self.verbose = verbose
-        self.dict = {}
+        self._dict = {}
         self.to_save = False
-        if key is None:
-            self.key = None
-        else:
-            self.key = self.format_key(key)
-        self.ignore_key = ignore_key
+        self.key = key
         if os.path.exists(self.fullpath):
-            self.dict = zipPickle.load(self.fullpath)
+            self._dict = zipPickle.load(self.fullpath)
 
     def format_key(self, key):
         """
@@ -74,98 +66,63 @@ class Cache(object):
         """
         return '%s' % key
 
-    def exists(self, key=None):
+    def exist(self, key=None):
         """
         :param key: non-None object that converts into a string, e.g., locals()
         :rtype: bool
         """
-        if self.ignore_key:
-            return self.dict.__len__() > 0
         if key is None:
             key = self.key
-        return self.format_key(key) in self.dict
+        return self.format_key(key) in self._dict
 
-    def ____DIRECT_SET_GET____(self):
-        """
-        Not recommended. Use getdict/setdict instead.
-        :return:
-        """
-        pass
+    def exists(self, keys):
+        return (self.exist(key) for key in keys)
 
-    def get(self, key=None, subkeys=None):
+    def get(self, key):
         """
         :param key: non-None object that converts into a string, e.g., locals()
-        :param subkeys:if list, return a tuple of values for
-                        the subkeys
         :rtype: Any
         """
-        if self.ignore_key:
-            key = list(self.dict.keys())[0]
-        elif key is None:
+        if key is None:
             key = self.key
         if self.verbose and self.exists(key):
             print('Loaded cache from %s' % self.fullpath)
-        v = self.dict[self.format_key(key)]
+        v = self._dict[self.format_key(key)]
+        return v
 
-        if subkeys is None:
-            return v
-        else:
-            if type(subkeys) is str:
-                return v[subkeys]
-            else:
-                return (v[k] for k in subkeys)
+    def gets(self, keys):
+        return (self.get(key) for key in keys)
+
+    def get_dict(self):
+        return self._dict
 
     def set(self, data, key=None):
         """
         Store the data in the cache.
-        :param data: Use dict to allow get() and getdict() to use subkeys.
+        :param data: any data
         :param key: non-None object that converts into a string, e.g., locals()
+            if None, set to self.key
         :rtype: None
         """
         if key is None:
-            # assert self.key is not None, 'default key is not specified!'
             key = self.key
-        self.dict[self.format_key(key)] = data
+        self._dict[self.format_key(key)] = data
         self.to_save = True
 
-    def ____DICT_INTERFACE____(self):
-        pass
-
-    def getdict(self, subkeys=None, key=None):
+    def update_dict(self, d):
         """
-        Return a tuple of values corresponding to subkeys from default key.
-        Assumes that self.dict[key] is itself a dict.
-        :type subkeys: list, str
-        :param subkeys: list of keys to the cached dict (self.dict[key]).
-        :return: a tuple of values corresponding to subkeys from default key.
+        Updates self.dict using keys in d
+        :type d: dict
         """
-        return self.get(key=key, subkeys=subkeys)
-
-    def setdict(self, data_dict, key=None, update=True):
-        """
-        Updates self.dict using keys in data_dict
-        :type data_dict: dict
-        """
-        if update:
-            if self.exists(key):
-                d0 = self.get(key)
-            else:
-                d0 = {}
-            for key in data_dict.keys():
-                d0[key] = data_dict[key]
-        else:
-            d0 = data_dict
-
-        self.set(d0, key=key)
-
-    def ____SAVE____(self):
-        pass
+        for key in d.keys():
+            self._dict[key] = d[key]
+        self.to_save = True
 
     def save(self):
         pth = os.path.dirname(self.fullpath)
         if not os.path.exists(pth) and pth != '':
             os.mkdir(pth)
-        zipPickle.save(self.dict, self.fullpath)
+        zipPickle.save(self._dict, self.fullpath)
         if self.verbose:
             print('Saved cache to %s' % self.fullpath)
         # with open(self.fullpath, 'w+b') as cache_file:
