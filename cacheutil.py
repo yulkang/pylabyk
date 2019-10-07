@@ -123,6 +123,10 @@ class Cache(object):
         self.dict[self.format_key(key)] = data
         self.to_save = True
 
+    def setdict(self, d):
+        for key in d.keys():
+            self.dict[key] = d[key]
+
     def save(self):
         pth = os.path.dirname(self.fullpath)
         if not os.path.exists(pth) and pth != '':
