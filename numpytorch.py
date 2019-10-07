@@ -110,13 +110,30 @@ npy = numpy
 def npys(*args):
     return tuple([npy(v) for v in args])
 
-nanint = torch.tensor(np.nan).long()
+#%% NaN-related
+def ____NAN____():
+    pass
 
+nanint = torch.tensor(np.nan).long()
 def isnan(v):
     if v.dtype is torch.long:
         return v == nanint
     else:
         return torch.isnan(v)
+
+def nansum(v, *args, inplace=False, **kwargs):
+    if not inplace:
+        v = v.clone()
+    is_nan = isnan(v)
+    v[is_nan] = 0
+    return v.sum(*args, **kwargs)
+
+def nanmean(v, *args, inplace=False, **kwargs):
+    if not inplace:
+        v = v.clone()
+    is_nan = isnan(v)
+    v[is_nan] = 0
+    return v.sum(*args, **kwargs) / float(~is_nan).sum(*args, **kwargs)
 
 #%% Shape manipulation
 def ____SHAPE____():
