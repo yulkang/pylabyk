@@ -85,6 +85,13 @@ def enforce_tensor(v, min_ndim=1):
         v = v.expand(v.shape + torch.Size([1] * (min_ndim - v.ndimension())))
     return v
 
+def ____GRADIENT____():
+    pass
+
+def freeze(module):
+    for param in module.parameters():
+        param.requires_grad = False
+
 #%% Types
 def ____TYPE____():
     pass
