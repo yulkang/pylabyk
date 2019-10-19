@@ -137,12 +137,12 @@ def discretize(v, cutoff):
     """
     Discretize given cutoff.
     
+    ix[i] = 0 if v[i] < cutoff[0]
     ix[i] = k if cutoff[k - 1] <= v[i] < cutoff[k]
-    if v[i] < cutoff[0], ix[i] = 0
-    if v[i] >= cutoff[-1], v[i] = len(cutoff) - 1
+    v[i] = len(cutoff) if v[i] >= cutoff[-1]
     """
     v = np.array(v)
-    ix = np.zeros(v.shape)
+    ix = np.zeros(v.shape, dtype=np.long)
     
     cutoff = list(cutoff)
     cutoff.append(np.inf)
