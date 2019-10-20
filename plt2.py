@@ -107,6 +107,15 @@ def sameaxes(ax, ax0=None, xy='xy'):
         lims_res.append(lims0)
     return lims_res
 
+def same_clim(images, ax0=None):
+    if type(images) is np.ndarray:
+        images = images.reshape(-1)
+
+    clims = np.array([im.get_clim() for im in images])
+    clim = [np.amin(clims[:,0]), np.amax(clims[:,1])]
+    for im in images:
+        im.set_clim(clim)
+
 def beautify_psychometric(ax=None, 
                           ylim=[0, 1],
                           y_margin=0.05,
@@ -136,7 +145,7 @@ def beautify_psychometric(ax=None,
                     linestyle='-', zorder=-1,
                     linewidth=0.5)
 
-def detach_axis(xy, amin=0, amax=None, ax=None, spine=None):
+def detach_axis(xy='xy', amin=0, amax=None, ax=None, spine=None):
     if xy == 'xy':
         for xy1 in ['x', 'y']:
             detach_axis(xy1, amin, amax, ax)
