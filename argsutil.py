@@ -19,6 +19,13 @@ def varargin2props(obj, kw, skip_absent=True, error_absent=False):
             obj.__dict__[key] = kw[key]
 
 def kwdefault(kw_given, **kw_default):
+    """
+    To ensure the order is preserved, use OrderedDict or [(key:value), ...]
+    :param kw_given:
+    :param kw_default:
+    :return:
+    """
+    kw_given = OrderedDict(kw_given)
     kw_default = OrderedDict(kw_default)
     for k in kw_given:
         kw_default[k] = kw_given[k]
@@ -26,6 +33,15 @@ def kwdefault(kw_given, **kw_default):
 
 def kwdef(kw_given, kw_def=None,
           sort_def=False, sort_given=False, def_bef_given=True):
+    """
+    To ensure the order is preserved, use OrderedDict or [(key:value), ...]
+    :param kw_given:
+    :param kw_def:
+    :param sort_def:
+    :param sort_given:
+    :param def_bef_given:
+    :return:
+    """
     if kw_def is None:
         kw_def = {}
 
