@@ -60,6 +60,33 @@ def kwdef(kw_given, kw_def=None,
             kw_given[k] = kw_def[k]
     return kw_def
 
+def kwdefs(kws, **kwargs):
+    res = kws[0].copy()
+    for ii in range(1, len(kws)):
+        res = kwdef(kws[ii], res, **kwargs)
+    return res
+
+def merge_subdict(d0, key):
+    d = d0.copy()
+    subdict = d.pop(key)
+    return kwdef(subdict, d)
+
+def merge_subdict_recur(d0):
+    """
+    :type d0: Union[dict, odict]
+    :return:
+    """
+    d = d0.copy()
+    keys = [k for k in d.keys()]
+    for key in keys:
+        if type(d[key]) is dict or type(d[key]) is odict:
+            d[key] = merge_subdict_recur(d[key])
+            d = merge_subdict(d, key)
+    return d
+
+def merge_fileargs(kws, **kwargs):
+    return merge_subdict_recur(kwdefs(kws, **kwargs))
+
 def dict2fname(d, skip_None=True):
     def to_include(k):
         if skip_None:
