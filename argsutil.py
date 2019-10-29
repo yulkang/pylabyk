@@ -6,7 +6,7 @@ Created on Fri Oct 12 10:58:48 2018
 @author: yulkang
 """
 
-from collections import OrderedDict
+from collections import OrderedDict as odict
 
 def varargin2props(obj, kw, skip_absent=True, error_absent=False):
     keys0 = obj.__dict__.keys()
@@ -20,13 +20,13 @@ def varargin2props(obj, kw, skip_absent=True, error_absent=False):
 
 def kwdefault(kw_given, **kw_default):
     """
-    To ensure the order is preserved, use OrderedDict or [(key:value), ...]
+    To ensure the order is preserved, use odict or [(key:value), ...]
     :param kw_given:
     :param kw_default:
     :return:
     """
-    kw_given = OrderedDict(kw_given)
-    kw_default = OrderedDict(kw_default)
+    kw_given = odict(kw_given)
+    kw_default = odict(kw_default)
     for k in kw_given:
         kw_default[k] = kw_given[k]
     return kw_default
@@ -34,23 +34,23 @@ def kwdefault(kw_given, **kw_default):
 def kwdef(kw_given, kw_def=None,
           sort_def=False, sort_given=False, def_bef_given=True):
     """
-    To ensure the order is preserved, use OrderedDict or [(key:value), ...]
+    To ensure the order is preserved, use odict or [(key:value), ...]
     :param kw_given:
     :param kw_def:
     :param sort_def:
     :param sort_given:
     :param def_bef_given:
-    :return:
+    :rtype: odict
     """
     if kw_def is None:
         kw_def = {}
 
-    kw_def = OrderedDict(kw_def)
-    kw_given = OrderedDict(kw_given)
+    kw_def = odict(kw_def)
+    kw_given = odict(kw_given)
     if sort_def:
-        kw_def = OrderedDict(sorted(kw_def.items()))
+        kw_def = odict(sorted(kw_def.items()))
     if sort_given:
-        kw_def = OrderedDict(sorted(kw_given.items()))
+        kw_def = odict(sorted(kw_given.items()))
 
     if def_bef_given:
         for k in kw_given:
