@@ -61,6 +61,8 @@ def kwdef(kw_given, kw_def=None,
     return kw_def
 
 def kwdefs(kws, **kwargs):
+    if type(kws) in {dict, odict}:
+        kws = [kws]
     res = kws[0].copy()
     for ii in range(1, len(kws)):
         res = kwdef(kws[ii], res, **kwargs)
