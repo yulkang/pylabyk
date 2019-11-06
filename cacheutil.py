@@ -113,7 +113,7 @@ class Cache(object):
             if type(subkeys) is str:
                 return v[subkeys]
             else:
-                return (v[k] for k in subkeys)
+                return [v[k] for k in subkeys]
 
     def set(self, data, key=None):
         """
