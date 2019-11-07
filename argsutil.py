@@ -87,7 +87,7 @@ def merge_subdict_recur(d0):
     return d
 
 def merge_fileargs(kws, **kwargs):
-    return merge_subdict_recur(kwdefs(kws, **kwargs))
+    return merge_subdict_recur(kwdefs(odict(kws), **kwargs))
 
 def dict2fname(d, skip_None=True):
     def to_include(k):
