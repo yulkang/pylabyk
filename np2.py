@@ -277,4 +277,21 @@ def conv_circ( signal, ker ):
         from https://stackoverflow.com/a/38034801/2565317
     '''
     return np.real(np.fft.ifft( np.fft.fft(signal)*np.fft.fft(ker) ))
-    
+
+#%% Image
+def nansmooth(u, sigma=1.):
+    from scipy import ndimage
+
+    isnan = np.isnan(u)
+
+    v = u.copy()
+    v[isnan] = 0.
+    vv = ndimage.gaussian_filter(v, sigma=sigma)
+
+    w = 1. - isnan
+    ww = ndimage.gaussian_filter(w, sigma=sigma)
+
+    r = vv / ww
+    r[isnan] = np.nan
+
+    return r
