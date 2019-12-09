@@ -564,8 +564,13 @@ def mvnpdf_log(x, mu=None, sigma=None):
                            covariance_matrix=sigma)
     return d.log_prob(x)
 
-def vmpdf(x, mu, scale, normalize=True):
+def vmpdf(x, mu, scale=None, normalize=True):
     from .hyperspherical_vae.distributions import von_mises_fisher as vmf
+
+    if scale is None:
+        scale = torch.sqrt(torch.sum(mu ** 2, dim=1, keepdim=True))
+        mu = mu / scale
+        mu[torch.isnan(mu)] = 0.
 
     vm = vmf.VonMisesFisher(mu, scale + torch.zeros([1,1]))
     p = torch.exp(vm.log_prob(x))

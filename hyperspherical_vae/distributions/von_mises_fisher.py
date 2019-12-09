@@ -2,8 +2,8 @@ import math
 import torch
 from torch.distributions.kl import register_kl
 
-from pylabyk.hyperspherical_vae.ops.ive import ive
-from pylabyk.hyperspherical_vae.distributions import HypersphericalUniform
+from hyperspherical_vae.ops.ive import ive
+from hyperspherical_vae.distributions import HypersphericalUniform
 
 
 class VonMisesFisher(torch.distributions.Distribution):
