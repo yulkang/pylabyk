@@ -571,6 +571,7 @@ def vmpdf(x, mu, scale=None, normalize=True):
         scale = torch.sqrt(torch.sum(mu ** 2, dim=1, keepdim=True))
         mu = mu / scale
         mu[torch.isnan(mu)] = 0.
+        scale = torch.clamp_min(scale, 1e-12)
 
     vm = vmf.VonMisesFisher(mu, scale + torch.zeros([1,1]))
     p = torch.exp(vm.log_prob(x))
