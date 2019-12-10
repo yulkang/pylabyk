@@ -1,5 +1,34 @@
 """
 See examples in the docstring of Cache (example_* at the bottom of this module)
+
+USAGE 1. Use custom cache file name (good for parallel execution; recommended)
+- Open cache
+cache = CacheDict([(key1,value1),(key2,value2)])
+
+- Check cache
+cache.exists(key) # breaks from previous cacheutil
+
+- Set cache
+cache.setdict({key:val}) # breaks from previous cacheutil
+
+- Get cache
+val1, val2 = cache.getvalue([key1, key2]) # new
+# dict = cache.getdict([key1, key2]) # not implemented yet
+
+USAGE 2. Use a single cache file name and use locals() as the key
+(old; use only when using locals() is necessary and gives too long file names)
+
+- Open cache
+cache = CacheSub(key=locals())
+
+- Set cache
+cache.setdict({subkey:val})
+
+- Get cache
+val1, val2 = cache.getvalue([subkey1, subkey2])
+# dict = cache.getdict([key1, key2]) # not implemented yet
+
+(not implemented)
 """
 
 import os
@@ -26,6 +55,7 @@ def dict2obj(d, obj):
 
 class Cache(object):
     """
+    (Deprecated due to confusing interface. Use CacheDict or CacheSub instead.)
     Caches to file for fast retrieval.
 
     EXAMPLE 1 - use locals() to name the key inside a fixed cache file.
@@ -164,6 +194,54 @@ class Cache(object):
     def __del__(self):
         if self.to_save:
             self.save()
+
+def kw2fname(kw, kw_def=None, dir='Data/cache', sort_kw=True):
+    sort_kw = True
+    name_cache = dict2fname(kwdef(kw, kw_def, sort_merged=sort_kw))
+    fullpath = os.path.join(dir, name_cache + '.pkl.zip')
+    return fullpath, name_cache
+
+class CacheDict(object):
+    """Defaults to directly addressing dict"""
+    def __init__(self, fullpath='cache.',
+                 **kwargs):
+        self.cache = Cache(fullpath=fullpath, **kwargs)
+
+    def exists(self, key=None):
+        if key is None:
+            return self.cache.exists()
+        else:
+            return key in self.cache.dict.keys()
+
+    def setdict(self, d, update=True):
+        if update:
+            d0 = self.cache.dict
+            for key in d.keys():
+                d0[key] = d[key]
+            self.cache.dict = d0
+        else:
+            self.cache.dict = d
+
+    def getdict(self, keys=None):
+        if keys is None:
+            return self.cache.dict
+        else:
+            return {k:self.cache.dict[k] for k in keys}
+
+    def getvalue(self, keys):
+        if type(keys) is str:
+            return self.cache.dict[keys]
+        else:
+            return [self.cache.dict[k] for k in keys]
+
+    def save(self):
+        self.cache.save()
+
+class CacheSub(object):
+    """Defaults to using a single cache file"""
+    def __init__(self, key=None, **kwargs):
+        self.cache = Cache(key=key, **kwargs)
+        raise NotImplementedError()
 
 def example_cache_fixed_file():
     def fun(test_param=1, to_recompute=False):
