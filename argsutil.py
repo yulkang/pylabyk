@@ -32,11 +32,14 @@ def kwdefault(kw_given, **kw_default):
     return kw_default
 
 def kwdef(kw_given, kw_def=None,
-          sort_def=False, sort_given=False, def_bef_given=True):
+          sort_merged=True,
+          sort_def=False, sort_given=False,
+          def_bef_given=True):
     """
     To ensure the order is preserved, use odict or [(key:value), ...]
     :param kw_given:
     :param kw_def:
+    :param sort_merged: if True, ignore sort_def, sort_given, def_bef_given
     :param sort_def:
     :param sort_given:
     :param def_bef_given:
@@ -47,18 +50,27 @@ def kwdef(kw_given, kw_def=None,
 
     kw_def = odict(kw_def)
     kw_given = odict(kw_given)
+
+    if sort_merged:
+        if def_bef_given:
+            pass
+            # raise Warning('def_bef_given=True is ignored when sort_merged=True')
+        for k in kw_given:
+            kw_def[k] = kw_given[k]
+        return odict(sorted(kw_def.items()))
+
     if sort_def:
         kw_def = odict(sorted(kw_def.items()))
     if sort_given:
-        kw_def = odict(sorted(kw_given.items()))
-
+        kw_given = odict(sorted(kw_given.items()))
     if def_bef_given:
         for k in kw_given:
             kw_def[k] = kw_given[k]
+        return kw_def
     else:
         for k in kw_def:
             kw_given[k] = kw_def[k]
-    return kw_def
+        return kw_given
 
 def kwdefs(kws, **kwargs):
     if type(kws) in {dict, odict}:
