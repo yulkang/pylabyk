@@ -568,13 +568,17 @@ def vmpdf(x, mu, scale=None, normalize=True):
     from .hyperspherical_vae.distributions import von_mises_fisher as vmf
 
     if scale is None:
+        raise NotImplementedError('Using gradient not tested yet! (Seems '
+                                  'to gives NaN gradient when scale = 0)')
         scale = torch.sqrt(torch.sum(mu ** 2, dim=1, keepdim=True))
+
         mu = mu / scale
-        mu[torch.isnan(mu)] = 0.
-        scale = torch.clamp_min(scale, 1e-12)
+        mu[scale[:,0] == 0, :] = 0.
 
     vm = vmf.VonMisesFisher(mu, scale + torch.zeros([1,1]))
     p = torch.exp(vm.log_prob(x))
+    # if scale == 0.:
+    #     p = torch.ones_like(p) / p.shape[0]
     if normalize:
         p = sumto1(p)
     return p
