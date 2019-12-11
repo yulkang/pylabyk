@@ -108,3 +108,6 @@ def dict2fname(d, skip_None=True):
         else:
             return True
     return '+'.join(['%s=%s' % (k, d[k]) for k in d if to_include(k)])
+
+def rmkeys(d, keys):
+    return {k:v for k, v in d.items() if k not in keys}

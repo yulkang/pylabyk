@@ -36,6 +36,7 @@ from . import zipPickle
 from collections import OrderedDict as odict
 from .argsutil import dict2fname
 from .argsutil import kwdef
+from .argsutil import rmkeys
 
 def dict_except(d, keys_to_excl):
     return {k:d[k] for k in d if k not in keys_to_excl}
