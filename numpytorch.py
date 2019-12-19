@@ -555,10 +555,8 @@ def normrnd(mu=0., sigma=1., sample_shape=()):
     d = Normal(loc=mu, scale=sigma)
     return d.rsample(sample_shape)
 
-def categrnd(probs=None, logits=None, sample_shape=()):
-    return torch.distributions.Categorical(
-        probs=probs, logits=logits
-    ).rsample(sample_shape=sample_shape)
+def categrnd(probs):
+    return torch.multinomial(probs, 1)
 
 def mvnpdf_log(x, mu=None, sigma=None):
     if mu is None:
