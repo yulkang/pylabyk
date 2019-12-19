@@ -16,6 +16,19 @@ from . import numpytorch
 npt = numpytorch.npt_torch # choose between torch and np
 
 #%% Shape
+def ____SHAPE____():
+    pass
+
+def cat(arrays0, dim=0, add_dim=True):
+    """
+    @type arrays0: list
+    """
+    arrays = []
+    if add_dim:
+        for ii in range(len(arrays0)):
+            arrays.append(np.expand_dims(arrays0[ii], dim))
+    return np.concatenate(arrays, dim)
+
 def vec_on(arr, dim, n_dim=None):
     arr = np.array(arr)
     if n_dim is None:
@@ -101,6 +114,9 @@ def DataFrame(dat):
     return pd.concat(l, axis=1)
 
 #%% Type
+def ____TYPE____():
+    pass
+
 def is_None(v):
     return v is None or (type(v) is np.ndarray and v.ndim == 0)
 
@@ -108,6 +124,9 @@ def is_iter(v):
     return hasattr(v, '__iter__')
 
 #%% Stat
+def ____STAT____():
+    pass
+
 def sem(v, axis=0):
     v = np.array(v)
     if v.ndim == 1:
@@ -246,6 +265,9 @@ def wmedian(w, axis=None):
 
 
 #%% Distribution
+def ____DISTRIBUTION____():
+    pass
+
 def pdf_trapezoid(x, center, width_top, width_bottom):
     height = 1. / ((width_top + width_bottom) / 2.)
     proportion_between = ((width_bottom - width_top) / width_bottom)
@@ -256,7 +278,26 @@ def pdf_trapezoid(x, center, width_top, width_bottom):
     p[p < 0] = 0
     return p
 
+#%% Circular stats
+def ____CIRCSTAT____():
+    pass
+
+def circdiff(angle1, angle2, maxangle=None):
+    """
+    :param angle1: angle scaled to be between 0 and maxangle
+    :param angle2: angle scaled to be between 0 and maxangle
+    :param maxangle: max angle. defaults to 2 * pi.
+    :return: angular difference, between -.5 and +.5 * maxangle
+    """
+    if maxangle is None:
+        maxangle = np.pi * 2
+    return (((angle1 / maxangle)
+             - (angle2 / maxangle) + .5) % 1. - .5) * maxangle
+
 #%% Transform
+def ____TRANSFORM____():
+    pass
+
 def logit(v):
     """logit function"""
     return np.log(v) - np.log(1 - v)
@@ -295,6 +336,9 @@ def project(a, b, axis=None, scalar_proj=False):
         return proj * b
 
 #%% Binary operations
+def ____BINARY_OPS____():
+    pass
+
 def conv_circ( signal, ker ):
     '''
         signal: real 1D array
@@ -306,6 +350,9 @@ def conv_circ( signal, ker ):
     return np.real(np.fft.ifft( np.fft.fft(signal)*np.fft.fft(ker) ))
 
 #%% Image
+def ____IMAGE____():
+    pass
+
 def nansmooth(u, sigma=1.):
     from scipy import ndimage
 
