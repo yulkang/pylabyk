@@ -332,6 +332,34 @@ def wmedian(w, axis=None):
     return wpercentile(w, prct=50, axis=axis)
 
 
+def pearsonr_ci(x,y,alpha=0.05):
+    """
+    calculate Pearson correlation along with the confidence interval using scipy and numpy
+    Parameters
+    ----------
+    x, y : iterable object such as a list or np.array
+      Input for correlation calculation
+    alpha : float
+      Significance level. 0.05 by default
+    Returns
+    -------
+    r : float
+      Pearson's correlation coefficient
+    pval : float
+      The corresponding p value
+    lo, hi : float
+      The lower and upper bound of confidence intervals
+
+    from https://gist.github.com/zhiyzuo/d38159a7c48b575af3e3de7501462e04
+    """
+    r, p = stats.pearsonr(x,y)
+    r_z = np.arctanh(r)
+    se = 1/np.sqrt(x.size-3)
+    z = stats.norm.ppf(1-alpha/2)
+    lo_z, hi_z = r_z-z*se, r_z+z*se
+    lo, hi = np.tanh((lo_z, hi_z))
+    return r, p, lo, hi
+
 #%% Distribution
 def ____DISTRIBUTION____():
     pass
@@ -500,3 +528,4 @@ def demo_convolve_time():
     print((src2.shape, kernel.shape, res.shape))
 
     pass
+
