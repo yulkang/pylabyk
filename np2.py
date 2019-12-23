@@ -27,6 +27,8 @@ def cat(arrays0, dim=0, add_dim=True):
     if add_dim:
         for ii in range(len(arrays0)):
             arrays.append(np.expand_dims(arrays0[ii], dim))
+    else:
+        arrays = arrays0
     return np.concatenate(arrays, dim)
 
 def vec_on(arr, dim, n_dim=None):
