@@ -113,6 +113,66 @@ def DataFrame(dat):
             l.append(pd.DataFrame(v, columns=ix))
     return pd.concat(l, axis=1)
 
+#%%
+def ____BATCH____():
+    pass
+
+def meshfun(list_args, fun, n_out=1):
+    """
+    EXAMPLE:
+    out[i,j] = fun(list_args[0][i], list_args[1][j])
+    @type list_args: Iterable[Iterable]
+    @type fun: function
+    @rtype: np.ndarray
+    """
+    shape_all = ()
+    list_args1 = []
+    for arg in list_args:
+        try:
+            shape_all += arg.shape
+            list_args1 += [arg.flatten()]
+        except:
+            shape_all += (len(arg),)
+            list_args1 += [arg]
+    shape_all += (n_out,)
+    list_args1 = np.meshgrid(*list_args1, indexing='ij')
+    for i in range(len(list_args1)):
+        list_args1[i] = list_args1[i].flatten()
+    res = []
+    for args in zip(*list_args1):
+        res.append(fun(*args))
+    try:
+        shape_each = res[0].shape[1:]
+    except:
+        shape_each = ()
+        pass
+    # shape_all += res[0].shape[1:]
+    out = np.transpose(
+        np.array(res).reshape(shape_all + shape_each, order='C'),
+        (
+                [len(shape_all) - 1]
+                + list(np.arange(len(shape_all) - 1))
+                + list(len(shape_all) + np.arange(len(shape_each)))
+        )
+    )
+    return out
+
+def demo_meshfun():
+    out = meshfun([(1,2), (10, 20, 30)], lambda a, b: a + b * 10)
+    # out[i,j] = fun(arg0[i], arg1[j])
+    print(out)
+
+    out1, out2 = meshfun(
+        [(1,2), (10, 20, 30)],
+        lambda a, b: (a + b * 10, a + b),
+        n_out=2
+    )
+    # out1[i,j], out2[i,j] = fun(arg0[i], arg1[j])
+    print(out1)
+    print(out2)
+
+    return out, out1, out2
+
 #%% Type
 def ____TYPE____():
     pass
@@ -375,3 +435,64 @@ def nansmooth(u, sigma=1.):
     r[isnan] = np.nan
 
     return r
+
+
+def convolve_time(src, kernel, dim_time=0, mode='same'):
+    """
+    @type src: np.ndarray
+    @type kernel: np.ndarray
+    @type dim_time: int
+    @rtype: np.ndarray
+    """
+    if kernel.ndim == 1 and kernel.ndim < dim_time + 1:
+        kernel = vec_on(kernel, dim_time, src.ndim)
+    if kernel.ndim < src.ndim:
+        kernel = np.expand_dims(
+            kernel,
+            np.arange(kernel.ndim, src.ndim)
+        )
+    if np.mod(kernel.shape[dim_time], 2) != 1:
+        pad_width = np.zeros((kernel.ndim, 2), dtype=np.long)
+        pad_width[dim_time, 1] = 1
+        kernel = np.pad(kernel, pad_width, mode='constant')
+
+    len_kernel_half = (kernel.shape[dim_time] - 1) // 2
+    pad_width = np.zeros((src.ndim, 2), dtype=np.long)
+    pad_width[dim_time, :] = len_kernel_half
+    src = np.pad(src, pad_width, mode='constant')
+
+    from scipy import ndimage
+    dst = ndimage.convolve(src, kernel, mode='constant')
+    dst = np.moveaxis(dst, dim_time, 0)
+
+    if mode == 'same':
+        dst = dst[:-(len_kernel_half * 2)]
+    elif mode == 'full':
+        pass
+    else:
+        raise ValueError('Unsupported mode=%s' % mode)
+    dst = np.moveaxis(dst, 0, dim_time)
+    return dst
+
+
+def demo_convolve_time():
+    # src = np.ones(3)
+    src = np.array([1., 0., 0., 0., 0.])
+    kernel = np.array([2., 3., 1., 0.])
+    res = convolve_time(src, kernel, mode='same')
+
+    from matplotlib import pyplot as plt
+    plt.plot(kernel, 'b-')
+    plt.plot(res, 'ro')
+    plt.show()
+    print(res)
+    print((src.shape, kernel.shape, res.shape))
+
+    src2 = vec_on(src, 2, 3)
+    res = convolve_time(src2, kernel, dim_time=2)
+
+    plt.plot(kernel, 'b-')
+    plt.plot(res.flatten(), 'ro')
+    plt.show()
+    print(res)
+    print((src2.shape, kernel.shape, res.shape))
