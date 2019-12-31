@@ -87,7 +87,7 @@ def dict_shapes(d):
         else:
             sh1 = 1
             compo = None
-        sh[k] = (type(v), compo, sh1)
+        sh[k] = (sh1, type(v), compo)
     return sh
 
 def DataFrame(dat):
