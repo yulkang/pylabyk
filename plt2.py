@@ -325,7 +325,9 @@ def ____Psychophysics____():
 def plot_binned_ch(x0, ch, n_bin=9, **kw):
     ix, x = np2.quantilize(x0, n_quantile=n_bin, return_summary=True)
     p = npg.aggregate(ix, ch, func='mean')
-    se = npg.aggregate(ix, ch, func=np2.sem)
+    sd = npg.aggregate(ix, ch, func='std')
+    n = npg.aggregate(ix, 1, func='sum')
+    se = sd / np.sqrt(n)
     
     h = plt.errorbar(x, p, yerr=se, **kw)
     
