@@ -350,7 +350,7 @@ def t(tensor):
 
 def permute2st(v, ndim_en=1):
     """
-    Permute last ndim_en of tensor v to the first
+    Permute last ndim_en of an array v to the first
     :type v: torch.Tensor
     :type ndim_en: int
     :rtype: torch.Tensor
@@ -359,9 +359,10 @@ def permute2st(v, ndim_en=1):
     return v.permute([*range(-ndim_en, 0)] + [*range(nd - ndim_en)])
 p2st = permute2st
 
+
 def permute2en(v, ndim_st=1):
     """
-    Permute last ndim_en of tensor v to the first
+    Permute first ndim_en of an array v to the last
     :type v: torch.Tensor
     :type ndim_st: int
     :rtype: torch.Tensor
@@ -369,6 +370,7 @@ def permute2en(v, ndim_st=1):
     nd = v.ndimension()
     return v.permute([*range(ndim_st, nd)] + [*range(ndim_st)])
 p2en = permute2en
+
 
 #%% Indices
 def ____INDICES____():

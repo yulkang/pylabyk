@@ -115,20 +115,57 @@ def DataFrame(dat):
             l.append(pd.DataFrame(v, columns=ix))
     return pd.concat(l, axis=1)
 
+
+def permute2st(v, ndim_en=1):
+    """
+    Permute last ndim_en of tensor v to the first
+    @type v: np.ndarray
+    @type ndim_en: int
+    @rtype: np.ndarray
+    """
+    nd = v.ndim
+    return v.transpose([*range(-ndim_en, 0)] + [*range(nd - ndim_en)])
+p2st = permute2st
+
+
+def permute2en(v, ndim_st=1):
+    """
+    Permute last ndim_en of tensor v to the first
+    :type v: np.ndarray
+    :type ndim_st: int
+    :rtype: np.ndarray
+    """
+    nd = v.ndim
+    return v.transpose([*range(ndim_st, nd)] + [*range(ndim_st)])
+p2en = permute2en
+
+
 #%%
 def ____BATCH____():
     pass
 
-def meshfun(list_args, fun, n_out=1):
+
+def meshfun(fun, list_args, n_out=1, dtype=None, outshape_first=False):
     """
     EXAMPLE:
     out[i,j] = fun(list_args[0][i], list_args[1][j])
-    @type list_args: Iterable[Iterable]
     @type fun: function
+    @type list_args: Iterable
+    @type n_out: int
+    @type dtype: Iterable
+    @param dtype: Iterable of dtype for each output; give None for
+    default
+    @param outshape_first:  If False (default), each output's shape is
+    all args' shapes and the individual output's shape, concatenated
+    in order. If True, the individual output shape comes first.
     @rtype: np.ndarray
+    @return: tuple of outputs, each an np.ndarray.
+    shape first.
     """
     shape_all = ()
     list_args1 = []
+    if dtype is None:
+        dtype = [None] * n_out
     for arg in list_args:
         try:
             shape_all += arg.shape
@@ -136,42 +173,77 @@ def meshfun(list_args, fun, n_out=1):
         except:
             shape_all += (len(arg),)
             list_args1 += [arg]
-    shape_all += (n_out,)
+    # shape_all += (n_out,)
     list_args1 = np.meshgrid(*list_args1, indexing='ij')
     for i in range(len(list_args1)):
         list_args1[i] = list_args1[i].flatten()
     res = []
     for args in zip(*list_args1):
-        res.append(fun(*args))
+        out1 = fun(*args)
+        if n_out == 1:
+            res.append([out1])
+        else:
+            res.append(list(out1))
     try:
         shape_each = res[0].shape[1:]
     except:
         shape_each = ()
-        pass
-    # shape_all += res[0].shape[1:]
-    out = np.transpose(
-        np.array(res).reshape(shape_all + shape_each, order='C'),
-        (
-                [len(shape_all) - 1]
-                + list(np.arange(len(shape_all) - 1))
-                + list(len(shape_all) + np.arange(len(shape_each)))
+    out = []
+    for i_out in range(n_out):
+        res1 = res[0][i_out]
+        try:
+            shape_each = res1.shape
+        except:
+            try:
+                shape_each = (len(res1),)
+            except:
+                shape_each = ()
+        out.append(
+            np.array(
+                [res1[i_out] for res1 in res],
+                dtype=dtype[i_out]
+            ).reshape(shape_all + shape_each, order='C')
         )
-    )
-    return out
+        if outshape_first:
+            out[-1] = p2st(out[-1], len(shape_each))
+    return tuple(out)
+
+    # out = np.transpose(
+    #     np.array(res).reshape(shape_all + shape_each, order='C'),
+    #     (
+    #             [len(shape_all) - 1]
+    #             + list(np.arange(len(shape_all) - 1))
+    #             + list(len(shape_all) + np.arange(len(shape_each)))
+    #     )
+    # )
+    # return out
 
 def demo_meshfun():
-    out = meshfun([(1,2), (10, 20, 30)], lambda a, b: a + b * 10)
+    out = meshfun(
+        lambda a, b: a + b * 10,
+        [(1,2), (10, 20, 30)]
+    )
     # out[i,j] = fun(arg0[i], arg1[j])
     print(out)
 
     out1, out2 = meshfun(
-        [(1,2), (10, 20, 30)],
         lambda a, b: (a + b * 10, a + b),
+        [(1,2), (10, 20, 30)],
         n_out=2
     )
     # out1[i,j], out2[i,j] = fun(arg0[i], arg1[j])
     print(out1)
     print(out2)
+
+    out1, out2 = meshfun(
+        lambda a, b: ([a, a + b], [a, a + b]),
+        [(1,2), (10, 20, 30)],
+        n_out=2,
+        dtype=[None, np.object]
+    )
+    # out1[i,j], out2[i,j] = fun(arg0[i], arg1[j])
+    print((out1, out1.shape, out1.dtype))
+    print((out2, out2.shape, out2.dtype))
 
     return out, out1, out2
 
