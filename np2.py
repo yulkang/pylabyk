@@ -194,10 +194,13 @@ def meshfun(fun, list_args, n_out=1, dtype=None, outshape_first=False):
         try:
             shape_each = res1.shape
         except:
-            try:
-                shape_each = (len(res1),)
-            except:
+            if isinstance(res1, dict):
                 shape_each = ()
+            else:
+                try:
+                    shape_each = (len(res1),)
+                except:
+                    shape_each = ()
         out.append(
             np.array(
                 [res1[i_out] for res1 in res],
