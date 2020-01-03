@@ -340,35 +340,6 @@ def expand_upto_dim(args, dim, to_expand_left=True):
         #         + list(max_shape / torch.tensor(arg.shape[:dim]))))
     return tuple(out2)
 
-def vec2matmul(vec):
-    """
-    :type vec: torch.Tensor
-    :rtype: torch.Tensor
-    """
-    return vec.unsqueeze(-1)
-v2m = vec2matmul
-
-def matmul2vec(mm):
-    """
-    :type mm: torch.Tensor
-    :rtype: torch.Tensor
-    """
-    return mm.squeeze(-1)
-m2v = matmul2vec
-
-def matsum(*tensors):
-    """
-    Apply expand_upto_dim(tensors, -2) before adding them together,
-    consistent with torch.matmul()
-    :param tensors: iterable of tensors
-    :return: sum of tensors, expanded except for the last two dimensions.
-    """
-    tensors = expand_upto_dim(tensors, -2)
-    res = 0.
-    for tensor in tensors:
-        res = res + tensor
-    return res
-
 #%% Permute
 def ____PERMUTE____():
     pass
@@ -598,6 +569,60 @@ def bootstrap(fun, samp, n_boot=100):
 #%% Linear algebra
 def ____LINEAR_ALGEBRA____():
     pass
+
+
+def vec2mat0(vec):
+    """Vector dim comes first, unlike v2m"""
+    return torch.unsqueeze(vec, 1)
+v2m0 = vec2mat0
+
+
+def mat2vec0(mat):
+    """Matrix dims come first, unlike v2m"""
+    return torch.squeeze(mat, 1)
+m2v0 = mat2vec0
+
+
+def matmul0(a, b):
+    """Matrix dims come first, unlike torch.matmul"""
+    return p2st(p2en(a, 2) @ p2en(b, 2), 2)
+mm0 = matmul0
+
+
+def matvecmul0(mat, vec):
+    """Matrix and vec dims come first. Vec is expanded to mat first."""
+    return m2v0(matmul0(mat, torch.unsqueeze(vec, 1)))
+mvm0 = matvecmul0
+
+
+def vec2matmul(vec):
+    """
+    :type vec: torch.Tensor
+    :rtype: torch.Tensor
+    """
+    return vec.unsqueeze(-1)
+v2m = vec2matmul
+
+def matmul2vec(mm):
+    """
+    :type mm: torch.Tensor
+    :rtype: torch.Tensor
+    """
+    return mm.squeeze(-1)
+m2v = matmul2vec
+
+def matsum(*tensors):
+    """
+    Apply expand_upto_dim(tensors, -2) before adding them together,
+    consistent with torch.matmul()
+    :param tensors: iterable of tensors
+    :return: sum of tensors, expanded except for the last two dimensions.
+    """
+    tensors = expand_upto_dim(tensors, -2)
+    res = 0.
+    for tensor in tensors:
+        res = res + tensor
+    return res
 
 def get_jacobian(net, x, noutputs):
     """
