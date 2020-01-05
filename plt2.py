@@ -249,6 +249,44 @@ def imshow_discrete(x, shade=None,
         
     plt.imshow(c, **kw)
 
+
+def plot_pcolor(x, y, c=None, norm=None, **kwargs):
+    """
+    Parametric color line.
+
+    Based on https://scipy-cookbook.readthedocs.io/items/Matplotlib_MulticoloredLine.html
+    :param x: 1D array
+    :type x: np.ndarray
+    :param y: 1D array
+    :type y: np.ndarray
+    :param c: 1D array
+    :type c: np.ndarray
+    :type cmap: mpl.colors.Colormap
+    :param kwargs:
+    :rtype: mpl.collections.LineCollection
+    """
+    from matplotlib.collections import LineCollection
+
+    n = x.shape[0]
+    if c is None:
+        c = np.arange(n)
+    if norm is None:
+        norm = plt.Normalize(c.min(), c.max())
+
+    # Create a set of line segments so that we can color them individually
+    # This creates the points as a N x 1 x 2 array so that we can stack points
+    # together easily to get the segments. The segments array for line collection
+    # needs to be numlines x points per line x 2 (x and y)
+    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+
+    # Create the line collection object, setting the colormapping parameters.
+    # Have to set the actual values used for colormapping separately.
+    lc = LineCollection(segments, norm=norm, **kwargs)
+    lc.set_array(c)
+    plt.gca().add_collection(lc)
+    return lc
+
 #%% Errorbar
 def ____Errorbar____():
     pass
