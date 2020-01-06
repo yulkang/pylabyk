@@ -227,11 +227,17 @@ def argmin_margin(v, **kw):
     """argmin with margin. See argmax_margin for details."""
     return argmax_margin(-v, **kw)
 
-def sumto1(v, axis=None):
-    if type(v) is np.ndarray:
-        return v / v.sum(axis=axis, keepdims=True)
-    else: # v is torch.Tensor
-        return v / v.sum(axis, keepdim=True)
+def sumto1(v, axis=None, ignore_nan=True):
+    if ignore_nan:
+        if type(v) is np.ndarray:
+            return v / np.nansum(v, axis=axis, keepdims=True)
+        else:  # v is torch.Tensor
+            return v / v.nansum(axis, keepdim=True)
+    else:
+        if type(v) is np.ndarray:
+            return v / v.sum(axis=axis, keepdims=True)
+        else: # v is torch.Tensor
+            return v / v.sum(axis, keepdim=True)
 
 def nansem(v, axis=None, **kwargs):
     s = np.nanstd(v, axis=axis, **kwargs)
