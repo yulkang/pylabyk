@@ -287,6 +287,20 @@ def plot_pcolor(x, y, c=None, norm=None, **kwargs):
     plt.gca().add_collection(lc)
     return lc
 
+
+def plotmulti(xs, ys, cmap, ax=None, **kwargs):
+    if ax is None:
+        ax = plt.gca()
+    n = len(xs)
+    if type(cmap) is str:
+        cmap = plt.get_cmap(cmap)
+    colors = cmap(np.linspace(0, 1, n))
+    h = []
+    for x, y, color in zip(xs, ys, colors):
+        h.append(ax.plot(x, y, color=color, **kwargs))
+    return h
+
+
 def multiline(xs, ys, c=None, ax=None, **kwargs):
     """
     Plot lines with different colorings
