@@ -291,7 +291,9 @@ def plot_pcolor(x, y, c=None, norm=None, **kwargs):
 def plotmulti(xs, ys, cmap, ax=None, **kwargs):
     if ax is None:
         ax = plt.gca()
-    n = len(xs)
+    n = ys.shape[0]
+    if xs.ndim == 1:
+        xs = np.tile(xs[None, :], [n, 1])
     if type(cmap) is str:
         cmap = plt.get_cmap(cmap)
     colors = cmap(np.linspace(0, 1, n))
