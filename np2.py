@@ -90,6 +90,17 @@ def dict_shapes(d):
         sh[k] = (sh1, type(v), compo)
     return sh
 
+
+def listdict2dictlist(listdict):
+    """
+    @type listdict: list
+    @param listdict: list of dicts with the same keys
+    @return: dictlist: dict of lists of the same lengths
+    @rtype: dict
+    """
+    return {k: [d[k] for d in listdict] for k in listdict[0].keys()}
+
+
 def DataFrame(dat):
     """
     Converts dict with 1- or 2-D np.ndarrays into DataFrame
