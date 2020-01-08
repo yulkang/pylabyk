@@ -287,6 +287,60 @@ def plot_pcolor(x, y, c=None, norm=None, **kwargs):
     plt.gca().add_collection(lc)
     return lc
 
+def multiline(xs, ys, c=None, ax=None, **kwargs):
+    """
+    Plot lines with different colorings
+
+    Adapted from: https://stackoverflow.com/a/50029441/2565317
+
+    Parameters
+    ----------
+    xs : iterable container of x coordinates
+    ys : iterable container of y coordinates
+    c : iterable container of numbers mapped to colormap
+    ax (optional): Axes to plot on.
+    kwargs (optional): passed to LineCollection
+
+    EXAMPLE:
+        xs = [[0, 1],
+              [0, 1, 2]]
+        ys = [[0, 0],
+              [1, 2, 1]]
+        c = [0, 1]
+
+        lc = multiline(xs, ys, c, cmap='bwr', lw=2)
+
+    Notes:
+        len(xs) == len(ys) == len(c) is the number of line segments
+        len(xs[i]) == len(ys[i]) is the number of points for each line (indexed by i)
+
+    Returns
+    -------
+    lc : LineCollection instance.
+    """
+    from matplotlib.collections import LineCollection
+
+    # find axes
+    ax = plt.gca() if ax is None else ax
+
+    n = len(xs)
+    if c is None:
+        c = np.linspace(0, 1, n)
+
+    # create LineCollection
+    segments = [np.column_stack([x, y]) for x, y in zip(xs, ys)]
+    lc = LineCollection(segments, **kwargs)
+
+    # set coloring of line segments
+    #    Note: I get an error if I pass c as a list here... not sure why.
+    lc.set_array(np.asarray(c))
+
+    # add lines to axes and rescale
+    #    Note: adding a collection doesn't autoscalee xlim/ylim
+    ax.add_collection(lc)
+    ax.autoscale()
+    return lc
+
 #%% Errorbar
 def ____Errorbar____():
     pass
