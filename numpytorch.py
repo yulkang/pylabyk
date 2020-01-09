@@ -104,7 +104,14 @@ def numpy(v):
     :type v: torch.Tensor
     :rtype: np.ndarray
     """
-    return v.clone().detach().numpy()
+    try:
+        return v.clone().detach().numpy()
+    except AttributeError:
+        # try:
+        assert isinstance(v, np.ndarray)
+        return v
+        # except AssertionError:
+        #     return np.array(v)
 npy = numpy
 
 def npys(*args):
