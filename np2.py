@@ -91,6 +91,20 @@ def dict_shapes(d):
     return sh
 
 
+def filt_dict(d, incl):
+    """
+    @type d: dict
+    @type incl: np.ndarray
+    @rtype: dict
+    """
+    return {
+        k: (v[incl] if (isinstance(v, np.ndarray)
+                        and v.shape[0] == incl.shape[0])
+            else v)
+        for k, v in d.items()
+    }
+
+
 def listdict2dictlist(listdict):
     """
     @type listdict: list
