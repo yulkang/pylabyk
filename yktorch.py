@@ -4,16 +4,39 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+
+#%% Options
+"""
+1. Use OverriddenParameter
+Pros
+: can assign to slice
+: can use autocompletion
+Cons
+: need to use [:] to refer to the whole tensor
+
+2. Use BoundedModule.register_()
+Pros
+: ?
+Cons
+: cannot assign to slice without using setslice()
+"""
+
 #%% Bounded parameters (under construction)
 # this is for better autocompletion, etc.
 # it should run backward() on the variables hidden in it.
 # See torch.tensor.Tensor for more.
 
 class OverriddenParameter(nn.Module):
-    def __init__(self, data, *args, **kwargs):
+    """
+    In operations requiring the whole parameter, use param[:] instead of
+    param itself. For example, use result = param[:] + 1. Use this
+    instead of param.v, because param[:] allows the code to
+    work when param is substituted with another tensor.
+    """
+
+    def __init__(self, *args, **kwargs):
         super().__init__()
         self.epsilon = 1e-6
-        self._param = self._init_param(data, *args, **kwargs)
 
     @property
     def v(self):
@@ -37,10 +60,11 @@ class OverriddenParameter(nn.Module):
 
 
 class BoundedParameter(OverriddenParameter):
-    def _init_param(self, data, lb=0., ub=1.):
+    def __init__(self, data, lb=0., ub=1.):
+        super().__init__(data, lb=lb, ub=ub)
         self.lb = lb
         self.ub = ub
-        return nn.Parameter(self._data2param(data))
+        self._param = nn.Parameter(self._data2param(data))
 
     def _data2param(self, data):
         lb = self.lb
@@ -75,22 +99,55 @@ class BoundedParameter(OverriddenParameter):
 
 
 class ProbabilityParameter(nn.Module):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        raise NotImplementedError()
+    def __init__(self, prob, probdim=0):
+        super().__init__()
+        self.probdim = probdim
+        self._param = nn.Parameter(self.data2param(prob))
+
+    def _data2param(self, prob):
+        probdim = self.probdim
+        prob = enforce_float_tensor(prob)
+
+        prob[prob < self.epsilon] = self.epsilon
+        prob[prob > 1. - self.epsilon] = 1. - self.epsilon
+        prob = prob / torch.sum(prob, dim=probdim, keepdim=True)
+
+        return torch.log(prob)
+
+    def _param2data(self, conf):
+        return F.softmax(enforce_float_tensor(conf), dim=self.probdim)
+
 
 class CircularParameter(nn.Module):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        raise NotImplementedError()
+    def __init__(self, data, lb=0., ub=1.):
+        super().__init__()
+        data = enforce_float_tensor(data)
+        self.lb = lb
+        self.ub = ub
+        self._param = nn.Parameter(self._data2param(data))
+
+    def _data2param(self, data):
+        data = enforce_float_tensor(data)
+        return (data - self.lb) / (self.ub - self.lb) % 1.
+
+    def _param2data(self, param):
+        param = enforce_float_tensor(param)
+        return param * (self.ub - self.lb) + self.lb
+
 
 #%% Bounded fit class
+class LookUp(object):
+    pass
+
 class BoundedModule(nn.Module):
     def __init__(self):
         super().__init__()
         self._params_bounded = {} # {name:(lb, ub)}
         self._params_probability = {} # {name:probdim}
         self._params_circular = {} # {name:(lb, ub)}
+        self.params_bounded = LookUp()
+        self.params_probability = LookUp()
+        self.params_circular = LookUp()
         self.epsilon = 1e-6
 
     def setslice(self, name, index, value):
@@ -104,6 +161,7 @@ class BoundedModule(nn.Module):
         self._params_bounded[name] = {'lb':lb, 'ub':ub}
         param = self._bounded_data2param(data, lb, ub)
         self.register_parameter('_bounded_' + name, nn.Parameter(param))
+        self.params_bounded.__dict__[name] = None # just a reminder
 
     def _bounded_data2param(self, data, lb=0., ub=1.):
         data = enforce_float_tensor(data)
@@ -140,6 +198,7 @@ class BoundedModule(nn.Module):
         self._params_probability[name] = {'probdim':probdim}
         self.register_parameter('_conf_' + name,
                                 nn.Parameter(self._prob2conf(prob)))
+        self.params_probability.__dict__[name] = None
 
     def _prob2conf(self, prob, probdim=0):
         prob = enforce_float_tensor(prob)
@@ -160,6 +219,7 @@ class BoundedModule(nn.Module):
         self._params_circular[name] = {'lb':lb, 'ub':ub}
         param = self._circular_data2param(data, lb, ub)
         self.register_parameter('_circular_' + name, nn.Parameter(param))
+        self.params_circular.__dict__[name] = None
 
     def _circular_data2param(self, data, lb=0., ub=1.):
         data = enforce_float_tensor(data)
@@ -287,8 +347,10 @@ def enforce_float_tensor(v):
     :type v: torch.Tensor, np.ndarray
     :rtype: torch.DoubleTensor, torch.FloatTensor
     """
-    if not torch.is_tensor(v) or not torch.is_floating_point(v):
+    if not torch.is_tensor(v):
         return torch.tensor(v, dtype=torch.get_default_dtype())
+    elif not torch.is_floating_point(v):
+        return v.float()
     else:
         return v
 
