@@ -65,6 +65,8 @@ class BoundedParameter(OverriddenParameter):
         self.lb = lb
         self.ub = ub
         self._param = nn.Parameter(self._data2param(data))
+        assert self._param.ndim > 0, \
+            'scalar unallowed to enforce use of [:]'
 
     def _data2param(self, data):
         lb = self.lb
@@ -98,11 +100,13 @@ class BoundedParameter(OverriddenParameter):
             return (1 / (1 + torch.exp(-param))) * (ub - lb) + lb
 
 
-class ProbabilityParameter(nn.Module):
+class ProbabilityParameter(OverriddenParameter):
     def __init__(self, prob, probdim=0):
         super().__init__()
         self.probdim = probdim
-        self._param = nn.Parameter(self.data2param(prob))
+        self._param = nn.Parameter(self._data2param(prob))
+        assert self._param.ndim > 0, \
+            'scalar unallowed to enforce use of [:]'
 
     def _data2param(self, prob):
         probdim = self.probdim
@@ -118,13 +122,15 @@ class ProbabilityParameter(nn.Module):
         return F.softmax(enforce_float_tensor(conf), dim=self.probdim)
 
 
-class CircularParameter(nn.Module):
+class CircularParameter(OverriddenParameter):
     def __init__(self, data, lb=0., ub=1.):
         super().__init__()
         data = enforce_float_tensor(data)
         self.lb = lb
         self.ub = ub
         self._param = nn.Parameter(self._data2param(data))
+        assert self._param.ndim > 0, \
+            'scalar unallowed to enforce use of [:]'
 
     def _data2param(self, data):
         data = enforce_float_tensor(data)
