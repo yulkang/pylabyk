@@ -8,19 +8,78 @@ from torch.nn import functional as F
 # this is for better autocompletion, etc.
 # it should run backward() on the variables hidden in it.
 # See torch.tensor.Tensor for more.
-class BoundedParameter(nn.Parameter):
-    def __init__(self, *args, lb=0., ub=1., **kwargs):
-        super().__init__(*args, **kwargs)
-        self.lb = lb
-        self.ub = ub
+
+class OverriddenParameter(nn.Module):
+    def __init__(self, data, *args, **kwargs):
+        super().__init__()
+        self.epsilon = 1e-6
+        self._param = self._init_param(data, *args, **kwargs)
+
+    @property
+    def v(self):
+        return self._param2data(self._param)
+
+    @v.setter
+    def v(self, data):
+        self._param = self._data2param(data)
+
+    def __getitem__(self, key):
+        return self.v[key]
+
+    def __setitem__(self, key, data):
+        self._param[key] = self._data2param(data)
+
+    def _param2data(self, param):
         raise NotImplementedError()
 
-class ProbabilityParameter(nn.Parameter):
+    def _data2param(self, data):
+        raise NotImplementedError()
+
+
+class BoundedParameter(OverriddenParameter):
+    def _init_param(self, data, lb=0., ub=1.):
+        self.lb = lb
+        self.ub = ub
+        return nn.Parameter(self._data2param(data))
+
+    def _data2param(self, data):
+        lb = self.lb
+        ub = self.ub
+        data = enforce_float_tensor(data)
+        if lb is None and ub is None:# Unbounded
+            return data
+        elif lb is None:
+            data[data > ub - self.epsilon] = ub - self.epsilon
+            return torch.log(ub - data)
+        elif ub is None:
+            data[data < lb + self.epsilon] = lb + self.epsilon
+            return torch.log(data - lb)
+        else:
+            data[data < lb + self.epsilon] = lb + self.epsilon
+            data[data > ub - self.epsilon] = ub - self.epsilon
+            p = (data - lb) / (ub - lb)
+            return torch.log(p) - torch.log(1. - p)
+
+    def _param2data(self, param):
+        lb = self.lb
+        ub = self.ub
+        param = enforce_float_tensor(param)
+        if lb is None and ub is None: # Unbounded
+            return param
+        elif lb is None:
+            return ub - torch.exp(param)
+        elif ub is None:
+            return lb + torch.exp(param)
+        else:
+            return (1 / (1 + torch.exp(-param))) * (ub - lb) + lb
+
+
+class ProbabilityParameter(nn.Module):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         raise NotImplementedError()
 
-class CircularParameter(nn.Parameter):
+class CircularParameter(nn.Module):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         raise NotImplementedError()
@@ -128,12 +187,15 @@ class BoundedModule(nn.Module):
 
     # Get/set
     def __getattr__(self, item):
-        if item in ['_params_bounded', '_params_probability',
-                    '_params_circular']:
-            try:
-                return super(BoundedModule, self).__getattribute__(item)
-            except:
-                return {}
+        if item[0] == '_':
+            return super(BoundedModule, self).__getattribute__(item)
+
+        # if item in ['_modules', '_params_bounded', '_params_probability',
+        #             '_params_circular']:
+        #     try:
+        #         return super(BoundedModule, self).__getattribute__(item)
+        #     except:
+        #         return {}
 
         if hasattr(self, '_params_bounded'):
             _params = self.__dict__['_params_bounded']
@@ -160,10 +222,27 @@ class BoundedModule(nn.Module):
                 return self._circular_param2data(param, **info)
 
         return super().__getattr__(item)
+        # v = super().__getattr__(item)
+        # if isinstance(v, OverriddenParameter):
+        #     return v.v
+        # else:
+        #     return v
 
     def __setattr__(self, item, value):
+        # if isinstance(value, OverriddenParameter):
+        #     super().__setattr__(item, value)
+        #     return
+
+        # if (hasattr(self, '_modules')
+        #         and item in self._modules
+        #         and isinstance(self._modules[item], OverriddenParameter)
+        # ):
+        #     self._modules[item].v = value
+        #     return
+
         if item in ['_params_bounded', '_params_probability']:
             self.__dict__[item] = value
+            return
 
         if hasattr(self, '_params_bounded'):
             _params = self._params_bounded
@@ -196,6 +275,12 @@ class BoundedModule(nn.Module):
                 return
 
         return super().__setattr__(item, value)
+
+    # def __delattr__(self, item):
+    #     if item in self._params_overridden:
+    #         self._params_overridden.remove(item)
+    #
+    #     super().__delattr__(item)
 
 def enforce_float_tensor(v):
     """
