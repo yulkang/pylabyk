@@ -455,6 +455,9 @@ def aggregate(subs, val=1., *args, **kwargs):
 def ____STATS____():
     pass
 
+def sem(v, dim=0):
+    return torch.std(v, dim=dim) / torch.sqrt(v.shape[dim])
+
 def entropy(tensor, *args, **kwargs):
     """
     :type tensor: torch.Tensor
