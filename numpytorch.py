@@ -425,6 +425,21 @@ def sumto1(v, dim=None, axis=None):
 def ____AGGREGATE____():
     pass
 
+def scatter_add(subs, val, dim=0, shape=None):
+    """
+    @param subs: ndim x n indices, suitable for np.ravel_multi_index
+    @type subs: Union[np.ndarray, torch.LongTensor])
+    @param val: n x ... values to add
+    @type val: torch.Tensor
+    @return:
+    """
+    if shape is None:
+        shape = [(np.amax(sub) + 1) for sub in subs]
+    idx = torch.LongTensor(np.ravel_multi_index(subs, shape))
+    return torch.zeros(np.prod(shape).astype(np.long)).scatter_add(
+        dim=dim, index=idx, src=val
+    ).reshape(shape)
+
 def aggregate(subs, val=1., *args, **kwargs):
     """
     :param subs: [dim, element]
@@ -433,7 +448,8 @@ def aggregate(subs, val=1., *args, **kwargs):
     """
 
     if type(subs) is tuple or type(subs) is list:
-        subs = np.concatenate(npys(*(sub.reshape(1,-1) for sub in subs)), 0)
+        subs = np.stack(subs)
+        # subs = np.concatenate(npys(*(sub.reshape(1,-1) for sub in subs)), 0)
     elif torch.is_tensor(subs):
         subs = npy(subs)
     return torch.tensor(npg.aggregate(subs, val, *args, **kwargs))
