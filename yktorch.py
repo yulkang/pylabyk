@@ -68,7 +68,7 @@ class OverriddenParameter(nn.Module):
 
 class BoundedParameter(OverriddenParameter):
     def __init__(self, data, lb=0., ub=1., **kwargs):
-        super().__init__(data, lb=lb, ub=ub, **kwargs)
+        super().__init__(**kwargs)
         self.lb = lb
         self.ub = ub
         self._param = nn.Parameter(self._data2param(data))
