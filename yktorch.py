@@ -34,9 +34,9 @@ class OverriddenParameter(nn.Module):
     work when param is substituted with another tensor.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, epsilon=1e-6, *args, **kwargs):
         super().__init__()
-        self.epsilon = 1e-6
+        self.epsilon = epsilon
 
     @property
     def v(self):
@@ -58,10 +58,17 @@ class OverriddenParameter(nn.Module):
     def _data2param(self, data):
         raise NotImplementedError()
 
+    def __str__(self):
+        indent = '  '
+        from textwrap import TextWrapper as TW
+        def f(s, **kwargs):
+            return TW(**kwargs).fill(s)
+        return str((self._param2data(self._param), type(self).__name__))
+
 
 class BoundedParameter(OverriddenParameter):
-    def __init__(self, data, lb=0., ub=1.):
-        super().__init__(data, lb=lb, ub=ub)
+    def __init__(self, data, lb=0., ub=1., **kwargs):
+        super().__init__(data, lb=lb, ub=ub, **kwargs)
         self.lb = lb
         self.ub = ub
         self._param = nn.Parameter(self._data2param(data))
@@ -101,8 +108,8 @@ class BoundedParameter(OverriddenParameter):
 
 
 class ProbabilityParameter(OverriddenParameter):
-    def __init__(self, prob, probdim=0):
-        super().__init__()
+    def __init__(self, prob, probdim=0, **kwargs):
+        super().__init__(**kwargs)
         self.probdim = probdim
         self._param = nn.Parameter(self._data2param(prob))
         assert self._param.ndim > 0, \
@@ -123,8 +130,8 @@ class ProbabilityParameter(OverriddenParameter):
 
 
 class CircularParameter(OverriddenParameter):
-    def __init__(self, data, lb=0., ub=1.):
-        super().__init__()
+    def __init__(self, data, lb=0., ub=1., **kwargs):
+        super().__init__(**kwargs)
         data = enforce_float_tensor(data)
         self.lb = lb
         self.ub = ub
@@ -340,6 +347,10 @@ class BoundedModule(nn.Module):
                 )
                 return
 
+        # if isinstance(value, OverriddenParameter):
+        #     if value.name is None:
+        #         value.name = item
+
         return super().__setattr__(item, value)
 
     # def __delattr__(self, item):
@@ -347,6 +358,28 @@ class BoundedModule(nn.Module):
     #         self._params_overridden.remove(item)
     #
     #     super().__delattr__(item)
+
+    def __str__(self):
+        def indent(s):
+            return ['  ' + s1 for s1 in s]
+        l = [
+            type(self).__name__
+        ]
+        for name, v in self._parameters_incl_bounded.items():
+            l += indent(
+                str((name, v)).split('\n')
+            )
+        for name, v in self._modules.items():
+            if isinstance(v, OverriddenParameter):
+                l += indent(
+                    [str((name, v._param2data(v._param)))]
+                )
+            else:
+                l += indent(['%s (%s)' % (name, type(v).__name__)]) + \
+                    indent(v.__str__().split('\n'))
+
+        return '\n'.join(l)
+
 
 def enforce_float_tensor(v):
     """
