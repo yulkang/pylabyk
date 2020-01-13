@@ -404,7 +404,7 @@ def ravel_multi_index(v, shape, **kwargs):
     return torch.tensor(np.ravel_multi_index(v, shape, **kwargs))
 
 #%% Algebra
-def sumto1(v, dim=None, axis=None):
+def sumto1(v, dim=None, axis=None, keepdim=True):
     """
     Make v sum to 1 across dim, i.e., make dim conditioned on the rest.
     dim can be a tuple.
@@ -419,7 +419,7 @@ def sumto1(v, dim=None, axis=None):
     if dim is None:
         return v / torch.sum(v)
     else:
-        return v / torch.sum(v, dim, keepdim=True)
+        return v / torch.sum(v, dim, keepdim=keepdim)
 
 #%% Aggregate
 def ____AGGREGATE____():
