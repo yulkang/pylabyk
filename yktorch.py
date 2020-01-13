@@ -72,8 +72,10 @@ class BoundedParameter(OverriddenParameter):
         self.lb = lb
         self.ub = ub
         self._param = nn.Parameter(self._data2param(data))
-        assert self._param.ndim > 0, \
-            'scalar unallowed to enforce use of [:]'
+        if self._param.ndim == 0:
+            raise Warning('Use ndim>0 to allow consistent use of [:]. '
+                          'If ndim=0, use paramname.v to access the '
+                          'value.')
 
     def _data2param(self, data):
         lb = self.lb
@@ -112,8 +114,10 @@ class ProbabilityParameter(OverriddenParameter):
         super().__init__(**kwargs)
         self.probdim = probdim
         self._param = nn.Parameter(self._data2param(prob))
-        assert self._param.ndim > 0, \
-            'scalar unallowed to enforce use of [:]'
+        if self._param.ndim == 0:
+            raise Warning('Use ndim>0 to allow consistent use of [:]. '
+                          'If ndim=0, use paramname.v to access the '
+                          'value.')
 
     def _data2param(self, prob):
         probdim = self.probdim
@@ -136,8 +140,10 @@ class CircularParameter(OverriddenParameter):
         self.lb = lb
         self.ub = ub
         self._param = nn.Parameter(self._data2param(data))
-        assert self._param.ndim > 0, \
-            'scalar unallowed to enforce use of [:]'
+        if self._param.ndim == 0:
+            raise Warning('Use ndim>0 to allow consistent use of [:]. '
+                          'If ndim=0, use paramname.v to access the '
+                          'value.')
 
     def _data2param(self, data):
         data = enforce_float_tensor(data)
