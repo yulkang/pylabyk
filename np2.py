@@ -629,3 +629,23 @@ def demo_convolve_time():
 
     pass
 
+
+def ____TIME____():
+    pass
+
+def timeit(fun, repeat=1):
+    """
+    :type repeat: long
+    :type fun: function
+    :return: t_en - t_st, output from the function
+    :rtype: (float, tuple)
+    """
+    import time
+
+    assert repeat >= 1
+    out = None
+    t_st = time.time()
+    for i in range(repeat):
+        out = fun()
+    t_en = time.time()
+    return t_en - t_st, out
