@@ -168,6 +168,7 @@ def vec_on_dim(v, dim, ndim):
     shape = [1] * ndim
     shape[dim] = -1
     return v.view(shape)
+vec_on = vec_on_dim
 
 def repeat_all(*args, shape=None, use_expand=False):
     """
