@@ -633,10 +633,12 @@ def demo_convolve_time():
 def ____TIME____():
     pass
 
-def timeit(fun, repeat=1):
+def timeit(fun, *args, repeat=1, return_out=False, **kwargs):
     """
+    Accepts function, args, and kwargs; can return the output too.
     :type repeat: long
     :type fun: function
+    :type return_out: bool
     :return: t_en - t_st, output from the function
     :rtype: (float, tuple)
     """
@@ -646,6 +648,10 @@ def timeit(fun, repeat=1):
     out = None
     t_st = time.time()
     for i in range(repeat):
-        out = fun()
+        out = fun(*args, **kwargs)
     t_en = time.time()
-    return t_en - t_st, out
+    t_el = t_en - t_st
+    if return_out:
+        return t_el, out
+    else:
+        return t_el
