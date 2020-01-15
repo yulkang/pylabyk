@@ -414,6 +414,7 @@ def sumto1(v, dim=None, axis=None, keepdim=True):
     :param dim: dimensions to be conditioned upon the rest.
     :param axis: if given, overrides dim.
     :return: tensor of the same shape as v.
+    :rtype: torch.Tensor
     """
     if axis is not None:
         dim = axis
