@@ -115,6 +115,10 @@ def listdict2dictlist(listdict):
     return {k: [d[k] for d in listdict] for k in listdict[0].keys()}
 
 
+def dictkeys(d, keys):
+    return [d[k] for k in keys]
+
+
 def DataFrame(dat):
     """
     Converts dict with 1- or 2-D np.ndarrays into DataFrame
