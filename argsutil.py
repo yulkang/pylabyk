@@ -102,6 +102,11 @@ def merge_fileargs(list_of_kws, **kwargs):
     return merge_subdict_recur(kwdefs(list_of_kws, **kwargs))
 
 def dict2fname(d, skip_None=True):
+    """
+    :type d: Union[odict, dict]
+    :param skip_None:
+    :return:
+    """
     def to_include(k):
         if skip_None:
             return d[k] is not None
