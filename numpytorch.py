@@ -531,9 +531,16 @@ def mvnrnd(mu, sigma, sample_shape=()):
     d = MultivariateNormal(loc=mu, covariance_matrix=sigma)
     return d.rsample(sample_shape)
 
-def normrnd(mu=0., sigma=1., sample_shape=()):
+def normrnd(mu=0., sigma=1., sample_shape=(), return_distrib=False):
     d = Normal(loc=mu, scale=sigma)
-    return d.rsample(sample_shape)
+    s = d.rsample(sample_shape)
+    if return_distrib:
+        return s, d
+    else:
+        return s
+
+def log_normpdf(sample, mu=0., sigma=1.):
+    return Normal(mloc=mu, scale=sigma).log_prob(sample)
 
 def categrnd(probs):
     return torch.multinomial(probs, 1)
