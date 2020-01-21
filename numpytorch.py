@@ -560,6 +560,13 @@ def categrnd(probs):
     return torch.multinomial(probs, 1)
 
 def mvnpdf_log(x, mu=None, sigma=None):
+    """
+    :param x: [batch, ndim]
+    :param mu: [batch, ndim]
+    :param sigma: [batch, ndim, ndim]
+    :return: log_prob [batch]
+    :rtype: torch.FloatTensor
+    """
     if mu is None:
         mu = torch.tensor([0.])
     if sigma is None:
