@@ -560,6 +560,11 @@ def normrnd(mu=0., sigma=1., sample_shape=(), return_distrib=False):
         return s, d
     else:
         return s
+    s = d.rsample(sample_shape)
+    if return_distrib:
+        return s, d
+    else:
+        return s
 
 def log_normpdf(sample, mu=0., sigma=1.):
     return Normal(mloc=mu, scale=sigma).log_prob(sample)
