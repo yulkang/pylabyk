@@ -554,6 +554,15 @@ def mvnrnd(mu, sigma, sample_shape=()):
     return d.rsample(sample_shape)
 
 def normrnd(mu=0., sigma=1., sample_shape=(), return_distrib=False):
+    """
+
+    @param mu:
+    @param sigma:
+    @param sample_shape:
+    @type return_distrib: bool
+    @rtype: Union[(torch.Tensor, torch.distributions.Distribution),
+    torch.Tensor]
+    """
     d = Normal(loc=mu, scale=sigma)
     s = d.rsample(sample_shape)
     if return_distrib:
