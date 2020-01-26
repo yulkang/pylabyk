@@ -313,7 +313,7 @@ def plot_pcolor(x, y, c=None, norm=None, **kwargs):
     return lc
 
 
-def plotmulti(xs, ys, cmap, ax=None, **kwargs):
+def plotmulti(xs, ys, cmap='coolwarm', ax=None, **kwargs):
     if ax is None:
         ax = plt.gca()
     n = ys.shape[0]
