@@ -75,6 +75,9 @@ def ____Axes_Limits____():
 def sameaxes(ax, ax0=None, xy='xy'):
     """
     Match the chosen limits of axes in ax to ax0's (if given) or the max range.
+    Also consider: ax1.get_shared_x_axes().join(ax1, ax2)
+    Optionally followed by ax1.set_xticklabels([]); ax2.autoscale()
+    See: https://stackoverflow.com/a/42974975/2565317
     :param ax: np.ndarray (as from subplotRCs) or list of axes.
     :param ax0: a scalar axes to match limits to. if None (default),
     match the maximum range among axes in ax.
@@ -106,6 +109,28 @@ def sameaxes(ax, ax0=None, xy='xy'):
                 ax1.set_ylim(lims0)
         lims_res.append(lims0)
     return lims_res
+
+
+def lim_symmetric(xy='y', lim=None, ax=None):
+    """
+    @type xy: str
+    @type lim: float
+    @type ax: plt.Axes
+    @return: None
+    """
+    assert xy == 'x' or xy == 'y', 'xy must be "x" or "y"!'
+    if ax is None:
+        ax = plt.gca()
+    if lim is None:
+        if xy == 'x':
+            lim = np.amax(ax.get_xlim())
+        else:
+            lim = np.amax(ax.get_ylim())
+    if xy == 'x':
+        ax.set_xlim(-lim, +lim)
+    else:
+        ax.set_ylim(-lim, +lim)
+
 
 def same_clim(images, ax0=None):
     if type(images) is np.ndarray:
