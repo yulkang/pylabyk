@@ -123,9 +123,9 @@ def lim_symmetric(xy='y', lim=None, ax=None):
         ax = plt.gca()
     if lim is None:
         if xy == 'x':
-            lim = np.amax(ax.get_xlim())
+            lim = np.amax(np.abs(ax.get_xlim()))
         else:
-            lim = np.amax(ax.get_ylim())
+            lim = np.amax(np.abs(ax.get_ylim()))
     if xy == 'x':
         ax.set_xlim(-lim, +lim)
     else:
