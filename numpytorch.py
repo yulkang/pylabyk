@@ -3,7 +3,8 @@ import torch
 import numpy_groupies as npg
 from matplotlib import pyplot as plt
 
-from torch.distributions import MultivariateNormal, Uniform, Normal
+from torch.distributions import MultivariateNormal, Uniform, Normal, \
+    Categorical
 
 #%% Wrapper that allows numpy-style syntax for torch
 def ____NUMPY_COMPATIBILITY____():

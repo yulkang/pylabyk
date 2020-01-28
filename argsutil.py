@@ -25,6 +25,8 @@ def kwdefault(kw_given, **kw_default):
     :param kw_default:
     :return:
     """
+    if kw_given is None:
+        kw_given = {}
     kw_given = odict(kw_given)
     kw_default = odict(kw_default)
     for k in kw_given:
