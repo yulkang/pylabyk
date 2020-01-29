@@ -174,6 +174,12 @@ def ____BATCH____():
     pass
 
 
+def arrayfun(fun, array):
+    shape = array.shape
+    array = [fun(v) for v in array.flatten()]
+    return np.array(array, dtype=np.object).reshape(shape)
+
+
 def meshfun(fun, list_args, n_out=1, dtype=None, outshape_first=False):
     """
     EXAMPLE:
