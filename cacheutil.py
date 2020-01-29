@@ -75,8 +75,11 @@ class Cache(object):
         :param ignore_key: bool.
         """
         if hash_fname:
-            fullpath = argsutil.fname2hash(fullpath)
-        self.fullpath = fullpath
+            self.fullpath_orig = fullpath
+            self.fullpath = argsutil.fname2hash(fullpath)
+        else:
+            self.fullpath_orig = fullpath
+            self.fullpath = fullpath
         self.verbose = verbose
         self.dict = {}
         self.to_save = False
@@ -125,7 +128,11 @@ class Cache(object):
         elif key is None:
             key = self.key
         if self.verbose and self.exists(key):
-            print('Loaded cache from %s' % self.fullpath)
+            if self.fullpath == self.fullpath_orig:
+                print('Loaded cache from %s' % self.fullpath)
+            else:
+                print('Loaded cache from\n%s\n= %s'
+                      % (self.fullpath, self.fullpath_orig))
         v = self.dict[self.format_key(key)]
 
         if subkeys is None:
@@ -186,9 +193,16 @@ class Cache(object):
         pth = os.path.dirname(self.fullpath)
         if not os.path.exists(pth) and pth != '':
             os.mkdir(pth)
+
+        self.dict['_fullpath_orig'] = self.fullpath_orig
         zipPickle.save(self.dict, self.fullpath)
         if self.verbose:
-            print('Saved cache to %s' % self.fullpath)
+            if self.fullpath_orig == self.fullpath:
+                print('Saved cache to %s'
+                      % self.fullpath)
+            else:
+                print('Saved cache to\n%s\n= %s'
+                      % (self.fullpath, self.fullpath_orig))
         # with open(self.fullpath, 'w+b') as cache_file:
         #     pickle.dump(self.dict, cache_file)
         #     if self.verbose:
