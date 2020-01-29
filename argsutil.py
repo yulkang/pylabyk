@@ -118,3 +118,24 @@ def dict2fname(d, skip_None=True):
 
 def rmkeys(d, keys):
     return {k:v for k, v in d.items() if k not in keys}
+
+
+def fname2hash(fullpath):
+    """
+    :param fullpath: only file name is hashed, saving ext or ext.zip
+    :type fullpath: string
+    :rtype: string
+    """
+    import hashlib
+    import os
+    pth, name_ext = os.path.split(fullpath)
+
+    name, ext = os.path.splitext(name_ext)
+    if ext == '.zip':
+        name, ext2 = os.path.splitext(name)
+    else:
+        ext2 = ''
+
+    name = hashlib.md5(name.encode('utf-8')).hexdigest()
+    name_ext = name + ext2 + ext
+    return os.path.join(pth, name_ext)

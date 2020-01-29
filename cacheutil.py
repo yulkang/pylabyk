@@ -32,7 +32,7 @@ val1, val2 = cache.getvalue([subkey1, subkey2])
 """
 
 import os
-from . import zipPickle
+from . import zipPickle, argsutil
 from collections import OrderedDict as odict
 from .argsutil import dict2fname
 from .argsutil import kwdef
@@ -66,7 +66,7 @@ class Cache(object):
     See example_cache_custom_file()
     """
     def __init__(self, fullpath='cache.pkl.zip', key=None, verbose=True,
-                 ignore_key=False):
+                 ignore_key=False, hash_fname=False):
         """
         :param fullpath: use cacheutil.dict2fname(dict) for human-readable
         names, or use 'cache.zpkl' if using an old cache file.
@@ -74,6 +74,8 @@ class Cache(object):
         :param verbose: bool.
         :param ignore_key: bool.
         """
+        if hash_fname:
+            fullpath = argsutil.fname2hash(fullpath)
         self.fullpath = fullpath
         self.verbose = verbose
         self.dict = {}
