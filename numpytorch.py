@@ -541,17 +541,20 @@ def test_softmax_bias():
     plt.show()
     print('--')
 
-#%% Distributions/Sampling
+
 def ____DISTRIBUTIONS_SAMPLING____():
     pass
+
 
 def rand(shape, low=0, high=1):
     d = Uniform(low=low, high=high)
     return d.rsample(shape)
 
+
 def mvnrnd(mu, sigma, sample_shape=()):
     d = MultivariateNormal(loc=mu, covariance_matrix=sigma)
     return d.rsample(sample_shape)
+
 
 def normrnd(mu=0., sigma=1., sample_shape=(), return_distrib=False):
     """
@@ -575,11 +578,14 @@ def normrnd(mu=0., sigma=1., sample_shape=(), return_distrib=False):
     else:
         return s
 
+
 def log_normpdf(sample, mu=0., sigma=1.):
     return Normal(mloc=mu, scale=sigma).log_prob(sample)
 
+
 def categrnd(probs):
     return torch.multinomial(probs, 1)
+
 
 def mvnpdf_log(x, mu=None, sigma=None):
     """
@@ -596,6 +602,50 @@ def mvnpdf_log(x, mu=None, sigma=None):
     d = MultivariateNormal(loc=mu,
                            covariance_matrix=sigma)
     return d.log_prob(x)
+
+
+def prad2unitvec(prad, dim=-1):
+    rad = prad * 2. * np.pi
+    return torch.stack([torch.cos(rad), torch.sin(rad)], dim=dim)
+
+
+def pconc2conc(pconc):
+    pconc = torch.clamp(pconc, min=1e-6, max=1-1e-6)
+    return 1. / (1. - pconc) - 1.
+
+
+def vmpdf_prad_pconc(prad, ploc, pconc, normalize=True):
+    """
+    :param prad: 0 to 1 maps to 0 to 2*pi radians
+    :param pconc: 0 to 1 maps to 0 to inf concentration
+    :rtype: torch.Tensor
+    """
+    return vmpdf(prad2unitvec(prad),
+                 prad2unitvec(ploc),
+                 pconc2conc(pconc),
+                 normalize=normalize)
+
+
+def vmpdf_a_given_b(a_prad, b_prad, pconc):
+    """
+
+    :param a_prad: between 0 and 1. Maps to 0 and 2*pi.
+    :type a_prad: torch.Tensor
+    :param b_prad: between 0 and 1. Maps to 0 and 2*pi.
+    :type b_prad: torch.Tensor
+    :param pconc: float
+    :return: p_a_given_b[index_a, index_b]
+    :rtype: torch.Tensor
+    """
+
+    dist = ((a_prad.reshape([-1, 1]) - b_prad.reshape([1, -1])) %
+            1.).double()
+    return sumto1(vmpdf_prad_pconc(
+        dist.flatten(), torch.tensor([0.]),
+        torch.tensor(pconc)
+    ).reshape([a_prad.numel(), b_prad.numel()]), 1)
+
+
 
 def vmpdf(x, mu, scale=None, normalize=True):
     from .hyperspherical_vae.distributions import von_mises_fisher as vmf

@@ -484,7 +484,7 @@ def subfigureRC(nr, nc, r, c, set_size=False, fig=None):
         c_size = mgr.window.geometry().getRect()
         mgr.window.setGeometry(QRect(st[0], st[1], c_size[2], c_size[3]))
 
-def ____FILE_IO____():
+def ____ANIMATION____():
     pass
 
 
