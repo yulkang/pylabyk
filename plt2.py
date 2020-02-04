@@ -9,15 +9,12 @@ Created on Tue Feb 13 10:42:06 2018
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-# import PyQt5
-from PyQt5.QtCore import QRect
-from PyQt5 import QtGui
+from typing import Union, Iterable
 
 import numpy_groupies as npg
 
 from . import np2
 
-#%% Subplots
 def ____Subplots____():
     pass
 
@@ -68,7 +65,6 @@ def rowtitle(rows, axes, pad=5):
 
     return np.array(labels)
 
-#%% Axes & limits
 def ____Axes_Limits____():
     pass
 
@@ -241,7 +237,6 @@ def tick_color(xy, ticks, labels, colors):
         _, labels = plt.yticks(ticks, labels)
         set_tick_colors(labels)
 
-#%% Heatmaps
 def ____Heatmaps____():
     pass
 
@@ -382,7 +377,6 @@ def multiline(xs, ys, c=None, ax=None, **kwargs):
     ax.autoscale()
     return lc
 
-#%% Errorbar
 def ____Errorbar____():
     pass
 
@@ -413,7 +407,6 @@ def errorbar_shade(x, y, yerr=None, **kw):
     h = plt.fill_between(x, y1, y2, **kw)
     return h
 
-#%% Psychophysics
 def ____Psychophysics____():
     pass
 
@@ -428,7 +421,6 @@ def plot_binned_ch(x0, ch, n_bin=9, **kw):
     
     return h, x, p, se
 
-#%% Stats/probability
 def ____Stats_Probability____():
     pass
 
@@ -438,7 +430,6 @@ def ecdf(x0, *args, **kw):
                     np.concatenate([np.array([0.]), p], 0),
                     *args, **kw)
 
-#%% Gaussian
 def ____Gaussian____():
     pass
 
@@ -469,7 +460,6 @@ def plot_centroid(mu=np.zeros(2), sigma=np.eye(2),
 
     return h, res
 
-#%% Window Management
 def ____Window_Management____():
     pass
 
@@ -477,9 +467,11 @@ def use_interactive():
     mpl.use('Qt5Agg')
 
 def get_screen_size():
+    from PyQt5 import QtGui
     return QtGui.QGuiApplication.screens()[0].geometry().getRect()[2:4]
 
 def subfigureRC(nr, nc, r, c, set_size=False, fig=None):
+    from PyQt5.QtCore import QRect
     siz = np.array(get_screen_size())
     siz1 = siz / np.array([nc, nr])
     st = siz1 * np.array([c-1, r-1])
@@ -491,3 +483,79 @@ def subfigureRC(nr, nc, r, c, set_size=False, fig=None):
     else:
         c_size = mgr.window.geometry().getRect()
         mgr.window.setGeometry(QRect(st[0], st[1], c_size[2], c_size[3]))
+
+def ____FILE_IO____():
+    pass
+
+
+def fig2array(fig, dpi=150):
+    """
+    Returns an image as numpy array from figure
+
+    Adapted from: https://stackoverflow.com/a/58641662/2565317
+    :type fig: plt.Figure
+    :type dpi: int
+    :rtype: np.ndarray
+    """
+    import io
+    import cv2
+    import numpy as np
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=dpi)
+    buf.seek(0)
+    img_arr = np.frombuffer(buf.getvalue(), dtype=np.uint8)
+    buf.close()
+    img = cv2.imdecode(img_arr, 1)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    return img
+
+
+def arrays2gif(arrays, file='ani.gif', duration=100, loop=0,
+                     **kwargs):
+    """
+    Convert numpy arrays, as from fig2array(), into gif.
+    :param arrays: arrays[i]: an [height,width,color]-array, e.g.,
+    from fig2array()
+    :type arrays: Union[Iterable, np.ndarray]
+    :param duration: of each frame, in ms
+    :param loop: 0 to loop forever, None not to loop
+    :rtype: Iterable[PIL.Image]
+    """
+    from PIL import Image, ImageDraw
+
+    height, width, n_channel = arrays[0].shape
+    images = []
+    for arr in arrays:
+        images.append(Image.fromarray(arr))
+
+    kwargs.update({
+        'duration': duration,
+        'loop': loop
+    })
+    if kwargs['loop'] is None:
+        kwargs.pop('loop')
+
+    images[0].save(
+        file,
+        save_all=True,
+        append_images=images[1:],
+        **kwargs
+    )
+    return images
+
+
+def convert_movie(src_file, ext_new='.mp4'):
+    """
+    Adapted from: https://stackoverflow.com/a/40726572/2565317
+    :param src_file: path to the source file, including extension
+    :type src_file: str
+    :type ext_new: str
+    """
+    import moviepy.editor as mp
+    import os
+
+    clip = mp.VideoFileClip(src_file)
+    pth, _ = os.path.splitext(src_file)
+    clip.write_videofile(pth + ext_new)
