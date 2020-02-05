@@ -2,6 +2,7 @@ from lib.pylabyk import cacheutil
 from lib.pylabyk import argsutil
 import os
 from collections import OrderedDict as odict
+from typing import Union, Iterable
 
 class LocalFile(object):
     def __init__(
@@ -29,7 +30,7 @@ class LocalFile(object):
 
     def get_file_cache(self, d, subdir=None):
         """
-        :type d: Union[list, dict, None]
+        :type d: Union[Iterable[tuple], dict, odict, None]
         :rtype: str
         """
         return os.path.join(
@@ -40,7 +41,7 @@ class LocalFile(object):
     def get_cache(self, cache_kind, d=None, subdir=None):
         """
         :type cache_kind: str
-        :type d: Union[list, dict, None]
+        :type d: Union[Iterable[tuple], dict, odict, None]
         :rtype: cacheutil.Cache
         """
         if d is None:
@@ -57,7 +58,7 @@ class LocalFile(object):
     def get_file_fig(self, fig_kind, d=None, ext='.png', subdir=None):
         """
         :type fig_kind: str
-        :type d: Union[list, dict, None]
+        :type d: Union[Iterable[tuple], dict, odict, None]
         :type ext: str
         :rtype: str
         """
