@@ -665,3 +665,17 @@ def timeit(fun, *args, repeat=1, return_out=False, **kwargs):
         return t_el, out
     else:
         return t_el
+
+
+def ____STRING____():
+    pass
+
+
+def filt_str(s, filt_preset='alphanumeric', replace_with='_'):
+    import re
+
+    if filt_preset == 'alphanumeric':
+        f = r'\W+'
+    else:
+        raise ValueError()
+    return re.sub(f, replace_with, s)
