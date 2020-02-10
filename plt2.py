@@ -463,32 +463,32 @@ def plot_centroid(mu=np.zeros(2), sigma=np.eye(2),
 def ____Window_Management____():
     pass
 
-# def use_interactive():
-#     mpl.use('Qt5Agg')
-#
-# def get_screen_size():
-#     from PyQt5 import QtGui
-#     return QtGui.QGuiApplication.screens()[0].geometry().getRect()[2:4]
-#
-# def subfigureRC(nr, nc, r, c, set_size=False, fig=None):
-#     from PyQt5.QtCore import QRect
-#     siz = np.array(get_screen_size())
-#     siz1 = siz / np.array([nc, nr])
-#     st = siz1 * np.array([c-1, r-1])
-#     if fig is None:
-#         fig = plt.gcf()
-#     mgr = fig.canvas.manager
-#     if set_size:
-#         mgr.window.setGeometry(QRect(st[0], st[1], siz1[0], siz1[1]))
-#     else:
-#         c_size = mgr.window.geometry().getRect()
-#         mgr.window.setGeometry(QRect(st[0], st[1], c_size[2], c_size[3]))
+def use_interactive():
+    mpl.use('Qt5Agg')
+
+def get_screen_size():
+    from PyQt5 import QtGui
+    return QtGui.QGuiApplication.screens()[0].geometry().getRect()[2:4]
+
+def subfigureRC(nr, nc, r, c, set_size=False, fig=None):
+    from PyQt5.QtCore import QRect
+    siz = np.array(get_screen_size())
+    siz1 = siz / np.array([nc, nr])
+    st = siz1 * np.array([c-1, r-1])
+    if fig is None:
+        fig = plt.gcf()
+    mgr = fig.canvas.manager
+    if set_size:
+        mgr.window.setGeometry(QRect(st[0], st[1], siz1[0], siz1[1]))
+    else:
+        c_size = mgr.window.geometry().getRect()
+        mgr.window.setGeometry(QRect(st[0], st[1], c_size[2], c_size[3]))
 
 def ____ANIMATION____():
     pass
 
 
-def fig2array(fig, dpi=150):
+def fig2array(fig, dpi=None):
     """
     Returns an image as numpy array from figure
 
@@ -500,6 +500,8 @@ def fig2array(fig, dpi=150):
     import io
     import cv2
     import numpy as np
+
+    dpi = fig.dpi
 
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=dpi)
