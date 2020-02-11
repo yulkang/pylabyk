@@ -501,7 +501,8 @@ def fig2array(fig, dpi=None):
     import cv2
     import numpy as np
 
-    dpi = fig.dpi
+    if dpi is None:
+        dpi = fig.dpi
 
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=dpi)
