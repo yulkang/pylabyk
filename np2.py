@@ -305,7 +305,21 @@ def sem(v, axis=0):
         return np.std(v) / np.sqrt(v.size)
     else:
         return np.std(v, axis=axis) / np.sqrt(v.shape[axis])
-    
+
+def wstd(values, weights, axis=None):
+    """
+    Return the weighted average and standard deviation.
+
+    from: https://stackoverflow.com/a/2415343/2565317
+
+    values, weights -- Numpy ndarrays with the same shape.
+    """
+    average = np.average(values, weights=weights, axis=axis)
+    # Fast and numerically precise:
+    variance = np.average((values - average) ** 2, weights=weights,
+                          axis=axis)
+    return np.sqrt(variance)
+
 def quantilize(v, n_quantile=5, return_summary=False, fallback_to_unique=True):
     """Quantile starting from 0. Array is flattened first."""
 
