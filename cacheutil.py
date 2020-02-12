@@ -91,6 +91,15 @@ class Cache(object):
         if os.path.exists(self.fullpath):
             self.dict = zipPickle.load(self.fullpath)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        try:
+            self.__del__()
+        except:
+            raise Warning()
+
     def format_key(self, key):
         """
         :param key: non-None object that converts into a string, e.g., locals()
