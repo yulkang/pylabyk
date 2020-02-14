@@ -5,6 +5,9 @@ See also Pytorch's own implementation, nn.utils.parameters_to_vector()
 and nn.utils.vector_to_parameters()
 https://pytorch.org/docs/stable/_modules/torch/nn/utils/convert_parameters.html
 
+For gradient-less methods, see:
+http://scipy-lectures.org/advanced/mathematical_optimization/#gradient-less-methods
+
 For an example, see the testing routine:
 https://github.com/pytorch/pytorch/pull/2795/files
 
@@ -83,6 +86,7 @@ class PyTorchObjective(object):
         if self.is_new(x):
             self.cache(x)
         return self.cached_f
+
 
     def jac(self, x):
         if self.is_new(x):
