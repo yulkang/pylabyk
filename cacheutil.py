@@ -96,7 +96,7 @@ class Cache(object):
 
     def __exit__(self, *args, **kwargs):
         try:
-            self.__del__()
+            self.__del__()  # duplicate
         except:
             raise Warning()
 
@@ -205,6 +205,7 @@ class Cache(object):
 
         self.dict['_fullpath_orig'] = self.fullpath_orig
         zipPickle.save(self.dict, self.fullpath)
+        self.to_save = False
         if self.verbose:
             if self.fullpath_orig == self.fullpath:
                 print('Saved cache to %s'
