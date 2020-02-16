@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import sparse
 import torch
 import numpy_groupies as npg
 from matplotlib import pyplot as plt
@@ -109,7 +110,7 @@ def numpy(v):
         return v.clone().detach().numpy()
     except AttributeError:
         # try:
-        assert isinstance(v, np.ndarray)
+        assert isinstance(v, np.ndarray) or sparse.isspmatrix(p_tran)
         return v
         # except AssertionError:
         #     return np.array(v)
