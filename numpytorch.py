@@ -110,7 +110,7 @@ def numpy(v):
         return v.clone().detach().numpy()
     except AttributeError:
         # try:
-        assert isinstance(v, np.ndarray) or sparse.isspmatrix(p_tran)
+        assert isinstance(v, np.ndarray) or sparse.isspmatrix(v)
         return v
         # except AssertionError:
         #     return np.array(v)
