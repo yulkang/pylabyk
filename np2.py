@@ -325,15 +325,15 @@ def wstd(values, weights, axis=None):
 
     values, weights -- Numpy ndarrays with the same shape.
     """
-    sum_weights = np.sum(weights, axis=axis, keepdims=True)
-    average = np.sum(values * weights, axis=axis, keepdims=True) / \
-              sum_weights
-    # average = np.average(values, weights=weights, axis=axis)
+    # sum_weights = np.sum(weights, axis=axis, keepdims=True)
+    # average = np.sum(values * weights, axis=axis, keepdims=True) / \
+    #           sum_weights
+    average = np.average(values, weights=weights, axis=axis)
     # Fast and numerically precise:
-    variance = np.sum((values - average) ** 2 * weights, keepdims=True) \
-               / sum_weights
-    # variance = np.average((values - average) ** 2, weights=weights,
-    #                       axis=axis)
+    # variance = np.sum((values - average) ** 2 * weights, keepdims=True) \
+    #            / sum_weights
+    variance = np.average((values - average) ** 2, weights=weights,
+                          axis=axis)
     return np.sqrt(variance)
 
 def quantilize(v, n_quantile=5, return_summary=False, fallback_to_unique=True):
