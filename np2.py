@@ -285,17 +285,28 @@ def demo_meshfun():
 
     return out, out1, out2
 
-#%% Type
+
 def ____TYPE____():
     pass
+
 
 def is_None(v):
     return v is None or (type(v) is np.ndarray and v.ndim == 0)
 
+
 def is_iter(v):
     return hasattr(v, '__iter__')
 
-#%% Stat
+
+def ____NAN____():
+    pass
+
+
+def nan2v(v0, v=0):
+    v0[np.isnan(v0)] = v
+    return v0
+
+
 def ____STAT____():
     pass
 
