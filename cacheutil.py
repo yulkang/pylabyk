@@ -107,6 +107,11 @@ class Cache(object):
         """
         return '%s' % key
 
+    def trash_file(self):
+        from send2trash import send2trash
+        send2trash(self.fullpath)
+        print('Sent a cache file to trash: %s' % self.fullpath)
+
     def exists(self, key=None):
         """
         :param key: non-None object that converts into a string, e.g., locals()
