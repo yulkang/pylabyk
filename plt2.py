@@ -107,6 +107,19 @@ def sameaxes(ax, ax0=None, xy='xy'):
     return lims_res
 
 
+def same_clim(images, img0=None):
+    if type(images) is np.ndarray:
+        images = images.reshape(-1)
+
+    if img0 is None:
+        clims = np.array([im.get_clim() for im in images])
+        clim = [np.amin(clims[:,0]), np.amax(clims[:,1])]
+    else:
+        clim = img0.get_clim()
+    for img in images:
+        img.set_clim(clim)
+
+
 def lim_symmetric(xy='y', lim=None, ax=None):
     """
     @type xy: str
@@ -128,19 +141,7 @@ def lim_symmetric(xy='y', lim=None, ax=None):
         ax.set_ylim(-lim, +lim)
 
 
-def same_clim(images, img0=None):
-    if type(images) is np.ndarray:
-        images = images.reshape(-1)
-
-    if img0 is None:
-        clims = np.array([im.get_clim() for im in images])
-        clim = [np.amin(clims[:,0]), np.amax(clims[:,1])]
-    else:
-        clim = img0.get_clim()
-    for img in images:
-        img.set_clim(clim)
-
-def beautify_psychometric(ax=None, 
+def beautify_psychometric(ax=None,
                           ylim=[0, 1],
                           y_margin=0.05,
                           axvline=False,
