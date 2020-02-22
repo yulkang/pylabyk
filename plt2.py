@@ -255,6 +255,47 @@ def cmap(name, **kw):
         
     return cmap
 
+
+def colormap2arr(arr,cmap):
+    """
+    https://stackoverflow.com/a/3722674/2565317
+
+    EXAMPLE:
+    arr=plt.imread('mri_demo.png')
+    values=colormap2arr(arr,cm.jet)
+    # Proof that it works:
+    plt.imshow(values,interpolation='bilinear', cmap=cm.jet,
+               origin='lower', extent=[-3,3,-3,3])
+    plt.show()
+
+    :param arr:
+    :param cmap:
+    :return:
+    """
+
+    import scipy.cluster.vq as scv
+
+    # http://stackoverflow.com/questions/3720840/how-to-reverse-color-map-image-to-scalar-values/3722674#3722674
+    gradient = cmap(np.linspace(0.0,1.0,100))
+
+    # Reshape arr to something like (240*240, 4), all the 4-tuples in a long list...
+    arr2 = arr.reshape((arr.shape[0]*arr.shape[1],arr.shape[2]))
+
+    # Use vector quantization to shift the values in arr2 to the nearest point in
+    # the code book (gradient).
+    code, dist = scv.vq(arr2,gradient)
+
+    # code is an array of length arr2 (240*240), holding the code book index for
+    # each observation. (arr2 are the "observations".)
+    # Scale the values so they are from 0 to 1.
+    values = code.astype('float')/gradient.shape[0]
+
+    # Reshape values back to (240,240)
+    values = values.reshape(arr.shape[0],arr.shape[1])
+    values = values[::-1]
+    return values
+
+
 def imshow_discrete(x, shade=None, 
                     colors=[[1,0,0],[0,1,0],[0,0,1]], 
                     color_shade=[1,1,1],
