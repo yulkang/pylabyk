@@ -38,6 +38,9 @@ from .argsutil import dict2fname
 from .argsutil import kwdef
 from .argsutil import rmkeys
 
+ignore_cache = False
+ignored_once = []
+
 def dict_except(d, keys_to_excl):
     return {k:d[k] for k in d if k not in keys_to_excl}
 
@@ -89,7 +92,10 @@ class Cache(object):
             self.key = self.format_key(key)
         self.ignore_key = ignore_key
         if os.path.exists(self.fullpath):
-            self.dict = zipPickle.load(self.fullpath)
+            if ignore_cache and self.fullpath not in ignored_once:
+                ignored_once.append(self.fullpath)
+            else:
+                self.dict = zipPickle.load(self.fullpath)
 
     def __enter__(self):
         return self
