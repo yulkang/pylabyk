@@ -51,7 +51,8 @@ class LocalFile(object):
         return cacheutil.Cache(
             self.get_file_cache(argsutil.kwdef(
                 argsutil.merge_fileargs(d),
-                [('cache', cache_kind)]
+                [('cache', cache_kind)],
+                sort_merged=False, sort_given=True, def_bef_given=True
             ), subdir=subdir)
         )
 
@@ -66,8 +67,10 @@ class LocalFile(object):
             d = {}
         return os.path.join(
             self.get_pth_out(subdir), cacheutil.dict2fname(
-                argsutil.kwdef(argsutil.merge_fileargs(d), [
-                    ('plt', fig_kind)
-                ])
+                argsutil.kwdef(
+                    argsutil.merge_fileargs(d),
+                    [('plt', fig_kind)],
+                    sort_merged=False, sort_given=True, def_bef_given=True
+                )
             ) + ext
         )
