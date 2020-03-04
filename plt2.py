@@ -315,7 +315,7 @@ def imshow_discrete(x, shade=None,
     plt.imshow(c, **kw)
 
 
-def plot_pcolor(x, y, c=None, norm=None, **kwargs):
+def plot_pcolor(x, y, c=None, norm=None, cmap=None, **kwargs):
     """
     Parametric color line.
 
@@ -347,7 +347,9 @@ def plot_pcolor(x, y, c=None, norm=None, **kwargs):
 
     # Create the line collection object, setting the colormapping parameters.
     # Have to set the actual values used for colormapping separately.
-    lc = LineCollection(segments, norm=norm, **kwargs)
+    if cmap is None:
+        cmap = plt.get_cmap('viridis')
+    lc = LineCollection(segments, norm=norm, cmap=cmap, **kwargs)
     lc.set_array(c)
     plt.gca().add_collection(lc)
     return lc
