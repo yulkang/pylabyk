@@ -19,6 +19,7 @@ npt = numpytorch.npt_torch # choose between torch and np
 def ____SHAPE____():
     pass
 
+
 def cat(arrays0, dim=0, add_dim=True):
     """
     @type arrays0: list
@@ -31,6 +32,7 @@ def cat(arrays0, dim=0, add_dim=True):
         arrays = arrays0
     return np.concatenate(arrays, dim)
 
+
 def vec_on(arr, dim, n_dim=None):
     arr = np.array(arr)
     if n_dim is None:
@@ -42,6 +44,7 @@ def vec_on(arr, dim, n_dim=None):
     sh = [1] * n_dim
     sh[dim] = -1
     return np.reshape(arr, sh)
+
 
 def cell2mat2(l, max_len=None):
     """
@@ -64,6 +67,17 @@ def cell2mat2(l, max_len=None):
             m[ii,:] = l1
 
     return m     
+
+
+def mat2cell(m):
+    """
+    remove trailing NaNs from each row.
+    @param m: 2D array
+    @type m: np.ndarray
+    @rtype: np.ndarray
+    """
+    return [v[~np.isnan(v)] for v in m]
+
 
 def dict_shapes(d):
     sh = {}
