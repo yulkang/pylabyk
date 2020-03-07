@@ -88,3 +88,7 @@ def lsqcubic(X, Y, sX=None, sY=None, tl=1e-6, nargout=8):
     ]],
         nargout=nargout
     )
+
+model2regr = lsqcubic
+type2regr = lsqcubic
+regress2 = lsqcubic
