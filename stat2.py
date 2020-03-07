@@ -55,6 +55,8 @@ def lsqcubic(X, Y, sX=None, sY=None, tl=1e-6, nargout=8):
     """
     Model-2 least squares fit from weighted data.
     Ported from MATLAB lsqcubic.m by Esward T Peltzer (rev Mar 17 2016)
+    Requires lsqcubic.m and lsqfitma.m in the current working directory
+    or matlab engine's search path.
     https://www.mbari.org/results-for-model-i-and-model-ii-regressions/
 
     @param X: x data (vector)
