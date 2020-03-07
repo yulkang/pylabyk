@@ -183,6 +183,19 @@ def permute2en(v, ndim_st=1):
 p2en = permute2en
 
 
+def ____COPY____():
+    pass
+
+
+def copy_via_pickle(obj):
+    import pickle
+    import io
+    buf = io.BytesIO()
+    pickle.dump(obj, buf)
+    buf.seek(0)
+    return pickle.load(buf)
+
+
 #%%
 def ____BATCH____():
     pass

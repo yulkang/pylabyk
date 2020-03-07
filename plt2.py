@@ -6,6 +6,7 @@ Created on Tue Feb 13 10:42:06 2018
 @author: yulkang
 """
 
+from typing import Union, List
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -67,6 +68,80 @@ def rowtitle(rows, axes, pad=5):
 
 def ____Axes_Limits____():
     pass
+
+
+def break_axis(amin, amax=None, xy='x', ax=None, fun_draw=None):
+    """
+    @param amin: data coordinate to start breaking from
+    @type amin: Union[float, int]
+    @param amax: data coordinate to end breaking at
+    @type amax: Union[float, int]
+    @param xy: 'x' or 'y'
+    @type ax: plt.Axes
+    @param fun_draw: if not None, fun_draw(ax1) and fun_draw(ax2) will
+    be run to recreate ax. Use the same function as that was called for
+    with ax. Use, e.g., fun_draw=lambda ax: ax.plot(x, y)
+    @type fun_draw: function
+    @return: axs: a list of axes created
+    @rtype: List[plt.Axes, plt.Axes]
+    """
+    from copy import copy
+    from matplotlib.transforms import Bbox
+
+    if amax is None:
+        amax = amin
+
+    if ax is None:
+        ax = plt.gca()
+
+    axs = []
+    if xy == 'x':
+        rect = ax.get_position().bounds
+        lim = ax.get_xlim()
+        prop_min = (amin - lim[0]) / (lim[1] - lim[0])
+        prop_max = (amax - lim[0]) / (lim[1] - lim[0])
+        rect1 = np.array([
+            rect[0],
+            rect[1],
+            rect[2] * prop_min,
+            rect[3]
+        ])
+        rect2 = [
+            rect[0] + rect[2] * prop_max,
+            rect[1],
+            rect[2] * (1 - prop_max),
+            rect[3]
+        ]
+
+        fig = ax.figure  # type: plt.Figure
+        ax1 = fig.add_axes(plt.Axes(fig=fig, rect=rect1))
+        ax1.update_from(ax)
+        if fun_draw is not None:
+            fun_draw(ax1)
+        ax1.set_xticks(ax.get_xticks())
+        ax1.set_xlim(lim[0], amin)
+        ax1.spines['right'].set_visible(False)
+
+        ax2 = fig.add_axes(plt.Axes(fig=fig, rect=rect2))
+        ax2.update_from(ax)
+        if fun_draw is not None:
+            fun_draw(ax2)
+        ax2.set_xticks(ax.get_xticks())
+        ax2.set_xlim(amax, lim[1])
+        ax2.spines['left'].set_visible(False)
+        ax2.set_yticks([])
+
+        ax.set_visible(False)
+        # plt.show()  # CHECKED
+        axs = [ax1, ax2]
+
+    elif xy == 'y':
+        raise NotImplementedError()
+    else:
+        raise ValueError()
+
+    return axs
+
 
 def sameaxes(ax, ax0=None, xy='xy'):
     """
@@ -296,7 +371,7 @@ def colormap2arr(arr,cmap):
     return values
 
 
-def imshow_discrete(x, shade=None, 
+def imshow_discrete(x, shade=None,
                     colors=[[1,0,0],[0,1,0],[0,0,1]], 
                     color_shade=[1,1,1],
                     **kw):
