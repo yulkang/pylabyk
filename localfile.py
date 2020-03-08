@@ -38,6 +38,28 @@ class LocalFile(object):
             cacheutil.dict2fname(d) + '.pkl.zip'
         )
 
+    def get_file(self, filekind, kind, d=None, ext=None, subdir=None):
+        """
+        :type filekind: str
+        :type kind: str
+        :type d: Union[Iterable[tuple], dict, odict, None]
+        :type ext: str
+        :rtype: str
+        """
+        if ext is None:
+            ext = '.' + filekind
+        if d is None:
+            d = {}
+        return os.path.join(
+            self.get_pth_out(subdir), cacheutil.dict2fname(
+                argsutil.kwdef(
+                    argsutil.merge_fileargs(d),
+                    [(filekind, kind)],
+                    sort_merged=False, sort_given=True, def_bef_given=True
+                )
+            ) + ext
+        )
+
     def get_cache(self, cache_kind, d=None, subdir=None):
         """
         :type cache_kind: str
@@ -63,14 +85,13 @@ class LocalFile(object):
         :type ext: str
         :rtype: str
         """
-        if d is None:
-            d = {}
-        return os.path.join(
-            self.get_pth_out(subdir), cacheutil.dict2fname(
-                argsutil.kwdef(
-                    argsutil.merge_fileargs(d),
-                    [('plt', fig_kind)],
-                    sort_merged=False, sort_given=True, def_bef_given=True
-                )
-            ) + ext
-        )
+        return self.get_file('plt', fig_kind, d=d, ext=ext, subdir=subdir)
+
+    def get_file_csv(self, kind, d=None, ext='.csv', subdir=None):
+        """
+        :type kind: str
+        :type d: Union[Iterable[tuple], dict, odict, None]
+        :type ext: str
+        :rtype: str
+        """
+        return self.get_file('tab', kind, d, ext='.csv', subdir=subdir)
