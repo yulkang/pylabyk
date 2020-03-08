@@ -72,10 +72,10 @@ class BoundedParameter(OverriddenParameter):
         self.lb = lb
         self.ub = ub
         self._param = nn.Parameter(self._data2param(data))
-        if self._param.ndim == 0:
-            raise Warning('Use ndim>0 to allow consistent use of [:]. '
-                          'If ndim=0, use paramname.v to access the '
-                          'value.')
+        # if self._param.ndim == 0:
+        #     raise Warning('Use ndim>0 to allow consistent use of [:]. '
+        #                   'If ndim=0, use paramname.v to access the '
+        #                   'value.')
 
     def _data2param(self, data):
         lb = self.lb

@@ -548,6 +548,10 @@ def ____DISTRIBUTIONS_SAMPLING____():
     pass
 
 
+def delta(levels, v, dlevel):
+    return torch.abs(1. - (levels - v) / dlevel).clamp_min(0.)
+
+
 def rand(shape, low=0, high=1):
     d = Uniform(low=low, high=high)
     return d.rsample(shape)
@@ -582,7 +586,7 @@ def normrnd(mu=0., sigma=1., sample_shape=(), return_distrib=False):
 
 
 def log_normpdf(sample, mu=0., sigma=1.):
-    return Normal(mloc=mu, scale=sigma).log_prob(sample)
+    return Normal(loc=mu, scale=sigma).log_prob(sample)
 
 
 def categrnd(probs):
