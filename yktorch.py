@@ -267,7 +267,7 @@ class BoundedModule(nn.Module):
     # Get/set
     def __getattr__(self, item):
         if item[0] == '_':
-            return super(BoundedModule, self).__getattribute__(item)
+            return super().__getattribute__(item)
 
         # if item in ['_modules', '_params_bounded', '_params_probability',
         #             '_params_circular']:
