@@ -44,7 +44,7 @@ class OverriddenParameter(nn.Module):
 
     @v.setter
     def v(self, data):
-        self._param = self._data2param(data)
+        self._param = nn.Parameter(self._data2param(data))
 
     def __getitem__(self, key):
         return self.v[key]
