@@ -6,7 +6,7 @@ Created on Tue Feb 13 10:42:06 2018
 @author: yulkang
 """
 
-from typing import Union, List
+from typing import Union, List, Iterable
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -31,29 +31,39 @@ def subplotRCs(nrow, ncol, **kwargs):
             ax[row-1, col-1] = subplotRC(nrow, ncol, row, col, **kwargs)
     return ax
 
-def coltitle(cols, axes):
+def coltitle(col_titles, axes):
+    """
+    :param col_titles: list of string row title
+    :type col_titles: Iterable[str]
+    :param axes: 2-D array of axes, as from subplotRCs()
+    :type axes: Iterable[Iterable[plt.Axes]]
+    :return: array of title handles
+    """
     h = []
-    for ax, col in zip(axes[0,:], cols):
+    for ax, col in zip(axes[0,:], col_titles):
         h.append(ax.set_title(col))
     return np.array(h)
 
-def rowtitle(rows, axes, pad=5):
+def rowtitle(row_titles, axes, pad=5, ha='right'):
     """
-    :param rows: list of string row title
+    :param row_titles: list of string row title
+    :type row_titles: Iterable[str]
     :param axes: 2-D array of axes, as from subplotRCs()
+    :type axes: Iterable[Iterable[plt.Axes]]
     :param pad: in points.
+    :type pad: float
     :return: n_rows array of row title handles
     adapted from: https://stackoverflow.com/a/25814386/2565317
     """
     from matplotlib.transforms import offset_copy
 
     labels = []
-    for ax, row in zip(axes[:, 0], rows):
+    for ax, row in zip(axes[:, 0], row_titles):
         label = ax.annotate(
             row,
             xy=(0, 0.5), xytext=(-ax.yaxis.labelpad - pad, 0),
             xycoords=ax.yaxis.label, textcoords='offset points',
-            size='large', ha='right', va='center')
+            size='large', ha=ha, va='center')
         labels.append(label)
 
     fig = axes[0,0].get_figure()
@@ -372,9 +382,18 @@ def colormap2arr(arr,cmap):
 
 
 def imshow_discrete(x, shade=None,
-                    colors=[[1,0,0],[0,1,0],[0,0,1]], 
-                    color_shade=[1,1,1],
+                    colors=((1, 0, 0), (0, 1, 0), (0, 0, 1)),
+                    color_shade=(1, 1, 1),
                     **kw):
+    """
+    Given index x[row, col], show color[x[row, col]]
+    :param x:
+    :param shade: Weight given to the foreground color.
+    :param colors: colors[i]: (R,G,B)
+    :param color_shade: Background color.
+    :param kw: Keyword arguments for imshow
+    :return:
+    """
     if shade is None:
         shade = np.ones(list(x.shape[:-1]) + [1])
     else:
@@ -388,6 +407,40 @@ def imshow_discrete(x, shade=None,
             + incl * (1. - shade) * np.float32(np2.vec_on(color_shade, 2, 3))
         
     plt.imshow(c, **kw)
+
+
+def imshow_weights(
+        w, colors=((1, 0, 0), (0, 1, 0), (0, 0, 1)),
+        color_bkg=(1, 1, 1),
+        **kwargs
+):
+    """
+    color[row, column] = sum_i(w[row, column, i] * (colors[i] - color_bkg))
+    :param w: [row, column, i]: weight given to i-th color
+    :type w: np.ndarray
+    :param colors: [i] = [R, G, B]
+    :param color_bkg:
+    :return: h_imshow
+    """
+    assert isinstance(w, np.ndarray)
+    assert w.ndim == 3
+    colors = np.array(colors)
+    color_bkg = np.array(color_bkg)
+    dcolors = np.stack([
+        c - color_bkg for c in colors
+    ])[None, None, :, :]  # [1, 1, w, color]
+    w = w / np.amax(np.sum(w, -1))
+    color = np.sum(
+        np.expand_dims(w, -1) * dcolors,
+        -2
+    )
+    color = color + color_bkg[None, None, :]
+    # color = np.concatenate([
+    #     color, np.sum(w, -1, keepdims=True)
+    # ], -1)
+    # color = np.clip(color, 0, 1)
+    # plt.gca().set_facecolor(color_bkg)
+    return plt.imshow(color, **kwargs)
 
 
 def plot_pcolor(x, y, c=None, norm=None, cmap=None, **kwargs):
