@@ -552,8 +552,38 @@ def multiline(xs, ys, c=None, ax=None, **kwargs):
     ax.autoscale()
     return lc
 
+
+def colorbar(mappable=None, ax=None,
+             position='right',
+             size='5%',
+             pad=0.05,
+             **kwargs):
+    """
+    Add a colorbar that has the same with as the image.
+    :param mappable: mpl.cm.ScalarMappable
+    :param ax: plt.Axes
+    :param position: 'right' (default), 'left', 'bottom', 'top'
+    :param size: thickness of the colorbar
+    :param pad: padding between the image and the colorbar
+    :return: mpl.colorbar.Colorbar
+    """
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    if mappable is None:
+        if ax is None:
+            ax = plt.gca()
+    else:
+        ax = mappable.axes
+
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes(position, size=size, pad=pad)
+
+    h_colorbar = plt.colorbar(mappable=mappable, cax=cax, **kwargs)
+    return h_colorbar
+
+
 def ____Errorbar____():
     pass
+
 
 def errorbar_shade(x, y, yerr=None, **kw):
     if yerr is None:
