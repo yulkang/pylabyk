@@ -254,16 +254,19 @@ class Cache(object):
 
                     replaced=False
                     for row in reader:
-                        if row['name_short'] == name_short:
-                            row['name_orig'] = name_orig
-                            replaced=True
-                        writer.writerow(row)
-                    if not replaced:
-                        row = {
-                            'name_short': name_short,
-                            'name_orig': name_orig
-                        }
-                        writer.writerow(row)
+                        # if row['name_short'] == name_short:
+                        #     row['name_orig'] = name_orig
+                        #     replaced=True
+                        # writer.writerow(row)
+                        if row['name_short'] != name_short:
+                            writer.writerow(row)
+                    # if not replaced:
+                    row = {
+                        'name_short': name_short,
+                        'name_orig': name_orig
+                    }
+                    writer.writerow(row)
+
                 os.remove(csv_in)
                 os.rename(csv_out, csv_in)
                 if replaced:
