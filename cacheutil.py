@@ -222,6 +222,11 @@ class Cache(object):
                 print('Saved cache to %s'
                       % self.fullpath)
             else:
+                # Write the full name in a txt file with the same name
+                txt_file = os.path.splitext(self.fullpath)[0] + '.txt'
+                with open(txt_file, 'w') as f:
+                    f.write(self.fullpath_orig)
+
                 print('Saved cache to\n%s\n= %s'
                       % (self.fullpath, self.fullpath_orig))
         # with open(self.fullpath, 'w+b') as cache_file:
