@@ -222,10 +222,47 @@ class Cache(object):
                 print('Saved cache to %s'
                       % self.fullpath)
             else:
-                # Write the full name in a txt file with the same name
-                txt_file = os.path.splitext(self.fullpath)[0] + '.txt'
-                with open(txt_file, 'w') as f:
-                    f.write(self.fullpath_orig)
+                import csv
+                csv_in = os.path.join(
+                    os.path.dirname(self.fullpath),
+                    'cache_list.csv'
+                )
+                csv_out = os.path.join(
+                    os.path.dirname(self.fullpath),
+                    'cache_list_temp.csv'
+                )
+                name_short = os.path.basename(self.fullpath)
+                name_orig = os.path.basename(self.fullpath_orig)
+                fieldnames = ['name_short', 'name_orig']
+
+                with open(csv_in, 'r') as infile, \
+                        open(csv_out, 'w') as outfile:
+                    reader = csv.DictReader(infile, delimiter=':')
+                    writer = csv.DictWriter(outfile, delimiter=':',
+                                            fieldnames=fieldnames)
+                    replaced=False
+                    for row in reader:
+                        if row['name_short'] == name_short:
+                            row['name_orig'] = name_orig
+                            replaced=True
+                        writer.writerow(row)
+                    if not replaced:
+                        row = {
+                            'name_short': name_short,
+                            'name_orig': name_orig
+                        }
+                        writer.writerow(row)
+                os.remove(csv_in)
+                os.rename(csv_out, csv_in)
+                if replaced:
+                    print('Updated %s' % csv_in)
+                else:
+                    print('Appended to %s' % csv_in)
+
+                # # Write the full name in a txt file with the same name
+                # txt_file = os.path.splitext(self.fullpath)[0] + '.txt'
+                # with open(txt_file, 'w') as f:
+                #     f.write(self.fullpath_orig)
 
                 print('Saved cache to\n%s\n= %s'
                       % (self.fullpath, self.fullpath_orig))
