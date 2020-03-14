@@ -235,11 +235,23 @@ class Cache(object):
                 name_orig = os.path.basename(self.fullpath_orig)
                 fieldnames = ['name_short', 'name_orig']
 
+                if not os.path.exists(csv_in):
+                    with open(csv_in, 'w') as infile:
+                        writer = csv.DictWriter(infile, delimiter=':',
+                                                fieldnames=fieldnames)
+                        writer.writeheader()
+                        # writer.writerow({
+                        #     'name_short':'-',
+                        #     'name_orig': '-',
+                        # })
+
                 with open(csv_in, 'r') as infile, \
                         open(csv_out, 'w') as outfile:
                     reader = csv.DictReader(infile, delimiter=':')
                     writer = csv.DictWriter(outfile, delimiter=':',
                                             fieldnames=fieldnames)
+                    writer.writeheader()
+
                     replaced=False
                     for row in reader:
                         if row['name_short'] == name_short:
