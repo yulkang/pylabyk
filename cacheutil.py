@@ -245,34 +245,44 @@ class Cache(object):
                         #     'name_orig': '-',
                         # })
 
-                with open(csv_in, 'r') as infile, \
-                        open(csv_out, 'w') as outfile:
-                    reader = csv.DictReader(infile, delimiter=':')
+                with open(csv_in, 'a') as infile:
                     writer = csv.DictWriter(outfile, delimiter=':',
                                             fieldnames=fieldnames)
-                    writer.writeheader()
-
-                    replaced=False
-                    for row in reader:
-                        # if row['name_short'] == name_short:
-                        #     row['name_orig'] = name_orig
-                        #     replaced=True
-                        # writer.writerow(row)
-                        if row['name_short'] != name_short:
-                            writer.writerow(row)
-                    # if not replaced:
                     row = {
                         'name_short': name_short,
                         'name_orig': name_orig
                     }
                     writer.writerow(row)
-
-                os.remove(csv_in)
-                os.rename(csv_out, csv_in)
-                if replaced:
-                    print('Updated %s' % csv_in)
-                else:
                     print('Appended to %s' % csv_in)
+                #
+                # with open(csv_in, 'r') as infile, \
+                #         open(csv_out, 'w') as outfile:
+                #     reader = csv.DictReader(infile, delimiter=':')
+                #     writer = csv.DictWriter(outfile, delimiter=':',
+                #                             fieldnames=fieldnames)
+                #     writer.writeheader()
+                #
+                #     replaced=False
+                #     for row in reader:
+                #         # if row['name_short'] == name_short:
+                #         #     row['name_orig'] = name_orig
+                #         #     replaced=True
+                #         # writer.writerow(row)
+                #         if row['name_short'] != name_short:
+                #             writer.writerow(row)
+                #     # if not replaced:
+                #     row = {
+                #         'name_short': name_short,
+                #         'name_orig': name_orig
+                #     }
+                #     writer.writerow(row)
+                #
+                # os.remove(csv_in)
+                # os.rename(csv_out, csv_in)
+                # if replaced:
+                #     print('Updated %s' % csv_in)
+                # else:
+                #     print('Appended to %s' % csv_in)
 
                 # # Write the full name in a txt file with the same name
                 # txt_file = os.path.splitext(self.fullpath)[0] + '.txt'
