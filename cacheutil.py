@@ -240,13 +240,9 @@ class Cache(object):
                         writer = csv.DictWriter(infile, delimiter=':',
                                                 fieldnames=fieldnames)
                         writer.writeheader()
-                        # writer.writerow({
-                        #     'name_short':'-',
-                        #     'name_orig': '-',
-                        # })
 
                 with open(csv_in, 'a') as infile:
-                    writer = csv.DictWriter(outfile, delimiter=':',
+                    writer = csv.DictWriter(infile, delimiter=':',
                                             fieldnames=fieldnames)
                     row = {
                         'name_short': name_short,
@@ -254,47 +250,9 @@ class Cache(object):
                     }
                     writer.writerow(row)
                     print('Appended to %s' % csv_in)
-                #
-                # with open(csv_in, 'r') as infile, \
-                #         open(csv_out, 'w') as outfile:
-                #     reader = csv.DictReader(infile, delimiter=':')
-                #     writer = csv.DictWriter(outfile, delimiter=':',
-                #                             fieldnames=fieldnames)
-                #     writer.writeheader()
-                #
-                #     replaced=False
-                #     for row in reader:
-                #         # if row['name_short'] == name_short:
-                #         #     row['name_orig'] = name_orig
-                #         #     replaced=True
-                #         # writer.writerow(row)
-                #         if row['name_short'] != name_short:
-                #             writer.writerow(row)
-                #     # if not replaced:
-                #     row = {
-                #         'name_short': name_short,
-                #         'name_orig': name_orig
-                #     }
-                #     writer.writerow(row)
-                #
-                # os.remove(csv_in)
-                # os.rename(csv_out, csv_in)
-                # if replaced:
-                #     print('Updated %s' % csv_in)
-                # else:
-                #     print('Appended to %s' % csv_in)
-
-                # # Write the full name in a txt file with the same name
-                # txt_file = os.path.splitext(self.fullpath)[0] + '.txt'
-                # with open(txt_file, 'w') as f:
-                #     f.write(self.fullpath_orig)
 
                 print('Saved cache to\n%s\n= %s'
                       % (self.fullpath, self.fullpath_orig))
-        # with open(self.fullpath, 'w+b') as cache_file:
-        #     pickle.dump(self.dict, cache_file)
-        #     if self.verbose:
-        #         print('Saved cache to %s' % self.fullpath)
 
     def __del__(self):
         if self.to_save:
