@@ -4,7 +4,20 @@ import os
 from collections import OrderedDict as odict
 from typing import Union, Iterable
 
+def replace_ext(fullpath, ext_new):
+    """
+
+    :param fullpath:
+    :param ext_new: Should start with a '.'
+    :return: fullpath with the old extension replaced with ext_new
+    """
+    fp = os.path.splitext(fullpath)[0]
+    return fp + ext_new
+
+
 class LocalFile(object):
+    replace_ext = replace_ext
+
     def __init__(
             self,
             pth_root='../Data',
@@ -86,6 +99,7 @@ class LocalFile(object):
         :rtype: str
         """
         return self.get_file('plt', fig_kind, d=d, ext=ext, subdir=subdir)
+
 
     def get_file_csv(self, kind, d=None, ext='.csv', subdir=None):
         """

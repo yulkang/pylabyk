@@ -7,6 +7,8 @@ Created on Fri Oct 12 10:58:48 2018
 """
 
 from collections import OrderedDict as odict
+import hashlib
+import os
 
 
 def varargin2props(obj, kw, skip_absent=True, error_absent=False):
@@ -92,10 +94,12 @@ def kwdefs(kws, **kwargs):
         res = kwdef(kws[ii], res, **kwargs)
     return res
 
+
 def merge_subdict(d0, key):
     d = d0.copy()
     subdict = d.pop(key)
     return kwdef(subdict, d)
+
 
 def merge_subdict_recur(d0):
     """
@@ -110,8 +114,10 @@ def merge_subdict_recur(d0):
             d = merge_subdict(d, key)
     return d
 
+
 def merge_fileargs(list_of_kws, **kwargs):
     return merge_subdict_recur(kwdefs(list_of_kws, **kwargs))
+
 
 def dict2fname(d, skip_None=True):
     """
@@ -126,26 +132,32 @@ def dict2fname(d, skip_None=True):
             return True
     return '+'.join(['%s=%s' % (k, d[k]) for k in d if to_include(k)])
 
+
 def rmkeys(d, keys):
     return {k:v for k, v in d.items() if k not in keys}
 
 
-def fname2hash(fullpath):
+def filename2hash(filename):
+    return hashlib.md5(filename.encode('utf-8')).hexdigest()
+
+
+def fullpath2hash(fullpath):
     """
     :param fullpath: only file name is hashed, saving ext or ext.zip
     :type fullpath: string
     :rtype: string
     """
-    import hashlib
-    import os
     pth, name_ext = os.path.split(fullpath)
-
     name, ext = os.path.splitext(name_ext)
     if ext == '.zip':
         name, ext2 = os.path.splitext(name)
     else:
         ext2 = ''
 
-    name = hashlib.md5(name.encode('utf-8')).hexdigest()
+    name = filename2hash(name)
     name_ext = name + ext2 + ext
     return os.path.join(pth, name_ext)
+
+
+def dict2hash(d, skip_None=True):
+    return filename2hash(dict2fname(d, skip_None=skip_None))

@@ -34,9 +34,7 @@ val1, val2 = cache.getvalue([subkey1, subkey2])
 import os
 from . import zipPickle, argsutil
 from collections import OrderedDict as odict
-from .argsutil import dict2fname
-from .argsutil import kwdef
-from .argsutil import rmkeys
+from .argsutil import dict2fname, kwdef, fullpath2hash, rmkeys
 
 ignore_cache = False
 ignored_once = []
@@ -79,7 +77,7 @@ class Cache(object):
         """
         if hash_fname:
             self.fullpath_orig = fullpath
-            self.fullpath = argsutil.fname2hash(fullpath)
+            self.fullpath = fullpath2hash(fullpath)
         else:
             self.fullpath_orig = fullpath
             self.fullpath = fullpath
