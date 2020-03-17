@@ -298,10 +298,20 @@ def hide_ticklabels(xy='xy', ax=None):
 
 def box_off(remove_spines=('right', 'top'),
             ax=None):
+    """
+    :param remove_spines: 'all': remove all spines and ticks; or a list
+    of some/all of 'left', 'right', 'top', and/or 'bottom'.
+    :type remove_spines: Union[str, Iterable[str]]
+    :type ax: plt.Axes
+    :return:
+    """
+    if ax is None:
+        ax = plt.gca()  # plt.Axes
     if remove_spines == 'all':
         remove_spines = ['left', 'right', 'top', 'bottom']
-    if ax is None:
-        ax = plt.gca()
+        ax.set_xticks([])
+        ax.set_yticks([])
+
     for r in remove_spines:
         ax.spines[r].set_visible(False)
         
