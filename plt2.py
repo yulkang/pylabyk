@@ -298,6 +298,8 @@ def hide_ticklabels(xy='xy', ax=None):
 
 def box_off(remove_spines=('right', 'top'),
             ax=None):
+    if remove_spines == 'all':
+        remove_spines = ['left', 'right', 'top', 'bottom']
     if ax is None:
         ax = plt.gca()
     for r in remove_spines:
