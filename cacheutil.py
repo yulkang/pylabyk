@@ -125,7 +125,14 @@ class Cache(object):
             return self.dict.__len__() > 0
         if key is None:
             key = self.key
-        return self.format_key(key) in self.dict
+        r = self.format_key(key) in self.dict
+        if self.verbose and not r:
+            if self.fullpath == self.fullpath_orig:
+                print('Cache not found at %s' % self.fullpath)
+            else:
+                print('Cache not found at %s \n= %s'
+                      % (self.fullpath, self.fullpath_orig))
+        return r
 
     def ____DIRECT_SET_GET____(self):
         """
