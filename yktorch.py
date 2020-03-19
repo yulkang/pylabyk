@@ -523,7 +523,7 @@ def ____Optimizer____():
 
 
 def optimize(
-        model, fun_data_train, fun_data_valid, fun_loss,
+        model, fun_data, fun_loss,
         funs_plot_progress=(),
         optimizer_kind='SGD',
         max_epoch=10000,
@@ -539,9 +539,11 @@ def optimize(
     """
 
     @param model:
-    @param fun_data_train: (epoch, fold) -> (data, target_output)
-    @param fun_data_valid: (epoch, fold) -> (data, target_output))
-    @param fun_loss: (model(data), label) -> scalar_loss: torch.Tensor
+    @param fun_data: (epoch, fold, 'train'|'valid') -> (data, target)
+    @param fun_loss: (model(data), target) -> scalar_loss: torch.Tensor
+    @param funs_plot_progress: Iterable[(name, fun)], where fun(model,
+    d) takes dict d with keys 'data_*', 'target_*', 'out_*', 'loss_*'
+    where * = 'train'|'valid'
     @param optimizer_kind: 'SGD'
     @param max_epoch:
     @param patience:
@@ -552,7 +554,7 @@ def optimize(
     @param reduce_lr_after:
     @param reduce_lr_by:
     @param n_fold_valid:
-    @return:
+    @return: best_loss_valid, best_state, losses_train, losses_valid
     """
     def get_optimizer(model, lr):
         if optimizer_kind == 'SGD':
@@ -580,8 +582,8 @@ def optimize(
         losses_fold_valid = []
         for i_fold in range(n_fold_valid):
             # NOTE: Core part
-            data_train, target_train = fun_data_train(epoch, i_fold)
-            data_valid, target_valid = fun_data_valid(epoch, i_fold)
+            data_train, target_train = fun_data(epoch, i_fold, 'train')
+            data_valid, target_valid = fun_data(epoch, i_fold, 'valid')
 
             model.train()
             optimizer.zero_grad()
@@ -657,7 +659,7 @@ def optimize(
                     'loss_valid': loss_valid
                 }
                 for k, f in odict(funs_plot_progress).items():
-                    fig = f(model, **d)
+                    fig = f(model, d)
                     writer.add_figure(k, fig, global_step=epoch)
     print_loss()
     if to_plot_progress:
