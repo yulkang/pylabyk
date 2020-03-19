@@ -671,7 +671,7 @@ def optimize(
         writer.close()
 
     model.load_state_dict(best_state)
-    pprint(model._parameters_incl_bounded)
+    print(model.__str__())
 
     return best_loss_valid, best_state, losses_train, losses_valid
 
