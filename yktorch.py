@@ -530,10 +530,11 @@ def optimize(
         patience=150,  # How many epochs to wait before quitting
         thres_patience=0.001,  # How much should it improve wi patience
         learning_rate = 1.,
-        to_plot_progress=True,
         reduced_lr_on_epoch=0,
         reduce_lr_after=50,
         reduce_lr_by=.5,
+        to_plot_progress=True,
+        show_progress_every=5, # number of epochs
         n_fold_valid=1
 ):
     """
@@ -542,8 +543,8 @@ def optimize(
     @param fun_data: (epoch, fold, 'train'|'valid') -> (data, target)
     @param fun_loss: (model(data), target) -> scalar_loss: torch.Tensor
     @param funs_plot_progress: Iterable[(name, fun)], where fun(model,
-    d) takes dict d with keys 'data_*', 'target_*', 'out_*', 'loss_*'
-    where * = 'train'|'valid'
+    d) -> plt.Figure takes dict d with keys 'data_*', 'target_*', 'out_*',
+    'loss_*', where * = 'train'|'valid'
     @param optimizer_kind: 'SGD'
     @param max_epoch:
     @param patience:
@@ -593,9 +594,13 @@ def optimize(
             optimizer.step()
             losses_fold_train.append(loss_train1)
 
-            model.eval()
-            out_valid = model(data_valid)
-            loss_valid1 = fun_loss(out_valid, target_valid)
+            if n_fold_valid == 1:
+                out_valid = out_train.clone()
+                loss_valid1 = loss_train1.clone()
+            else:
+                model.eval()
+                out_valid = model(data_valid)
+                loss_valid1 = fun_loss(out_valid, target_valid)
             losses_fold_valid.append(loss_valid1)
 
         loss_train = torch.mean(torch.tensor(losses_fold_train))
@@ -645,7 +650,7 @@ def optimize(
                   % (epoch, loss_train, loss_valid, learning_rate,
                      best_loss_valid, best_loss_epoch))
 
-        if epoch % 25 == 0:
+        if epoch % show_progress_every == 0:
             print_loss()
             if to_plot_progress:
                 d = {
