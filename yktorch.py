@@ -1,6 +1,7 @@
 from collections import OrderedDict as odict
 import numpy as np
 from pprint import pprint
+from typing import Union, Iterable, List
 
 import torch
 from torch import nn
@@ -539,7 +540,8 @@ def optimize(
 ):
     """
 
-    @param model:
+    @param model: OverriddenParameter, BoundedModule, or torch.nn.Module
+    @type model: Union[OverriddenParameter, BoundedModule, torch.nn.Module]
     @param fun_data: (epoch, fold, 'train'|'valid') -> (data, target)
     @param fun_loss: (model(data), target) -> scalar_loss: torch.Tensor
     @param funs_plot_progress: Iterable[(name, fun)], where fun(model,
@@ -556,6 +558,7 @@ def optimize(
     @param reduce_lr_by:
     @param n_fold_valid:
     @return: best_loss_valid, best_state, losses_train, losses_valid
+    @rtype: float, dict, List[float], List[float]
     """
     def get_optimizer(model, lr):
         if optimizer_kind == 'SGD':
@@ -671,7 +674,12 @@ def optimize(
         writer.close()
 
     model.load_state_dict(best_state)
-    print(model.__str__())
+    if isinstance(model, OverriddenParameter):
+        print(model.__str__())
+    elif isinstance(model, BoundedModule):
+        pprint(model._parameters_incl_bounded)
+    else:
+        pprint(model.state_dict())
 
     return best_loss_valid, best_state, losses_train, losses_valid
 
