@@ -500,7 +500,7 @@ def conv_t(p, kernel, **kwargs):
             kernel.flip(-1),
             padding=kernel.shape[-1],
             **kwargs
-        )[:, :, :nt]
+        )[:, :, :nt].squeeze(0)
 
 
 def mean_distrib(p, v, axis=None):
