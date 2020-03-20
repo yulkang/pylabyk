@@ -536,6 +536,7 @@ def optimize(
         reduce_lr_by=.5,
         to_plot_progress=True,
         show_progress_every=5, # number of epochs
+        print_grad=False,
         n_fold_valid=1
 ):
     """
@@ -594,6 +595,8 @@ def optimize(
             out_train = model(data_train)
             loss_train1 = fun_loss(out_train, target_train)
             loss_train1.backward()
+            if print_grad:
+                pprint({k: v.grad for k, v in model.named_parameters()})
             optimizer.step()
             losses_fold_train.append(loss_train1)
 
