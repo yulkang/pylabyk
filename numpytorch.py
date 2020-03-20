@@ -1,6 +1,7 @@
 import numpy as np
 from scipy import sparse
 import torch
+from torch.nn import functional as F
 import numpy_groupies as npg
 from matplotlib import pyplot as plt
 
@@ -475,6 +476,25 @@ def aggregate(subs, val=1., *args, **kwargs):
 #%% Stats
 def ____STATS____():
     pass
+
+
+def conv_t(p, kernel):
+    nt = p.shape[-1]
+    if p.ndim == 1:
+        p = p[None, None, :]
+    else:
+        assert p.ndim == 3
+
+    if kernel.ndim == 1:
+        return F.conv1d(
+            p,
+            kernel.flip(-1)[None, None, :],
+            padding=kernel.shape[-1]).squeeze(0).squeeze(0)[:nt]
+    else:
+        return F.conv1d(
+            p,
+            kernel.flip(-1),
+            padding=kernel.shape[-1])[:, :, :nt]
 
 
 def mean_distrib(p, v, axis=None):
