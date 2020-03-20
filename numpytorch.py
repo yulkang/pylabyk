@@ -478,10 +478,12 @@ def ____STATS____():
     pass
 
 
-def conv_t(p, kernel):
+def conv_t(p, kernel, **kwargs):
     nt = p.shape[-1]
     if p.ndim == 1:
         p = p[None, None, :]
+    elif p.ndim == 2:  # [cond, t]
+        p = p[:, None, :]
     else:
         assert p.ndim == 3
 
@@ -489,12 +491,16 @@ def conv_t(p, kernel):
         return F.conv1d(
             p,
             kernel.flip(-1)[None, None, :],
-            padding=kernel.shape[-1]).squeeze(0).squeeze(0)[:nt]
+            padding=kernel.shape[-1],
+            **kwargs
+        ).squeeze(0).squeeze(0)[:nt]
     else:
         return F.conv1d(
             p,
             kernel.flip(-1),
-            padding=kernel.shape[-1])[:, :, :nt]
+            padding=kernel.shape[-1],
+            **kwargs
+        )[:, :, :nt]
 
 
 def mean_distrib(p, v, axis=None):
