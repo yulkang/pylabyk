@@ -590,6 +590,51 @@ def ____DISTRIBUTIONS_SAMPLING____():
     pass
 
 
+def lognormal_params2mean_stdev(loc, scale):
+    return torch.exp(loc + scale ** 2 / 2.), \
+           (torch.exp(scale ** 2) - 1.) * torch.exp(2 * loc + scale ** 2)
+
+
+def inv_gaussian_pdf(x, mu, lam, dim=0):
+    """
+    As in https://en.wikipedia.org/wiki/Inverse_Gaussian_distribution
+    @param x: values to query. Must be positive.
+    @param mu: the expectation
+    @param lam: lambda in Wikipedia's notation
+    @return: p(x; mu, lam)
+    """
+    return sumto1(torch.sqrt(
+        lam / (2 * pi * x ** 3)
+    ) * torch.exp(-lam * (x - mu) ** 2 / (2 * mu ** 2 * x)), dim=dim)
+
+
+def inv_gaussian_variance(mu, lam):
+    """
+    As in https://en.wikipedia.org/wiki/Inverse_Gaussian_distribution
+    @param mu: the expectation
+    @param lam: lambda in Wikipedia's notation
+    @return: Var[X]
+    """
+    return mu ** 3 / lam
+
+
+def inv_gaussian_variance2lam(mu, var):
+    return 1 / var * mu ** 3
+
+
+def inv_gaussian_mean_std2params(mu, std):
+    """mu, std -> mu, lam"""
+    return mu, inv_gaussian_variance2lam(mu, std ** 2)
+
+
+def inv_gaussian_pdf_mean_stdev(x, mu, std, dim=0):
+    return inv_gaussian_pdf(
+        x, mu,
+        inv_gaussian_variance2lam(mu, std ** 2),
+        dim=dim
+    )
+
+
 def delta(levels, v, dlevel=None):
     """
 
