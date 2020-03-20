@@ -476,6 +476,22 @@ def aggregate(subs, val=1., *args, **kwargs):
 def ____STATS____():
     pass
 
+
+def mean_distrib(p, v, axis=None):
+    if axis is None:
+        kw = {}
+    else:
+        kw = {'axis': axis}
+    return (p * v).sum(**kw) / p.sum(**kw)
+
+
+def var_distrib(p, v, axis=None):
+    return (
+            mean_distrib(p, v ** 2, axis=axis)
+            - mean_distrib(p, v, axis=axis) ** 2
+    )
+
+
 def sem(v, dim=0):
     return torch.std(v, dim=dim) / torch.sqrt(v.shape[dim])
 
@@ -548,8 +564,17 @@ def ____DISTRIBUTIONS_SAMPLING____():
     pass
 
 
-def delta(levels, v, dlevel):
-    return torch.abs(1. - (levels - v) / dlevel).clamp_min(0.)
+def delta(levels, v, dlevel=None):
+    """
+
+    @type levels: torch.Tensor
+    @type v: torch.Tensor
+    @type dlevel: torch.Tensor
+    @rtype: torch.Tensor
+    """
+    if dlevel is None:
+        dlevel = (levels[1] - levels[0]).unsqueeze(0)
+    return 1. - ((levels - v) / dlevel).abs().clamp(0., 1.)
 
 
 def rand(shape, low=0, high=1):
