@@ -523,6 +523,11 @@ def ____Optimizer____():
     pass
 
 
+def print_grad(model):
+    print('Gradient:')
+    pprint({k: v.grad for k, v in model.named_parameters()})
+
+
 def optimize(
         model, fun_data, fun_loss,
         funs_plot_progress=(),
@@ -536,7 +541,7 @@ def optimize(
         reduce_lr_by=.5,
         to_plot_progress=True,
         show_progress_every=5, # number of epochs
-        print_grad=False,
+        to_print_grad=True,
         n_fold_valid=1
 ):
     """
@@ -595,8 +600,8 @@ def optimize(
             out_train = model(data_train)
             loss_train1 = fun_loss(out_train, target_train)
             loss_train1.backward()
-            if print_grad:
-                pprint({k: v.grad for k, v in model.named_parameters()})
+            if to_print_grad and epoch == 0 and i_fold == 0:
+                print_grad(model)
             optimizer.step()
             losses_fold_train.append(loss_train1)
 
@@ -648,6 +653,8 @@ def optimize(
                 > best_losses[-patience] - thres_patience
         ):
             print('Ran out of patience!')
+            if to_print_grad:
+                print_grad(model)
             break
 
         def print_loss():
