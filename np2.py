@@ -545,6 +545,12 @@ def pdf_trapezoid(x, center, width_top, width_bottom):
 def ____CIRCSTAT____():
     pass
 
+def rad2deg(rad):
+    return rad / np.pi * 180.
+
+def deg2rad(deg):
+    return deg / 180. * np.pi
+
 def circdiff(angle1, angle2, maxangle=None):
     """
     :param angle1: angle scaled to be between 0 and maxangle
