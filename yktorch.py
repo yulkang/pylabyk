@@ -1,7 +1,7 @@
 from collections import OrderedDict as odict
 import numpy as np
 from pprint import pprint
-from typing import Union, Iterable, List
+from typing import Union, Iterable, List, Tuple
 
 import torch
 from torch import nn
@@ -528,10 +528,23 @@ def print_grad(model):
     pprint({k: v.grad for k, v in model.named_parameters()})
 
 
+def plot_params(
+        params: Union[torch.nn.Module,
+                      Iterable[Tuple[str, torch.nn.Parameter]]],
+
+):
+    """
+    """
+    if isinstance(params, torch.nn.Module):
+        params = [v for v in params.named_parameters()]
+
+
+
+
 def optimize(
         model, fun_data, fun_loss,
         funs_plot_progress=(),
-        optimizer_kind='SGD',
+        optimizer_kind='Adam',
         max_epoch=10000,
         patience=150,  # How many epochs to wait before quitting
         thres_patience=0.001,  # How much should it improve wi patience
@@ -569,7 +582,10 @@ def optimize(
     def get_optimizer(model, lr):
         if optimizer_kind == 'SGD':
             return optim.SGD(model.parameters(),
-                                  lr=lr)
+                             lr=lr)
+        elif optimizer_kind == 'Adam':
+            return optim.Adam(model.parameters(),
+                              lr=lr)
         else:
             raise NotImplementedError()
 
