@@ -11,6 +11,7 @@ import scipy
 from scipy import stats
 import numpy_groupies as npg
 import pandas as pd
+from copy import deepcopy, copy
 from . import numpytorch
 
 npt = numpytorch.npt_torch # choose between torch and np
@@ -112,9 +113,9 @@ def filt_dict(d, incl):
     @rtype: dict
     """
     return {
-        k: (v[incl] if (isinstance(v, np.ndarray)
-                        and v.shape[0] == incl.shape[0])
-            else v)
+        k: (deepcopy(v[incl]) if (isinstance(v, np.ndarray)
+                                  and v.shape[0] == incl.shape[0])
+            else deepcopy(v))
         for k, v in d.items()
     }
 
