@@ -2,6 +2,7 @@ from collections import OrderedDict as odict
 import numpy as np
 from pprint import pprint
 from typing import Union, Iterable, List, Tuple
+from matplotlib import pyplot as plt
 
 import torch
 from torch import nn
@@ -544,14 +545,14 @@ def plot_params(
 def optimize(
         model, fun_data, fun_loss,
         funs_plot_progress=(),
-        optimizer_kind='Adam',
+        optimizer_kind='LBFGS',
         max_epoch=10000,
         patience=150,  # How many epochs to wait before quitting
-        thres_patience=0.001,  # How much should it improve wi patience
-        learning_rate = 1.,
+        thres_patience=0.0001,  # How much should it improve wi patience
+        learning_rate=.5,
+        reduce_lr_by=0.5,
         reduced_lr_on_epoch=0,
         reduce_lr_after=50,
-        reduce_lr_by=.5,
         to_plot_progress=True,
         show_progress_every=5, # number of epochs
         to_print_grad=True,
@@ -586,6 +587,9 @@ def optimize(
         elif optimizer_kind == 'Adam':
             return optim.Adam(model.parameters(),
                               lr=lr)
+        elif optimizer_kind == 'LBFGS':
+            return optim.LBFGS(model.parameters(),
+                               lr=lr)
         else:
             raise NotImplementedError()
 
@@ -612,13 +616,25 @@ def optimize(
             data_valid, target_valid = fun_data(epoch, i_fold, 'valid')
 
             model.train()
-            optimizer.zero_grad()
-            out_train = model(data_train)
-            loss_train1 = fun_loss(out_train, target_train)
-            loss_train1.backward()
+
+            if optimizer_kind == 'LBFGS':
+                def closure():
+                    optimizer.zero_grad()
+                    out_train = model(data_train)
+                    loss = fun_loss(out_train, target_train)
+                    loss.backward()
+                    return loss
+                optimizer.step(closure)
+                out_train = model(data_train)
+                loss_train1 = fun_loss(out_train, target_train)
+            else:
+                optimizer.zero_grad()
+                out_train = model(data_train)
+                loss_train1 = fun_loss(out_train, target_train)
+                loss_train1.backward()
+                optimizer.step()
             if to_print_grad and epoch == 0 and i_fold == 0:
                 print_grad(model)
-            optimizer.step()
             losses_fold_train.append(loss_train1)
 
             if n_fold_valid == 1:
@@ -694,6 +710,8 @@ def optimize(
                 }
                 for k, f in odict(funs_plot_progress).items():
                     fig = f(model, d)
+                    # if fig is None:
+                    #     fig = plt.gcf()
                     writer.add_figure(k, fig, global_step=epoch)
     print_loss()
     if to_plot_progress:
