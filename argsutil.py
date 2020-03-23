@@ -8,6 +8,7 @@ Created on Fri Oct 12 10:58:48 2018
 
 from collections import OrderedDict as odict
 
+
 def varargin2props(obj, kw, skip_absent=True, error_absent=False):
     keys0 = obj.__dict__.keys()
     for key in kw.keys():
@@ -18,6 +19,7 @@ def varargin2props(obj, kw, skip_absent=True, error_absent=False):
         elif not skip_absent:
             obj.__dict__[key] = kw[key]
 
+
 def kwdefault(kw_given, **kw_default):
     """
     To ensure the order is preserved, use odict or [(key:value), ...]
@@ -25,15 +27,19 @@ def kwdefault(kw_given, **kw_default):
     :param kw_default:
     :return:
     """
+    if kw_given is None:
+        kw_given = {}
     kw_given = odict(kw_given)
     kw_default = odict(kw_default)
     for k in kw_given:
         kw_default[k] = kw_given[k]
     return kw_default
 
+
 def kwdef(kw_given, kw_def=None,
           sort_merged=True,
           sort_def=False, sort_given=False,
+          skip_None=False,
           def_bef_given=True):
     """
     To ensure the order is preserved, use odict or [(key:value), ...]
@@ -57,20 +63,26 @@ def kwdef(kw_given, kw_def=None,
             # raise Warning('def_bef_given=True is ignored when sort_merged=True')
         for k in kw_given:
             kw_def[k] = kw_given[k]
-        return odict(sorted(kw_def.items()))
-
-    if sort_def:
-        kw_def = odict(sorted(kw_def.items()))
-    if sort_given:
-        kw_given = odict(sorted(kw_given.items()))
-    if def_bef_given:
-        for k in kw_given:
-            kw_def[k] = kw_given[k]
-        return kw_def
+        kw_merged = odict(sorted(kw_def.items()))
     else:
-        for k in kw_def:
-            kw_given[k] = kw_def[k]
-        return kw_given
+        if sort_def:
+            kw_def = odict(sorted(kw_def.items()))
+        if sort_given:
+            kw_given = odict(sorted(kw_given.items()))
+        if def_bef_given:
+            kw_merged = kw_def
+            for k in kw_given:
+                kw_merged[k] = kw_given[k]
+        else:
+            kw_merged = kw_given
+            for k in kw_def:
+                kw_merged[k] = kw_def[k]
+    if skip_None:
+        k_to_pop = [k for k, v in kw_merged.items() if v is None]
+        for k in k_to_pop:
+            kw_merged.pop(k)
+    return kw_merged
+
 
 def kwdefs(kws, **kwargs):
     if type(kws) in {dict, odict}:
@@ -116,3 +128,24 @@ def dict2fname(d, skip_None=True):
 
 def rmkeys(d, keys):
     return {k:v for k, v in d.items() if k not in keys}
+
+
+def fname2hash(fullpath):
+    """
+    :param fullpath: only file name is hashed, saving ext or ext.zip
+    :type fullpath: string
+    :rtype: string
+    """
+    import hashlib
+    import os
+    pth, name_ext = os.path.split(fullpath)
+
+    name, ext = os.path.splitext(name_ext)
+    if ext == '.zip':
+        name, ext2 = os.path.splitext(name)
+    else:
+        ext2 = ''
+
+    name = hashlib.md5(name.encode('utf-8')).hexdigest()
+    name_ext = name + ext2 + ext
+    return os.path.join(pth, name_ext)

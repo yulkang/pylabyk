@@ -34,3 +34,63 @@ def beta_mixture_of_betas(a0, b0, a, b):
     
     # for [] = stats.beta.pdf(p, a, b)
     pass
+
+
+def ____Regression____():
+    pass
+
+
+eng = None
+
+
+def get_matlab_engine():
+    import matlab.engine
+    global eng
+    if eng is None:
+        eng = matlab.engine.start_matlab()
+    return eng
+
+
+def lsqcubic(X, Y, sX=None, sY=None, tl=1e-6, nargout=8):
+    """
+    Model-2 least squares fit from weighted data.
+    Ported from MATLAB lsqcubic.m by Esward T Peltzer (rev Mar 17 2016)
+    Requires lsqcubic.m and lsqfitma.m in the current working directory
+    or matlab engine's search path.
+    https://www.mbari.org/results-for-model-i-and-model-ii-regressions/
+
+    @param X: x data (vector)
+    @param Y: y data (vector)
+    @param sX: uncertainty of x data (vector)
+    @param sY: uncertainty of y data (vector)
+    @param tl: test limit for difference between slope iterations
+
+    @return: (m, b, r, sm, sb, xc, yc, ct)
+    m: slope
+    b: y-intercept
+    r: weighted correlation coefficient
+    sm: standard deviation of the slope
+    sb: standard deviation of the y-intercept
+    xc: weighted mean of x values
+    yc: weighted mean of y values
+    ct: count: number of iterations
+    @rtype: (float, float, float, float, float, float, float, float)
+    """
+    import matlab
+    from . import matlab2py as m2p
+    eng = get_matlab_engine()
+
+    if sX is None:
+        sX = np.ones_like(X)
+    if sY is None:
+        sY = np.ones_like(Y)
+
+    return eng.lsqcubic(*[m2p.array2matrix(v) for v in [
+        X, Y, sX, sY, tl,
+    ]],
+        nargout=nargout
+    )
+
+model2regr = lsqcubic
+type2regr = lsqcubic
+regress2 = lsqcubic

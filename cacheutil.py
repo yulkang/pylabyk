@@ -32,11 +32,14 @@ val1, val2 = cache.getvalue([subkey1, subkey2])
 """
 
 import os
-from . import zipPickle
+from . import zipPickle, argsutil
 from collections import OrderedDict as odict
 from .argsutil import dict2fname
 from .argsutil import kwdef
 from .argsutil import rmkeys
+
+ignore_cache = False
+ignored_once = []
 
 def dict_except(d, keys_to_excl):
     return {k:d[k] for k in d if k not in keys_to_excl}
@@ -66,7 +69,7 @@ class Cache(object):
     See example_cache_custom_file()
     """
     def __init__(self, fullpath='cache.pkl.zip', key=None, verbose=True,
-                 ignore_key=False):
+                 ignore_key=False, hash_fname=False):
         """
         :param fullpath: use cacheutil.dict2fname(dict) for human-readable
         names, or use 'cache.zpkl' if using an old cache file.
@@ -74,7 +77,12 @@ class Cache(object):
         :param verbose: bool.
         :param ignore_key: bool.
         """
-        self.fullpath = fullpath
+        if hash_fname:
+            self.fullpath_orig = fullpath
+            self.fullpath = argsutil.fname2hash(fullpath)
+        else:
+            self.fullpath_orig = fullpath
+            self.fullpath = fullpath
         self.verbose = verbose
         self.dict = {}
         self.to_save = False
@@ -84,7 +92,19 @@ class Cache(object):
             self.key = self.format_key(key)
         self.ignore_key = ignore_key
         if os.path.exists(self.fullpath):
-            self.dict = zipPickle.load(self.fullpath)
+            if ignore_cache and self.fullpath not in ignored_once:
+                ignored_once.append(self.fullpath)
+            else:
+                self.dict = zipPickle.load(self.fullpath)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        try:
+            self.__del__()  # duplicate
+        except:
+            raise Warning()
 
     def format_key(self, key):
         """
@@ -92,6 +112,11 @@ class Cache(object):
         :rtype: str
         """
         return '%s' % key
+
+    def trash_file(self):
+        from send2trash import send2trash
+        send2trash(self.fullpath)
+        print('Sent a cache file to trash: %s' % self.fullpath)
 
     def exists(self, key=None):
         """
@@ -123,7 +148,11 @@ class Cache(object):
         elif key is None:
             key = self.key
         if self.verbose and self.exists(key):
-            print('Loaded cache from %s' % self.fullpath)
+            if self.fullpath == self.fullpath_orig:
+                print('Loaded cache from %s' % self.fullpath)
+            else:
+                print('Loaded cache from\n%s\n= %s'
+                      % (self.fullpath, self.fullpath_orig))
         v = self.dict[self.format_key(key)]
 
         if subkeys is None:
@@ -184,13 +213,46 @@ class Cache(object):
         pth = os.path.dirname(self.fullpath)
         if not os.path.exists(pth) and pth != '':
             os.mkdir(pth)
+
+        self.dict['_fullpath_orig'] = self.fullpath_orig
         zipPickle.save(self.dict, self.fullpath)
+        self.to_save = False
         if self.verbose:
-            print('Saved cache to %s' % self.fullpath)
-        # with open(self.fullpath, 'w+b') as cache_file:
-        #     pickle.dump(self.dict, cache_file)
-        #     if self.verbose:
-        #         print('Saved cache to %s' % self.fullpath)
+            if self.fullpath_orig == self.fullpath:
+                print('Saved cache to %s'
+                      % self.fullpath)
+            else:
+                import csv
+                csv_in = os.path.join(
+                    os.path.dirname(self.fullpath),
+                    'cache_list.csv'
+                )
+                csv_out = os.path.join(
+                    os.path.dirname(self.fullpath),
+                    'cache_list_temp.csv'
+                )
+                name_short = os.path.basename(self.fullpath)
+                name_orig = os.path.basename(self.fullpath_orig)
+                fieldnames = ['name_short', 'name_orig']
+
+                if not os.path.exists(csv_in):
+                    with open(csv_in, 'w') as infile:
+                        writer = csv.DictWriter(infile, delimiter=':',
+                                                fieldnames=fieldnames)
+                        writer.writeheader()
+
+                with open(csv_in, 'a') as infile:
+                    writer = csv.DictWriter(infile, delimiter=':',
+                                            fieldnames=fieldnames)
+                    row = {
+                        'name_short': name_short,
+                        'name_orig': name_orig
+                    }
+                    writer.writerow(row)
+                    print('Appended to %s' % csv_in)
+
+                print('Saved cache to\n%s\n= %s'
+                      % (self.fullpath, self.fullpath_orig))
 
     def __del__(self):
         if self.to_save:

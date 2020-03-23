@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import h5py
+import matlab, matlab.engine
 
 #%%
 def unpackarray(s, max_unpack=5, squeeze=True):
@@ -22,6 +23,30 @@ def unpackarray(s, max_unpack=5, squeeze=True):
     # if type(s[0]) is np.ndarray:
     #     s = np.array([list(s1) for s1 in s])
     return s
+
+
+def array2matrix(v):
+    """
+    @type v: np.ndarray
+    @return:
+    """
+    if not isinstance(v, np.ndarray):
+        # assume it is a scalar
+        return matlab.double([[v]])
+    if v.ndim == 1:
+        return matlab.double([
+            [v1] for v1 in v
+        ])
+    elif v.ndim == 2:
+        return matlab.double([
+            list(v1) for v1 in v
+        ])
+    else:
+        raise ValueError('ndim must be <=2')
+
+
+a2m = array2matrix
+
 
 def structlist2df(slist, obj2dict=False, unpack=0, return_df=False):
     slist = unpackarray(slist)

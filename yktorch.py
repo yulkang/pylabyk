@@ -1,8 +1,12 @@
 from collections import OrderedDict as odict
+import numpy as np
+from pprint import pprint
 
 import torch
 from torch import nn
 from torch.nn import functional as F
+from torch import optim
+from torch.utils.tensorboard import SummaryWriter
 
 
 #%% Options
@@ -44,7 +48,7 @@ class OverriddenParameter(nn.Module):
 
     @v.setter
     def v(self, data):
-        self._param = self._data2param(data)
+        self._param = nn.Parameter(self._data2param(data))
 
     def __getitem__(self, key):
         return self.v[key]
@@ -72,10 +76,10 @@ class BoundedParameter(OverriddenParameter):
         self.lb = lb
         self.ub = ub
         self._param = nn.Parameter(self._data2param(data))
-        if self._param.ndim == 0:
-            raise Warning('Use ndim>0 to allow consistent use of [:]. '
-                          'If ndim=0, use paramname.v to access the '
-                          'value.')
+        # if self._param.ndim == 0:
+        #     raise Warning('Use ndim>0 to allow consistent use of [:]. '
+        #                   'If ndim=0, use paramname.v to access the '
+        #                   'value.')
 
     def _data2param(self, data):
         lb = self.lb
@@ -267,7 +271,7 @@ class BoundedModule(nn.Module):
     # Get/set
     def __getattr__(self, item):
         if item[0] == '_':
-            return super(BoundedModule, self).__getattribute__(item)
+            return super().__getattribute__(item)
 
         # if item in ['_modules', '_params_bounded', '_params_probability',
         #             '_params_circular']:
@@ -513,9 +517,172 @@ class TestBoundedModule(unittest.TestCase):
                     min_err, p)
             )
 
-#%% Demo bounded module
+
+def ____Optimizer____():
+    pass
+
+
+def optimize(
+        model, fun_data, fun_loss,
+        funs_plot_progress=(),
+        optimizer_kind='SGD',
+        max_epoch=10000,
+        patience=150,  # How many epochs to wait before quitting
+        thres_patience=0.001,  # How much should it improve wi patience
+        learning_rate = 1.,
+        reduced_lr_on_epoch=0,
+        reduce_lr_after=50,
+        reduce_lr_by=.5,
+        to_plot_progress=True,
+        show_progress_every=5, # number of epochs
+        n_fold_valid=1
+):
+    """
+
+    @param model:
+    @param fun_data: (epoch, fold, 'train'|'valid') -> (data, target)
+    @param fun_loss: (model(data), target) -> scalar_loss: torch.Tensor
+    @param funs_plot_progress: Iterable[(name, fun)], where fun(model,
+    d) -> plt.Figure takes dict d with keys 'data_*', 'target_*', 'out_*',
+    'loss_*', where * = 'train'|'valid'
+    @param optimizer_kind: 'SGD'
+    @param max_epoch:
+    @param patience:
+    @param thres_patience:
+    @param learning_rate:
+    @param to_plot_progress:
+    @param reduced_lr_on_epoch:
+    @param reduce_lr_after:
+    @param reduce_lr_by:
+    @param n_fold_valid:
+    @return: best_loss_valid, best_state, losses_train, losses_valid
+    """
+    def get_optimizer(model, lr):
+        if optimizer_kind == 'SGD':
+            return optim.SGD(model.parameters(),
+                                  lr=lr)
+        else:
+            raise NotImplementedError()
+
+    optimizer = get_optimizer(model, learning_rate)
+
+    best_loss_epoch = 0
+    best_loss_valid = np.inf
+    best_state = model.state_dict()
+    best_losses = []
+
+    # losses_train[epoch] = average cross-validated loss for the epoch
+    losses_train = []
+    losses_valid = []
+
+    if to_plot_progress:
+        writer = SummaryWriter()
+
+    for epoch in range(max_epoch):
+        losses_fold_train = []
+        losses_fold_valid = []
+        for i_fold in range(n_fold_valid):
+            # NOTE: Core part
+            data_train, target_train = fun_data(epoch, i_fold, 'train')
+            data_valid, target_valid = fun_data(epoch, i_fold, 'valid')
+
+            model.train()
+            optimizer.zero_grad()
+            out_train = model(data_train)
+            loss_train1 = fun_loss(out_train, target_train)
+            loss_train1.backward()
+            optimizer.step()
+            losses_fold_train.append(loss_train1)
+
+            if n_fold_valid == 1:
+                out_valid = out_train.clone()
+                loss_valid1 = loss_train1.clone()
+            else:
+                model.eval()
+                out_valid = model(data_valid)
+                loss_valid1 = fun_loss(out_valid, target_valid)
+            losses_fold_valid.append(loss_valid1)
+
+        loss_train = torch.mean(torch.tensor(losses_fold_train))
+        loss_valid = torch.mean(torch.tensor(losses_fold_valid))
+        losses_train.append(loss_train.clone())
+        losses_valid.append(loss_valid.clone())
+
+        if to_plot_progress:
+            writer.add_scalar(
+                'loss_train', loss_train,
+                global_step=epoch
+            )
+            writer.add_scalar(
+                'loss_valid', loss_valid,
+                global_step=epoch
+            )
+
+        # Store best loss
+        if loss_valid < best_loss_valid:
+            # is_best = True
+            best_loss_epoch = epoch
+            best_loss_valid = loss_valid.clone()
+            best_state = model.state_dict()
+        # else:
+            # is_best = False
+        best_losses.append(best_loss_valid)
+
+        # Learning rate reduction and patience
+        if epoch >= reduced_lr_on_epoch + reduce_lr_after and (
+                best_loss_valid
+                > best_losses[-reduce_lr_after] - thres_patience
+        ):
+            learning_rate *= reduce_lr_by
+            optimizer = get_optimizer(model, learning_rate)
+            reduced_lr_on_epoch = epoch
+
+        if epoch >= patience and (
+                best_loss_valid
+                > best_losses[-patience] - thres_patience
+        ):
+            print('Ran out of patience!')
+            break
+
+        def print_loss():
+            print('epoch: %d, Ltrain: %f, Lvalid: %f, LR: %g, '
+                  'best: %f, epochB: %d'
+                  % (epoch, loss_train, loss_valid, learning_rate,
+                     best_loss_valid, best_loss_epoch))
+
+        if epoch % show_progress_every == 0:
+            print_loss()
+            if to_plot_progress:
+                d = {
+                    'data_train': data_train,
+                    'data_valid': data_valid,
+                    'out_train': out_train,
+                    'out_valid': out_valid,
+                    'target_train': target_train,
+                    'target_valid': target_valid,
+                    'loss_train': loss_train,
+                    'loss_valid': loss_valid
+                }
+                for k, f in odict(funs_plot_progress).items():
+                    fig = f(model, d)
+                    writer.add_figure(k, fig, global_step=epoch)
+    print_loss()
+    if to_plot_progress:
+        writer.close()
+
+    model.load_state_dict(best_state)
+    print(model.__str__())
+
+    return best_loss_valid, best_state, losses_train, losses_valid
+
+
+
+def ____Main____():
+    pass
+
+
 if __name__ == 'main':
-    #%%
+    # Demo BoundedModule
     bound = BoundedModule()
 
     bound.register_probability_parameter('prob', [0, 1])

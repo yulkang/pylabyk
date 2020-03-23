@@ -19,6 +19,7 @@ npt = numpytorch.npt_torch # choose between torch and np
 def ____SHAPE____():
     pass
 
+
 def cat(arrays0, dim=0, add_dim=True):
     """
     @type arrays0: list
@@ -31,6 +32,7 @@ def cat(arrays0, dim=0, add_dim=True):
         arrays = arrays0
     return np.concatenate(arrays, dim)
 
+
 def vec_on(arr, dim, n_dim=None):
     arr = np.array(arr)
     if n_dim is None:
@@ -42,6 +44,7 @@ def vec_on(arr, dim, n_dim=None):
     sh = [1] * n_dim
     sh[dim] = -1
     return np.reshape(arr, sh)
+
 
 def cell2mat2(l, max_len=None):
     """
@@ -64,6 +67,17 @@ def cell2mat2(l, max_len=None):
             m[ii,:] = l1
 
     return m     
+
+
+def mat2cell(m):
+    """
+    remove trailing NaNs from each row.
+    @param m: 2D array
+    @type m: np.ndarray
+    @rtype: np.ndarray
+    """
+    return [v[~np.isnan(v)] for v in m]
+
 
 def dict_shapes(d):
     sh = {}
@@ -169,9 +183,28 @@ def permute2en(v, ndim_st=1):
 p2en = permute2en
 
 
+def ____COPY____():
+    pass
+
+
+def copy_via_pickle(obj):
+    import pickle
+    import io
+    buf = io.BytesIO()
+    pickle.dump(obj, buf)
+    buf.seek(0)
+    return pickle.load(buf)
+
+
 #%%
 def ____BATCH____():
     pass
+
+
+def arrayfun(fun, array):
+    shape = array.shape
+    array = [fun(v) for v in array.flatten()]
+    return np.array(array, dtype=np.object).reshape(shape)
 
 
 def meshfun(fun, list_args, n_out=1, dtype=None, outshape_first=False):
@@ -279,17 +312,28 @@ def demo_meshfun():
 
     return out, out1, out2
 
-#%% Type
+
 def ____TYPE____():
     pass
+
 
 def is_None(v):
     return v is None or (type(v) is np.ndarray and v.ndim == 0)
 
+
 def is_iter(v):
     return hasattr(v, '__iter__')
 
-#%% Stat
+
+def ____NAN____():
+    pass
+
+
+def nan2v(v0, v=0):
+    v0[np.isnan(v0)] = v
+    return v0
+
+
 def ____STAT____():
     pass
 
@@ -299,7 +343,26 @@ def sem(v, axis=0):
         return np.std(v) / np.sqrt(v.size)
     else:
         return np.std(v, axis=axis) / np.sqrt(v.shape[axis])
-    
+
+def wstd(values, weights, axis=None):
+    """
+    Return the weighted average and standard deviation.
+
+    from: https://stackoverflow.com/a/2415343/2565317
+
+    values, weights -- Numpy ndarrays with the same shape.
+    """
+    # sum_weights = np.sum(weights, axis=axis, keepdims=True)
+    # average = np.sum(values * weights, axis=axis, keepdims=True) / \
+    #           sum_weights
+    average = np.average(values, weights=weights, axis=axis)
+    # Fast and numerically precise:
+    # variance = np.sum((values - average) ** 2 * weights, keepdims=True) \
+    #            / sum_weights
+    variance = np.average((values - average) ** 2, weights=weights,
+                          axis=axis)
+    return np.sqrt(variance)
+
 def quantilize(v, n_quantile=5, return_summary=False, fallback_to_unique=True):
     """Quantile starting from 0. Array is flattened first."""
 
@@ -482,6 +545,12 @@ def pdf_trapezoid(x, center, width_top, width_bottom):
 def ____CIRCSTAT____():
     pass
 
+def rad2deg(rad):
+    return rad / np.pi * 180.
+
+def deg2rad(deg):
+    return deg / 180. * np.pi
+
 def circdiff(angle1, angle2, maxangle=None):
     """
     :param angle1: angle scaled to be between 0 and maxangle
@@ -659,3 +728,17 @@ def timeit(fun, *args, repeat=1, return_out=False, **kwargs):
         return t_el, out
     else:
         return t_el
+
+
+def ____STRING____():
+    pass
+
+
+def filt_str(s, filt_preset='alphanumeric', replace_with='_'):
+    import re
+
+    if filt_preset == 'alphanumeric':
+        f = r'\W+'
+    else:
+        raise ValueError()
+    return re.sub(f, replace_with, s)

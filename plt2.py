@@ -6,18 +6,16 @@ Created on Tue Feb 13 10:42:06 2018
 @author: yulkang
 """
 
+from typing import Union, List, Iterable
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-# import PyQt5
-from PyQt5.QtCore import QRect
-from PyQt5 import QtGui
+from typing import Union, Iterable
 
 import numpy_groupies as npg
 
 from . import np2
 
-#%% Subplots
 def ____Subplots____():
     pass
 
@@ -33,29 +31,39 @@ def subplotRCs(nrow, ncol, **kwargs):
             ax[row-1, col-1] = subplotRC(nrow, ncol, row, col, **kwargs)
     return ax
 
-def coltitle(cols, axes):
+def coltitle(col_titles, axes):
+    """
+    :param col_titles: list of string row title
+    :type col_titles: Iterable[str]
+    :param axes: 2-D array of axes, as from subplotRCs()
+    :type axes: Iterable[Iterable[plt.Axes]]
+    :return: array of title handles
+    """
     h = []
-    for ax, col in zip(axes[0,:], cols):
+    for ax, col in zip(axes[0,:], col_titles):
         h.append(ax.set_title(col))
     return np.array(h)
 
-def rowtitle(rows, axes, pad=5):
+def rowtitle(row_titles, axes, pad=5, ha='right'):
     """
-    :param rows: list of string row title
+    :param row_titles: list of string row title
+    :type row_titles: Iterable[str]
     :param axes: 2-D array of axes, as from subplotRCs()
+    :type axes: Iterable[Iterable[plt.Axes]]
     :param pad: in points.
+    :type pad: float
     :return: n_rows array of row title handles
     adapted from: https://stackoverflow.com/a/25814386/2565317
     """
     from matplotlib.transforms import offset_copy
 
     labels = []
-    for ax, row in zip(axes[:, 0], rows):
+    for ax, row in zip(axes[:, 0], row_titles):
         label = ax.annotate(
             row,
             xy=(0, 0.5), xytext=(-ax.yaxis.labelpad - pad, 0),
             xycoords=ax.yaxis.label, textcoords='offset points',
-            size='large', ha='right', va='center')
+            size='large', ha=ha, va='center')
         labels.append(label)
 
     fig = axes[0,0].get_figure()
@@ -68,13 +76,89 @@ def rowtitle(rows, axes, pad=5):
 
     return np.array(labels)
 
-#%% Axes & limits
 def ____Axes_Limits____():
     pass
+
+
+def break_axis(amin, amax=None, xy='x', ax=None, fun_draw=None):
+    """
+    @param amin: data coordinate to start breaking from
+    @type amin: Union[float, int]
+    @param amax: data coordinate to end breaking at
+    @type amax: Union[float, int]
+    @param xy: 'x' or 'y'
+    @type ax: plt.Axes
+    @param fun_draw: if not None, fun_draw(ax1) and fun_draw(ax2) will
+    be run to recreate ax. Use the same function as that was called for
+    with ax. Use, e.g., fun_draw=lambda ax: ax.plot(x, y)
+    @type fun_draw: function
+    @return: axs: a list of axes created
+    @rtype: List[plt.Axes, plt.Axes]
+    """
+    from copy import copy
+    from matplotlib.transforms import Bbox
+
+    if amax is None:
+        amax = amin
+
+    if ax is None:
+        ax = plt.gca()
+
+    axs = []
+    if xy == 'x':
+        rect = ax.get_position().bounds
+        lim = ax.get_xlim()
+        prop_min = (amin - lim[0]) / (lim[1] - lim[0])
+        prop_max = (amax - lim[0]) / (lim[1] - lim[0])
+        rect1 = np.array([
+            rect[0],
+            rect[1],
+            rect[2] * prop_min,
+            rect[3]
+        ])
+        rect2 = [
+            rect[0] + rect[2] * prop_max,
+            rect[1],
+            rect[2] * (1 - prop_max),
+            rect[3]
+        ]
+
+        fig = ax.figure  # type: plt.Figure
+        ax1 = fig.add_axes(plt.Axes(fig=fig, rect=rect1))
+        ax1.update_from(ax)
+        if fun_draw is not None:
+            fun_draw(ax1)
+        ax1.set_xticks(ax.get_xticks())
+        ax1.set_xlim(lim[0], amin)
+        ax1.spines['right'].set_visible(False)
+
+        ax2 = fig.add_axes(plt.Axes(fig=fig, rect=rect2))
+        ax2.update_from(ax)
+        if fun_draw is not None:
+            fun_draw(ax2)
+        ax2.set_xticks(ax.get_xticks())
+        ax2.set_xlim(amax, lim[1])
+        ax2.spines['left'].set_visible(False)
+        ax2.set_yticks([])
+
+        ax.set_visible(False)
+        # plt.show()  # CHECKED
+        axs = [ax1, ax2]
+
+    elif xy == 'y':
+        raise NotImplementedError()
+    else:
+        raise ValueError()
+
+    return axs
+
 
 def sameaxes(ax, ax0=None, xy='xy'):
     """
     Match the chosen limits of axes in ax to ax0's (if given) or the max range.
+    Also consider: ax1.get_shared_x_axes().join(ax1, ax2)
+    Optionally followed by ax1.set_xticklabels([]); ax2.autoscale()
+    See: https://stackoverflow.com/a/42974975/2565317
     :param ax: np.ndarray (as from subplotRCs) or list of axes.
     :param ax0: a scalar axes to match limits to. if None (default),
     match the maximum range among axes in ax.
@@ -107,16 +191,42 @@ def sameaxes(ax, ax0=None, xy='xy'):
         lims_res.append(lims0)
     return lims_res
 
-def same_clim(images, ax0=None):
+
+def same_clim(images, img0=None):
     if type(images) is np.ndarray:
         images = images.reshape(-1)
 
-    clims = np.array([im.get_clim() for im in images])
-    clim = [np.amin(clims[:,0]), np.amax(clims[:,1])]
-    for im in images:
-        im.set_clim(clim)
+    if img0 is None:
+        clims = np.array([im.get_clim() for im in images])
+        clim = [np.amin(clims[:,0]), np.amax(clims[:,1])]
+    else:
+        clim = img0.get_clim()
+    for img in images:
+        img.set_clim(clim)
 
-def beautify_psychometric(ax=None, 
+
+def lim_symmetric(xy='y', lim=None, ax=None):
+    """
+    @type xy: str
+    @type lim: float
+    @type ax: plt.Axes
+    @return: None
+    """
+    assert xy == 'x' or xy == 'y', 'xy must be "x" or "y"!'
+    if ax is None:
+        ax = plt.gca()
+    if lim is None:
+        if xy == 'x':
+            lim = np.amax(np.abs(ax.get_xlim()))
+        else:
+            lim = np.amax(np.abs(ax.get_ylim()))
+    if xy == 'x':
+        ax.set_xlim(-lim, +lim)
+    else:
+        ax.set_ylim(-lim, +lim)
+
+
+def beautify_psychometric(ax=None,
                           ylim=[0, 1],
                           y_margin=0.05,
                           axvline=False,
@@ -216,7 +326,6 @@ def tick_color(xy, ticks, labels, colors):
         _, labels = plt.yticks(ticks, labels)
         set_tick_colors(labels)
 
-#%% Heatmaps
 def ____Heatmaps____():
     pass
 
@@ -231,10 +340,60 @@ def cmap(name, **kw):
         
     return cmap
 
-def imshow_discrete(x, shade=None, 
-                    colors=[[1,0,0],[0,1,0],[0,0,1]], 
-                    color_shade=[1,1,1],
+
+def colormap2arr(arr,cmap):
+    """
+    https://stackoverflow.com/a/3722674/2565317
+
+    EXAMPLE:
+    arr=plt.imread('mri_demo.png')
+    values=colormap2arr(arr,cm.jet)
+    # Proof that it works:
+    plt.imshow(values,interpolation='bilinear', cmap=cm.jet,
+               origin='lower', extent=[-3,3,-3,3])
+    plt.show()
+
+    :param arr:
+    :param cmap:
+    :return:
+    """
+
+    import scipy.cluster.vq as scv
+
+    # http://stackoverflow.com/questions/3720840/how-to-reverse-color-map-image-to-scalar-values/3722674#3722674
+    gradient = cmap(np.linspace(0.0,1.0,100))
+
+    # Reshape arr to something like (240*240, 4), all the 4-tuples in a long list...
+    arr2 = arr.reshape((arr.shape[0]*arr.shape[1],arr.shape[2]))
+
+    # Use vector quantization to shift the values in arr2 to the nearest point in
+    # the code book (gradient).
+    code, dist = scv.vq(arr2,gradient)
+
+    # code is an array of length arr2 (240*240), holding the code book index for
+    # each observation. (arr2 are the "observations".)
+    # Scale the values so they are from 0 to 1.
+    values = code.astype('float')/gradient.shape[0]
+
+    # Reshape values back to (240,240)
+    values = values.reshape(arr.shape[0],arr.shape[1])
+    values = values[::-1]
+    return values
+
+
+def imshow_discrete(x, shade=None,
+                    colors=((1, 0, 0), (0, 1, 0), (0, 0, 1)),
+                    color_shade=(1, 1, 1),
                     **kw):
+    """
+    Given index x[row, col], show color[x[row, col]]
+    :param x:
+    :param shade: Weight given to the foreground color.
+    :param colors: colors[i]: (R,G,B)
+    :param color_shade: Background color.
+    :param kw: Keyword arguments for imshow
+    :return:
+    """
     if shade is None:
         shade = np.ones(list(x.shape[:-1]) + [1])
     else:
@@ -250,7 +409,41 @@ def imshow_discrete(x, shade=None,
     plt.imshow(c, **kw)
 
 
-def plot_pcolor(x, y, c=None, norm=None, **kwargs):
+def imshow_weights(
+        w, colors=((1, 0, 0), (0, 1, 0), (0, 0, 1)),
+        color_bkg=(1, 1, 1),
+        **kwargs
+):
+    """
+    color[row, column] = sum_i(w[row, column, i] * (colors[i] - color_bkg))
+    :param w: [row, column, i]: weight given to i-th color
+    :type w: np.ndarray
+    :param colors: [i] = [R, G, B]
+    :param color_bkg:
+    :return: h_imshow
+    """
+    assert isinstance(w, np.ndarray)
+    assert w.ndim == 3
+    colors = np.array(colors)
+    color_bkg = np.array(color_bkg)
+    dcolors = np.stack([
+        c - color_bkg for c in colors
+    ])[None, None, :, :]  # [1, 1, w, color]
+    w = w / np.amax(np.sum(w, -1))
+    color = np.sum(
+        np.expand_dims(w, -1) * dcolors,
+        -2
+    )
+    color = color + color_bkg[None, None, :]
+    # color = np.concatenate([
+    #     color, np.sum(w, -1, keepdims=True)
+    # ], -1)
+    # color = np.clip(color, 0, 1)
+    # plt.gca().set_facecolor(color_bkg)
+    return plt.imshow(color, **kwargs)
+
+
+def plot_pcolor(x, y, c=None, norm=None, cmap=None, **kwargs):
     """
     Parametric color line.
 
@@ -282,13 +475,15 @@ def plot_pcolor(x, y, c=None, norm=None, **kwargs):
 
     # Create the line collection object, setting the colormapping parameters.
     # Have to set the actual values used for colormapping separately.
-    lc = LineCollection(segments, norm=norm, **kwargs)
+    if cmap is None:
+        cmap = plt.get_cmap('viridis')
+    lc = LineCollection(segments, norm=norm, cmap=cmap, **kwargs)
     lc.set_array(c)
     plt.gca().add_collection(lc)
     return lc
 
 
-def plotmulti(xs, ys, cmap, ax=None, **kwargs):
+def plotmulti(xs, ys, cmap='coolwarm', ax=None, **kwargs):
     if ax is None:
         ax = plt.gca()
     n = ys.shape[0]
@@ -357,9 +552,38 @@ def multiline(xs, ys, c=None, ax=None, **kwargs):
     ax.autoscale()
     return lc
 
-#%% Errorbar
+
+def colorbar(mappable=None, ax=None,
+             position='right',
+             size='5%',
+             pad=0.05,
+             **kwargs):
+    """
+    Add a colorbar that has the same with as the image.
+    :param mappable: mpl.cm.ScalarMappable
+    :param ax: plt.Axes
+    :param position: 'right' (default), 'left', 'bottom', 'top'
+    :param size: thickness of the colorbar
+    :param pad: padding between the image and the colorbar
+    :return: mpl.colorbar.Colorbar
+    """
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    if mappable is None:
+        if ax is None:
+            ax = plt.gca()
+    else:
+        ax = mappable.axes
+
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes(position, size=size, pad=pad)
+
+    h_colorbar = plt.colorbar(mappable=mappable, cax=cax, **kwargs)
+    return h_colorbar
+
+
 def ____Errorbar____():
     pass
+
 
 def errorbar_shade(x, y, yerr=None, **kw):
     if yerr is None:
@@ -388,7 +612,6 @@ def errorbar_shade(x, y, yerr=None, **kw):
     h = plt.fill_between(x, y1, y2, **kw)
     return h
 
-#%% Psychophysics
 def ____Psychophysics____():
     pass
 
@@ -403,7 +626,6 @@ def plot_binned_ch(x0, ch, n_bin=9, **kw):
     
     return h, x, p, se
 
-#%% Stats/probability
 def ____Stats_Probability____():
     pass
 
@@ -413,7 +635,6 @@ def ecdf(x0, *args, **kw):
                     np.concatenate([np.array([0.]), p], 0),
                     *args, **kw)
 
-#%% Gaussian
 def ____Gaussian____():
     pass
 
@@ -444,7 +665,6 @@ def plot_centroid(mu=np.zeros(2), sigma=np.eye(2),
 
     return h, res
 
-#%% Window Management
 def ____Window_Management____():
     pass
 
@@ -452,9 +672,11 @@ def use_interactive():
     mpl.use('Qt5Agg')
 
 def get_screen_size():
+    from PyQt5 import QtGui
     return QtGui.QGuiApplication.screens()[0].geometry().getRect()[2:4]
 
 def subfigureRC(nr, nc, r, c, set_size=False, fig=None):
+    from PyQt5.QtCore import QRect
     siz = np.array(get_screen_size())
     siz1 = siz / np.array([nc, nr])
     st = siz1 * np.array([c-1, r-1])
@@ -466,3 +688,82 @@ def subfigureRC(nr, nc, r, c, set_size=False, fig=None):
     else:
         c_size = mgr.window.geometry().getRect()
         mgr.window.setGeometry(QRect(st[0], st[1], c_size[2], c_size[3]))
+
+def ____ANIMATION____():
+    pass
+
+
+def fig2array(fig, dpi=None):
+    """
+    Returns an image as numpy array from figure
+
+    Adapted from: https://stackoverflow.com/a/58641662/2565317
+    :type fig: plt.Figure
+    :type dpi: int
+    :rtype: np.ndarray
+    """
+    import io
+    import cv2
+    import numpy as np
+
+    if dpi is None:
+        dpi = fig.dpi
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=dpi)
+    buf.seek(0)
+    img_arr = np.frombuffer(buf.getvalue(), dtype=np.uint8)
+    buf.close()
+    img = cv2.imdecode(img_arr, 1)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    return img
+
+
+def arrays2gif(arrays, file='ani.gif', duration=100, loop=0,
+                     **kwargs):
+    """
+    Convert numpy arrays, as from fig2array(), into gif.
+    :param arrays: arrays[i]: an [height,width,color]-array, e.g.,
+    from fig2array()
+    :type arrays: Union[Iterable, np.ndarray]
+    :param duration: of each frame, in ms
+    :param loop: 0 to loop forever, None not to loop
+    :rtype: Iterable[PIL.Image]
+    """
+    from PIL import Image, ImageDraw
+
+    height, width, n_channel = arrays[0].shape
+    images = []
+    for arr in arrays:
+        images.append(Image.fromarray(arr))
+
+    kwargs.update({
+        'duration': duration,
+        'loop': loop
+    })
+    if kwargs['loop'] is None:
+        kwargs.pop('loop')
+
+    images[0].save(
+        file,
+        save_all=True,
+        append_images=images[1:],
+        **kwargs
+    )
+    return images
+
+
+def convert_movie(src_file, ext_new='.mp4'):
+    """
+    Adapted from: https://stackoverflow.com/a/40726572/2565317
+    :param src_file: path to the source file, including extension
+    :type src_file: str
+    :type ext_new: str
+    """
+    import moviepy.editor as mp
+    import os
+
+    clip = mp.VideoFileClip(src_file)
+    pth, _ = os.path.splitext(src_file)
+    clip.write_videofile(pth + ext_new)
