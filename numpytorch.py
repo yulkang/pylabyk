@@ -107,11 +107,14 @@ def numpy(v):
     try:
         return v.clone().detach().numpy()
     except AttributeError:
-        # try:
-        assert isinstance(v, np.ndarray)
-        return v
-        # except AssertionError:
-        #     return np.array(v)
+        try:
+            return v.clone().detach().cpu().numpy()
+        except AttributeError:
+            assert isinstance(v, np.ndarray) or sparse.isspmatrix(v) \
+                   or np.isscalar(v)
+            return v
+            # except AssertionError:
+            #     return np.array(v)
 npy = numpy
 
 def npys(*args):
