@@ -877,7 +877,7 @@ def crossvalincl(n_tr, i_fold, n_fold=10, mode='consec'):
     :return: boolean (Byte) tensor
     """
     if n_fold == 1:
-        return torch.ones(n_tr, dtype=torch.uint8)
+        return torch.ones(n_tr, dtype=torch.bool)
     elif n_fold < 1:
         raise ValueError('n_fold must be >= 1')
 
