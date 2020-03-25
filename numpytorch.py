@@ -147,6 +147,34 @@ def nanmean(v, *args, inplace=False, **kwargs):
     v[is_nan] = 0
     return v.sum(*args, **kwargs) / float(~is_nan).sum(*args, **kwargs)
 
+
+def softmax_mask(w: torch.Tensor,
+                 dim=-1,
+                 mask: torch.BoolTensor = None
+                 ) -> torch.Tensor:
+    """
+    Allows having -np.inf in w to mask out, or give explicit bool mask
+    :param w:
+    :param dim:
+    :param mask:
+    :return:
+    """
+    if mask is None:
+        mask = w != -np.inf
+    minval = torch.min(w[~mask])  # to avoid affecting torch.max
+
+    w1 = w.clone()
+    w1[~mask] = minval
+
+    # to prevent over/underflow
+    w1 = w1 - torch.max(w1, dim=dim, keepdim=True)[0]
+
+    w1 = torch.exp(w1)
+    p = w1 / torch.sum(w1 * mask.float(), dim=dim, keepdim=True)
+    p[~mask] = 0.
+    return p
+
+
 #%% Shape manipulation
 def ____SHAPE____():
     pass
