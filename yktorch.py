@@ -1,7 +1,8 @@
 from collections import OrderedDict as odict
 import numpy as np
 from pprint import pprint
-from typing import Union, Iterable, List, Tuple
+from typing import Union, Iterable, List, Tuple, Sequence
+import matplotlib as mpl
 from matplotlib import pyplot as plt
 import time
 
@@ -11,6 +12,8 @@ from torch.nn import functional as F
 from torch import optim
 from torch.utils.tensorboard import SummaryWriter
 
+from lib.pylabyk import np2, plt2, numpytorch as npt
+from lib.pylabyk.numpytorch import npy, npys
 
 #%% Options
 """
@@ -271,6 +274,30 @@ class BoundedModule(nn.Module):
                 p[k] = p0[k]
         return p
 
+    def named_bounded_param_value(self):
+        d = odict(self.named_modules())
+        return odict([
+            (k, param.v)
+            for k, param in d.items()
+            if isinstance(param, BoundedParameter)
+        ])
+
+    def named_bounded_lb(self):
+        d = odict(self.named_modules())
+        return odict([
+            (k, param.lb)
+            for k, param in d.items()
+            if isinstance(param, BoundedParameter)
+        ])
+
+    def named_bounded_ub(self):
+        d = odict(self.named_parameters())
+        return odict([
+            (k, param.ub)
+            for k, param in d.items()
+            if isinstance(param, BoundedParameter)
+        ])
+
     # Get/set
     def __getattr__(self, item):
         if item[0] == '_':
@@ -392,6 +419,80 @@ class BoundedModule(nn.Module):
                     indent(v.__str__().split('\n'))
 
         return '\n'.join(l)
+
+    def plot_params(
+            self,
+            named_bounded_params: Sequence[Tuple[str, BoundedParameter]] = None,
+            exclude: Iterable[str] = (),
+            cmap='coolwarm',
+            ax: plt.Axes = None
+    ) -> mpl.container.BarContainer:
+        if ax is None:
+            ax = plt.gca()
+
+        ax = plt.gca()
+        if named_bounded_params is None:
+            d = odict([(k, v) for k, v in self.named_modules()
+                       if isinstance(v, BoundedParameter)])
+        else:
+            d = named_bounded_params
+
+        names = []
+        v = []
+        lb = []
+        ub = []
+        grad = []
+        for name, param in d.items():
+            v0 = param.v.flatten()
+            if param._param.grad is None:
+                g0 = torch.zeros_like(v0)
+            else:
+                g0 = param._param.grad.flatten()
+
+            for i, (v1, g1) in enumerate(zip(v0, g0)):
+                v.append(v1)
+                grad.append(g1)
+                lb.append(param.lb)
+                ub.append(param.ub)
+                if v0.numel() > 1:
+                    names.append(name + '%d' % i)
+                else:
+                    names.append(name)
+
+        v = npy(torch.stack(v))
+        lb = np.stack(lb)
+        ub = np.stack(ub)
+        grad = npy(torch.stack(grad))
+        max_grad = np.amax(np.abs(grad))
+        if max_grad == 0:
+            max_grad = 1.
+        v01 = (v - lb) / (ub - lb)
+        grad01 = (grad + max_grad) / (max_grad * 2)
+        n = len(v)
+
+        # ax = plt.gca()  # CHECKED
+
+        for i, (lb1, v1, ub1, g1) in enumerate(zip(lb, v, ub, grad)):
+            plt.text(0, i, '%1.0g' % lb1, ha='left', va='center')
+            plt.text(1, i, '%1.0g' % ub1, ha='right', va='center')
+            plt.text(0.5, i, '%1.1g (%1.0e)' % (v1, g1), ha='center',
+                     va='center')
+        lut = 256
+        colors = plt.get_cmap(cmap, lut)(grad01)
+        h = ax.barh(np.arange(n), v01, left=0, color=colors)
+        ax.set_xlim(-0.025, 1)
+        ax.set_xticks([])
+        ax.set_yticks(np.arange(n))
+        ax.set_yticklabels(names)
+        ax.yaxis.set_inverted(True)
+        plt2.box_off(['top', 'right', 'bottom'])
+        plt2.detach_axis('x', amin=0, amax=1)
+        plt2.detach_axis('y', amin=0, amax=n - 1)
+
+        # plt.show()  # CHECKED
+
+        return h
+
 
 
 def enforce_float_tensor(v):
@@ -530,17 +631,25 @@ def print_grad(model):
     pprint({k: v.grad for k, v in model.named_parameters()})
 
 
-def plot_params(
-        params: Union[torch.nn.Module,
-                      Iterable[Tuple[str, torch.nn.Parameter]]],
-
-):
-    """
-    """
-    if isinstance(params, torch.nn.Module):
-        params = [v for v in params.named_parameters()]
-
-
+# def plot_params(
+#         params: Union[torch.nn.Module,
+#                       Iterable[Tuple[str, torch.nn.Parameter]]],
+# ):
+#     """
+#     :param params: Module or param.named_parameters()
+#     :return:
+#     """
+#     if isinstance(params, torch.nn.Module):
+#         params = odict(params.named_parameters())
+#     else:
+#         params = odict(params)
+#
+#
+#     names = [params.keys()]
+#     if to_plot_grad:
+#         v = []
+#
+#     # for name, tensor in params.items():
 
 
 def optimize(
