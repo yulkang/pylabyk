@@ -3,6 +3,7 @@ import numpy as np
 from pprint import pprint
 from typing import Union, Iterable, List, Tuple
 from matplotlib import pyplot as plt
+import time
 
 import torch
 from torch import nn
@@ -607,6 +608,7 @@ def optimize(
 
     if to_plot_progress:
         writer = SummaryWriter()
+    t_st = time.time()
 
     for epoch in range(max_epoch):
         losses_fold_train = []
@@ -691,9 +693,11 @@ def optimize(
             break
 
         def print_loss():
-            print('epoch: %d, Ltrain: %f, Lvalid: %f, LR: %g, '
-                  'best: %f, epochB: %d'
-                  % (epoch, loss_train, loss_valid, learning_rate,
+            t_el = time.time() - t_st
+            print('%1.0f sec/%d epochs = %1.1f sec/epoch, Ltrain: %f, '
+                  'Lvalid: %f, LR: %g, best: %f, epochB: %d'
+                  % (t_el, epoch + 1, t_el / (epoch + 1),
+                     loss_train, loss_valid, learning_rate,
                      best_loss_valid, best_loss_epoch))
 
         if epoch % show_progress_every == 0:
