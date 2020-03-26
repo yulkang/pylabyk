@@ -702,7 +702,7 @@ def optimize(
 
         if epoch % show_progress_every == 0:
             model.eval()
-            data_all, target_all = fun_data(epoch, i_fold, 'train')
+            data_all, target_all = fun_data(epoch, i_fold, 'all')
             out_all = model(data_all)
             loss_all = fun_loss(out_all, target_all)
             print_loss()
