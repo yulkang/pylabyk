@@ -462,7 +462,7 @@ class BoundedModule(nn.Module):
         v = npy(torch.stack(v))
         lb = np.stack(lb)
         ub = np.stack(ub)
-        grad = npy(torch.stack(grad))
+        grad = -npy(torch.stack(grad))  # minimizing; so take negative
         max_grad = np.amax(np.abs(grad))
         if max_grad == 0:
             max_grad = 1.
