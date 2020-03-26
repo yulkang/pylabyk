@@ -1,4 +1,4 @@
-from collections import OrderedDict as odict
+from collections import OrderedDict as odict, namedtuple
 import numpy as np
 from pprint import pprint
 from typing import Union, Iterable, List, Tuple, Sequence
@@ -35,6 +35,8 @@ Cons
 # this is for better autocompletion, etc.
 # it should run backward() on the variables hidden in it.
 # See torch.tensor.Tensor for more.
+
+Param0 = namedtuple('Param0', ['v0', 'lb', 'ub'])
 
 class OverriddenParameter(nn.Module):
     """
