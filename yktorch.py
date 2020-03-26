@@ -810,12 +810,14 @@ def optimize(
                      best_loss_valid, best_loss_epoch))
 
         if epoch % show_progress_every == 0:
-            model.eval()
+            model.train()
             data_all, target_all = fun_data(epoch, i_fold, 'all')
             out_all = model(data_all)
             loss_all = fun_loss(out_all, target_all)
             print_loss()
             if to_plot_progress:
+                model.zero_grad()
+                loss_all.backward()
                 d = {
                     'data_train': data_train,
                     'data_valid': data_valid,
@@ -830,6 +832,7 @@ def optimize(
                     'loss_valid': loss_valid,
                     'loss_all': loss_all
                 }
+
                 for k, f in odict(funs_plot_progress).items():
                     fig = f(model, d)
                     # if fig is None:
