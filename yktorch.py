@@ -562,7 +562,8 @@ def optimize(
 
     @param model: OverriddenParameter, BoundedModule, or torch.nn.Module
     @type model: Union[OverriddenParameter, BoundedModule, torch.nn.Module]
-    @param fun_data: (epoch, fold, 'train'|'valid') -> (data, target)
+    @param fun_data: (epoch, fold_valid=0, mode='train'|'valid'|'all') -> (
+    data, target)
     @param fun_loss: (model(data), target) -> scalar_loss: torch.Tensor
     @param funs_plot_progress: Iterable[(name, fun)], where fun(model,
     d) -> plt.Figure takes dict d with keys 'data_*', 'target_*', 'out_*',
