@@ -68,7 +68,7 @@ class Cache(object):
     EXAMPLE 2 - use custom cache file name (good for parallel execution):
     See example_cache_custom_file()
     """
-    def __init__(self, fullpath='cache.pkl.zip', key=None, verbose=True,
+    def __init__(self, fullpath='cache.zpkl', key=None, verbose=True,
                  ignore_key=False, hash_fname=False):
         """
         :param fullpath: use cacheutil.dict2fname(dict) for human-readable
@@ -261,7 +261,7 @@ class Cache(object):
 def kw2fname(kw, kw_def=None, dir='Data/cache', sort_kw=True):
     sort_kw = True
     name_cache = dict2fname(kwdef(kw, kw_def, sort_merged=sort_kw))
-    fullpath = os.path.join(dir, name_cache + '.pkl.zip')
+    fullpath = os.path.join(dir, name_cache + '.zpkl')
     return fullpath, name_cache
 
 class CacheDict(object):
@@ -309,7 +309,7 @@ class CacheSub(object):
 def example_cache_fixed_file():
     def fun(test_param=1, to_recompute=False):
         cache = Cache(
-            os.path.join('cache.pkl.zip'),
+            os.path.join('cache.zpkl'),
             locals()
         )
         if cache.exists() and not to_recompute:
@@ -342,7 +342,7 @@ def example_cache_custom_file():
                 ('sbj', subj),
             ])
         ))
-        fit_file = os.path.join(pth_cache, name_cache + '.pkl.zip')
+        fit_file = os.path.join(pth_cache, name_cache + '.zpkl')
         cache = Cache(fit_file) # cacheutil.Cache
         return cache, name_cache
 

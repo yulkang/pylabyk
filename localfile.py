@@ -35,7 +35,7 @@ class LocalFile(object):
         """
         return os.path.join(
             self.get_pth_cache(subdir),
-            cacheutil.dict2fname(d) + '.pkl.zip'
+            cacheutil.dict2fname(d) + '.zpkl'
         )
 
     def get_file(self, filekind, kind, d=None, ext=None, subdir=None):
