@@ -509,10 +509,24 @@ def ____STATS____():
 
 
 def conv_t(p, kernel, **kwargs):
+    """
+    1D convolution with the starting time of the signal and kernel anchored.
+
+    EXAMPLE:
+    p_cond_rt = npt.conv_t(
+        p_cond_td[None],  # [1, cond, fr]
+        p_tnd[None, None, :].expand([n_cond, 1, nt]), # [cond, 1, fr]
+        groups=n_cond
+    )
+    :param p: [batch, time] or [batch, channel_in, time]
+    :param kernel: [time] or [channel_out, channel_in, time]
+    :param kwargs: fed to F.conv1d
+    :return: p[batch, time] or [batch, channel_out, time]
+    """
     nt = p.shape[-1]
     if p.ndim == 1:
         p = p[None, None, :]
-    elif p.ndim == 2:  # [cond, t]
+    elif p.ndim == 2:  # [batch, time]
         p = p[:, None, :]
     else:
         assert p.ndim == 3
