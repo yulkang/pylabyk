@@ -477,7 +477,8 @@ class BoundedModule(nn.Module):
         for i, (lb1, v1, ub1, g1) in enumerate(zip(lb, v, ub, grad)):
             plt.text(0, i, '%1.0g' % lb1, ha='left', va='center')
             plt.text(1, i, '%1.0g' % ub1, ha='right', va='center')
-            plt.text(0.5, i, '%1.1g (%1.0e)' % (v1, g1), ha='center',
+            plt.text(0.5, i, '%1.2g (e%1.0f)' % (v1, np.log10(g1)),
+                     ha='center',
                      va='center')
         lut = 256
         colors = plt.get_cmap(cmap, lut)(grad01)
