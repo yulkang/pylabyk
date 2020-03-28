@@ -6,6 +6,8 @@ Created on Tue Apr 17 15:11:31 2018
 @author: yulkang
 """
 
+#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
+
 import numpy as np
 from scipy import stats
 #%%

@@ -1,6 +1,9 @@
+#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
+
 import numpy as np
 from scipy import sparse
 import torch
+from torch.nn import functional as F
 import numpy_groupies as npg
 from matplotlib import pyplot as plt
 
@@ -109,12 +112,14 @@ def numpy(v):
     try:
         return v.clone().detach().numpy()
     except AttributeError:
-        # try:
-        assert isinstance(v, np.ndarray) or sparse.isspmatrix(v) \
-            or np.isscalar(v)
-        return v
-        # except AssertionError:
-        #     return np.array(v)
+        try:
+            return v.clone().detach().cpu().numpy()
+        except AttributeError:
+            assert isinstance(v, np.ndarray) or sparse.isspmatrix(v) \
+                   or np.isscalar(v)
+            return v
+            # except AssertionError:
+            #     return np.array(v)
 npy = numpy
 
 def npys(*args):
@@ -144,6 +149,34 @@ def nanmean(v, *args, inplace=False, **kwargs):
     is_nan = isnan(v)
     v[is_nan] = 0
     return v.sum(*args, **kwargs) / float(~is_nan).sum(*args, **kwargs)
+
+
+def softmax_mask(w: torch.Tensor,
+                 dim=-1,
+                 mask: torch.BoolTensor = None
+                 ) -> torch.Tensor:
+    """
+    Allows having -np.inf in w to mask out, or give explicit bool mask
+    :param w:
+    :param dim:
+    :param mask:
+    :return:
+    """
+    if mask is None:
+        mask = w != -np.inf
+    minval = torch.min(w[~mask])  # to avoid affecting torch.max
+
+    w1 = w.clone()
+    w1[~mask] = minval
+
+    # to prevent over/underflow
+    w1 = w1 - torch.max(w1, dim=dim, keepdim=True)[0]
+
+    w1 = torch.exp(w1)
+    p = w1 / torch.sum(w1 * mask.float(), dim=dim, keepdim=True)
+    p[~mask] = 0.
+    return p
+
 
 #%% Shape manipulation
 def ____SHAPE____():
@@ -476,6 +509,61 @@ def aggregate(subs, val=1., *args, **kwargs):
 def ____STATS____():
     pass
 
+
+def conv_t(p, kernel, **kwargs):
+    """
+    1D convolution with the starting time of the signal and kernel anchored.
+
+    EXAMPLE:
+    p_cond_rt = npt.conv_t(
+        p_cond_td[None],  # [1, cond, fr]
+        p_tnd[None, None, :].expand([n_cond, 1, nt]), # [cond, 1, fr]
+        groups=n_cond
+    )
+    :param p: [batch, time] or [batch, channel_in, time]
+    :param kernel: [time] or [channel_out, channel_in, time]
+    :param kwargs: fed to F.conv1d
+    :return: p[batch, time] or [batch, channel_out, time]
+    """
+    nt = p.shape[-1]
+    if p.ndim == 1:
+        p = p[None, None, :]
+    elif p.ndim == 2:  # [batch, time]
+        p = p[:, None, :]
+    else:
+        assert p.ndim == 3
+
+    if kernel.ndim == 1:
+        return F.conv1d(
+            p,
+            kernel.flip(-1)[None, None, :],
+            padding=kernel.shape[-1],
+            **kwargs
+        ).squeeze(0).squeeze(0)[:nt]
+    else:
+        return F.conv1d(
+            p,
+            kernel.flip(-1),
+            padding=kernel.shape[-1],
+            **kwargs
+        )[:, :, :nt].squeeze(0)
+
+
+def mean_distrib(p, v, axis=None):
+    if axis is None:
+        kw = {}
+    else:
+        kw = {'axis': axis}
+    return (p * v).sum(**kw) / p.sum(**kw)
+
+
+def var_distrib(p, v, axis=None):
+    return (
+            mean_distrib(p, v ** 2, axis=axis)
+            - mean_distrib(p, v, axis=axis) ** 2
+    )
+
+
 def sem(v, dim=0):
     return torch.std(v, dim=dim) / torch.sqrt(v.shape[dim])
 
@@ -548,6 +636,64 @@ def ____DISTRIBUTIONS_SAMPLING____():
     pass
 
 
+def lognormal_params2mean_stdev(loc, scale):
+    return torch.exp(loc + scale ** 2 / 2.), \
+           (torch.exp(scale ** 2) - 1.) * torch.exp(2 * loc + scale ** 2)
+
+
+def inv_gaussian_pdf(x, mu, lam, dim=0):
+    """
+    As in https://en.wikipedia.org/wiki/Inverse_Gaussian_distribution
+    @param x: values to query. Must be positive.
+    @param mu: the expectation
+    @param lam: lambda in Wikipedia's notation
+    @return: p(x; mu, lam)
+    """
+    return sumto1(torch.sqrt(
+        lam / (2 * pi * x ** 3)
+    ) * torch.exp(-lam * (x - mu) ** 2 / (2 * mu ** 2 * x)), dim=dim)
+
+
+def inv_gaussian_variance(mu, lam):
+    """
+    As in https://en.wikipedia.org/wiki/Inverse_Gaussian_distribution
+    @param mu: the expectation
+    @param lam: lambda in Wikipedia's notation
+    @return: Var[X]
+    """
+    return mu ** 3 / lam
+
+
+def inv_gaussian_variance2lam(mu, var):
+    return 1 / var * mu ** 3
+
+
+def inv_gaussian_mean_std2params(mu, std):
+    """mu, std -> mu, lam"""
+    return mu, inv_gaussian_variance2lam(mu, std ** 2)
+
+
+def inv_gaussian_pdf_mean_stdev(x, mu, std, dim=0):
+    return inv_gaussian_pdf(
+        x, mu,
+        inv_gaussian_variance2lam(mu, std ** 2),
+        dim=dim
+    )
+
+
+def delta(levels, v, dlevel=None):
+    """
+
+    @type levels: torch.Tensor
+    @type v: torch.Tensor
+    @type dlevel: torch.Tensor
+    @rtype: torch.Tensor
+    """
+    if dlevel is None:
+        dlevel = (levels[1] - levels[0]).unsqueeze(0)
+    return 1. - ((levels - v) / dlevel).abs().clamp(0., 1.)
+
+
 def rand(shape, low=0, high=1):
     d = Uniform(low=low, high=high)
     return d.rsample(shape)
@@ -582,7 +728,7 @@ def normrnd(mu=0., sigma=1., sample_shape=(), return_distrib=False):
 
 
 def log_normpdf(sample, mu=0., sigma=1.):
-    return Normal(mloc=mu, scale=sigma).log_prob(sample)
+    return Normal(loc=mu, scale=sigma).log_prob(sample)
 
 
 def categrnd(probs):
@@ -605,67 +751,6 @@ def mvnpdf_log(x, mu=None, sigma=None):
                            covariance_matrix=sigma)
     return d.log_prob(x)
 
-
-def prad2unitvec(prad, dim=-1):
-    rad = prad * 2. * np.pi
-    return torch.stack([torch.cos(rad), torch.sin(rad)], dim=dim)
-
-
-def pconc2conc(pconc):
-    pconc = torch.clamp(pconc, min=1e-6, max=1-1e-6)
-    return 1. / (1. - pconc) - 1.
-
-
-def vmpdf_prad_pconc(prad, ploc, pconc, normalize=True):
-    """
-    :param prad: 0 to 1 maps to 0 to 2*pi radians
-    :param pconc: 0 to 1 maps to 0 to inf concentration
-    :rtype: torch.Tensor
-    """
-    return vmpdf(prad2unitvec(prad),
-                 prad2unitvec(ploc),
-                 pconc2conc(pconc),
-                 normalize=normalize)
-
-
-def vmpdf_a_given_b(a_prad, b_prad, pconc):
-    """
-
-    :param a_prad: between 0 and 1. Maps to 0 and 2*pi.
-    :type a_prad: torch.Tensor
-    :param b_prad: between 0 and 1. Maps to 0 and 2*pi.
-    :type b_prad: torch.Tensor
-    :param pconc: float
-    :return: p_a_given_b[index_a, index_b]
-    :rtype: torch.Tensor
-    """
-
-    dist = ((a_prad.reshape([-1, 1]) - b_prad.reshape([1, -1])) %
-            1.).double()
-    return sumto1(vmpdf_prad_pconc(
-        dist.flatten(), torch.tensor([0.]),
-        torch.tensor(pconc)
-    ).reshape([a_prad.numel(), b_prad.numel()]), 1)
-
-
-
-def vmpdf(x, mu, scale=None, normalize=True):
-    from .hyperspherical_vae.distributions import von_mises_fisher as vmf
-
-    if scale is None:
-        # raise NotImplementedError('Using gradient not tested yet! (Seems '
-        #                           'to gives NaN gradient when scale = 0)')
-        scale = torch.sqrt(torch.sum(mu ** 2, dim=1, keepdim=True))
-        mu = mu / scale
-        # mu[scale[:,0] == 0, :] = 0.
-
-    vm = vmf.VonMisesFisher(mu, scale + torch.zeros([1,1]))
-    p = torch.exp(vm.log_prob(x))
-    # if scale == 0.:
-    #     p = torch.ones_like(p) / p.shape[0]
-    if normalize:
-        p = sumto1(p)
-    return p
 
 def bootstrap(fun, samp, n_boot=100):
     n_samp = len(samp)
@@ -871,7 +956,7 @@ def crossvalincl(n_tr, i_fold, n_fold=10, mode='consec'):
     :return: boolean (Byte) tensor
     """
     if n_fold == 1:
-        return torch.ones(n_tr, dtype=torch.uint8)
+        return torch.ones(n_tr, dtype=torch.bool)
     elif n_fold < 1:
         raise ValueError('n_fold must be >= 1')
 
@@ -903,3 +988,65 @@ def rad2deg(rad):
 
 def deg2rad(deg):
     return deg / 180 * pi
+
+
+def prad2unitvec(prad, dim=-1):
+    rad = prad * 2. * np.pi
+    return torch.stack([torch.cos(rad), torch.sin(rad)], dim=dim)
+
+
+def pconc2conc(pconc):
+    pconc = torch.clamp(pconc, min=1e-6, max=1-1e-6)
+    return 1. / (1. - pconc) - 1.
+
+
+def vmpdf_prad_pconc(prad, ploc, pconc, normalize=True):
+    """
+    :param prad: 0 to 1 maps to 0 to 2*pi radians
+    :param pconc: 0 to 1 maps to 0 to inf concentration
+    :rtype: torch.Tensor
+    """
+    return vmpdf(prad2unitvec(prad),
+                 prad2unitvec(ploc),
+                 pconc2conc(pconc),
+                 normalize=normalize)
+
+
+def vmpdf_a_given_b(a_prad, b_prad, pconc):
+    """
+
+    :param a_prad: between 0 and 1. Maps to 0 and 2*pi.
+    :type a_prad: torch.Tensor
+    :param b_prad: between 0 and 1. Maps to 0 and 2*pi.
+    :type b_prad: torch.Tensor
+    :param pconc: float
+    :return: p_a_given_b[index_a, index_b]
+    :rtype: torch.Tensor
+    """
+
+    dist = ((a_prad.reshape([-1, 1]) - b_prad.reshape([1, -1])) %
+            1.).double()
+    return sumto1(vmpdf_prad_pconc(
+        dist.flatten(), torch.tensor([0.]),
+        torch.tensor(pconc)
+    ).reshape([a_prad.numel(), b_prad.numel()]), 1)
+
+
+def vmpdf(x, mu, scale=None, normalize=True):
+    from .hyperspherical_vae.distributions import von_mises_fisher as vmf
+
+    if scale is None:
+        # raise NotImplementedError('Using gradient not tested yet! (Seems '
+        #                           'to gives NaN gradient when scale = 0)')
+        scale = torch.sqrt(torch.sum(mu ** 2, dim=1, keepdim=True))
+        mu = mu / scale
+        # mu[scale[:,0] == 0, :] = 0.
+
+    vm = vmf.VonMisesFisher(mu, scale + torch.zeros([1,1]))
+    p = torch.exp(vm.log_prob(x))
+    # if scale == 0.:
+    #     p = torch.ones_like(p) / p.shape[0]
+    if normalize:
+        p = sumto1(p)
+    return p
+

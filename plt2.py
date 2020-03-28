@@ -6,6 +6,8 @@ Created on Tue Feb 13 10:42:06 2018
 @author: yulkang
 """
 
+#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
+
 from typing import Union, List, Iterable
 import numpy as np
 import matplotlib.pyplot as plt

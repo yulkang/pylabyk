@@ -6,6 +6,8 @@ Created on Fri Oct 12 10:58:48 2018
 @author: yulkang
 """
 
+#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
+
 from collections import OrderedDict as odict
 import hashlib
 import os

@@ -1,8 +1,11 @@
+#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
+
 from lib.pylabyk import cacheutil
 from lib.pylabyk import argsutil
 import os
 from collections import OrderedDict as odict
 from typing import Union, Iterable
+from lib.pylabyk.cacheutil import datetime4filename
 
 def replace_ext(fullpath, ext_new):
     """
@@ -48,7 +51,7 @@ class LocalFile(object):
         """
         return os.path.join(
             self.get_pth_cache(subdir),
-            cacheutil.dict2fname(d) + '.pkl.zip'
+            cacheutil.dict2fname(d) + '.zpkl'
         )
 
     def get_file(self, filekind, kind, d=None, ext=None, subdir=None):

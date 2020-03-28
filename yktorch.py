@@ -1,9 +1,21 @@
-from collections import OrderedDict as odict
+#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
+
+from collections import OrderedDict as odict, namedtuple
+import numpy as np
+from pprint import pprint
+from typing import Union, Iterable, List, Tuple, Sequence
+import matplotlib as mpl
+from matplotlib import pyplot as plt
+import time
 
 import torch
 from torch import nn
 from torch.nn import functional as F
+from torch import optim
+from torch.utils.tensorboard import SummaryWriter
 
+from lib.pylabyk import np2, plt2, numpytorch as npt
+from lib.pylabyk.numpytorch import npy, npys
 
 #%% Options
 """
@@ -25,6 +37,8 @@ Cons
 # this is for better autocompletion, etc.
 # it should run backward() on the variables hidden in it.
 # See torch.tensor.Tensor for more.
+
+Param0 = namedtuple('Param0', ['v0', 'lb', 'ub'])
 
 class OverriddenParameter(nn.Module):
     """
@@ -72,10 +86,10 @@ class BoundedParameter(OverriddenParameter):
         self.lb = lb
         self.ub = ub
         self._param = nn.Parameter(self._data2param(data))
-        if self._param.ndim == 0:
-            raise Warning('Use ndim>0 to allow consistent use of [:]. '
-                          'If ndim=0, use paramname.v to access the '
-                          'value.')
+        # if self._param.ndim == 0:
+        #     raise Warning('Use ndim>0 to allow consistent use of [:]. '
+        #                   'If ndim=0, use paramname.v to access the '
+        #                   'value.')
 
     def _data2param(self, data):
         lb = self.lb
@@ -264,6 +278,30 @@ class BoundedModule(nn.Module):
                 p[k] = p0[k]
         return p
 
+    def named_bounded_param_value(self):
+        d = odict(self.named_modules())
+        return odict([
+            (k, param.v)
+            for k, param in d.items()
+            if isinstance(param, BoundedParameter)
+        ])
+
+    def named_bounded_lb(self):
+        d = odict(self.named_modules())
+        return odict([
+            (k, param.lb)
+            for k, param in d.items()
+            if isinstance(param, BoundedParameter)
+        ])
+
+    def named_bounded_ub(self):
+        d = odict(self.named_parameters())
+        return odict([
+            (k, param.ub)
+            for k, param in d.items()
+            if isinstance(param, BoundedParameter)
+        ])
+
     # Get/set
     def __getattr__(self, item):
         if item[0] == '_':
@@ -385,6 +423,81 @@ class BoundedModule(nn.Module):
                     indent(v.__str__().split('\n'))
 
         return '\n'.join(l)
+
+    def plot_params(
+            self,
+            named_bounded_params: Sequence[Tuple[str, BoundedParameter]] = None,
+            exclude: Iterable[str] = (),
+            cmap='coolwarm',
+            ax: plt.Axes = None
+    ) -> mpl.container.BarContainer:
+        if ax is None:
+            ax = plt.gca()
+
+        ax = plt.gca()
+        if named_bounded_params is None:
+            d = odict([(k, v) for k, v in self.named_modules()
+                       if isinstance(v, BoundedParameter)])
+        else:
+            d = named_bounded_params
+
+        names = []
+        v = []
+        lb = []
+        ub = []
+        grad = []
+        for name, param in d.items():
+            v0 = param.v.flatten()
+            if param._param.grad is None:
+                g0 = torch.zeros_like(v0)
+            else:
+                g0 = param._param.grad.flatten()
+
+            for i, (v1, g1) in enumerate(zip(v0, g0)):
+                v.append(v1)
+                grad.append(g1)
+                lb.append(param.lb)
+                ub.append(param.ub)
+                if v0.numel() > 1:
+                    names.append(name + '%d' % i)
+                else:
+                    names.append(name)
+
+        v = npy(torch.stack(v))
+        lb = np.stack(lb)
+        ub = np.stack(ub)
+        grad = -npy(torch.stack(grad))  # minimizing; so take negative
+        max_grad = np.amax(np.abs(grad))
+        if max_grad == 0:
+            max_grad = 1.
+        v01 = (v - lb) / (ub - lb)
+        grad01 = (grad + max_grad) / (max_grad * 2)
+        n = len(v)
+
+        # ax = plt.gca()  # CHECKED
+
+        for i, (lb1, v1, ub1, g1) in enumerate(zip(lb, v, ub, grad)):
+            plt.text(0, i, '%1.0g' % lb1, ha='left', va='center')
+            plt.text(1, i, '%1.0g' % ub1, ha='right', va='center')
+            plt.text(0.5, i, '%1.2g (e%1.0f)' % (v1, np.log10(np.abs(g1))),
+                     ha='center',
+                     va='center')
+        lut = 256
+        colors = plt.get_cmap(cmap, lut)(grad01)
+        h = ax.barh(np.arange(n), v01, left=0, color=colors)
+        ax.set_xlim(-0.025, 1)
+        ax.set_xticks([])
+        ax.set_yticks(np.arange(n))
+        ax.set_yticklabels(names)
+        ax.yaxis.set_inverted(True)
+        plt2.box_off(['top', 'right', 'bottom'])
+        plt2.detach_axis('x', amin=0, amax=1)
+        plt2.detach_axis('y', amin=0, amax=n - 1)
+
+        # plt.show()  # CHECKED
+
+        return h
+
 
 
 def enforce_float_tensor(v):
@@ -513,9 +626,265 @@ class TestBoundedModule(unittest.TestCase):
                     min_err, p)
             )
 
-#%% Demo bounded module
+
+def ____Optimizer____():
+    pass
+
+
+def print_grad(model):
+    print('Gradient:')
+    pprint({k: v.grad for k, v in model.named_parameters()})
+
+
+# def plot_params(
+#         params: Union[torch.nn.Module,
+#                       Iterable[Tuple[str, torch.nn.Parameter]]],
+# ):
+#     """
+#     :param params: Module or param.named_parameters()
+#     :return:
+#     """
+#     if isinstance(params, torch.nn.Module):
+#         params = odict(params.named_parameters())
+#     else:
+#         params = odict(params)
+#
+#
+#     names = [params.keys()]
+#     if to_plot_grad:
+#         v = []
+#
+#     # for name, tensor in params.items():
+
+
+def optimize(
+        model, fun_data, fun_loss,
+        funs_plot_progress=(),
+        optimizer_kind='Adam',
+        max_epoch=100,
+        patience=20,  # How many epochs to wait before quitting
+        thres_patience=0.001,  # How much should it improve wi patience
+        learning_rate=.5,
+        reduce_lr_by=0.5,
+        reduced_lr_on_epoch=0,
+        reduce_lr_after=50,
+        to_plot_progress=True,
+        show_progress_every=5, # number of epochs
+        to_print_grad=True,
+        n_fold_valid=1,
+        **kwargs  # to ignore unnecessary kwargs
+):
+    """
+
+    @param model: OverriddenParameter, BoundedModule, or torch.nn.Module
+    @type model: Union[OverriddenParameter, BoundedModule, torch.nn.Module]
+    @param fun_data: (epoch, fold_valid=0, mode='train'|'valid'|'all') -> (
+    data, target)
+    @param fun_loss: (model(data), target) -> scalar_loss: torch.Tensor
+    @param funs_plot_progress: Iterable[(name, fun)], where fun(model,
+    d) -> plt.Figure takes dict d with keys 'data_*', 'target_*', 'out_*',
+    'loss_*', where * = 'train'|'valid'
+    @param optimizer_kind: 'SGD'
+    @param max_epoch:
+    @param patience:
+    @param thres_patience:
+    @param learning_rate:
+    @param to_plot_progress:
+    @param reduced_lr_on_epoch:
+    @param reduce_lr_after:
+    @param reduce_lr_by:
+    @param n_fold_valid:
+    @return: best_loss_valid, best_state, losses_train, losses_valid
+    @rtype: float, dict, List[float], List[float]
+    """
+    def get_optimizer(model, lr):
+        if optimizer_kind == 'SGD':
+            return optim.SGD(model.parameters(),
+                             lr=lr)
+        elif optimizer_kind == 'Adam':
+            return optim.Adam(model.parameters(),
+                              lr=lr)
+        elif optimizer_kind == 'LBFGS':
+            return optim.LBFGS(model.parameters(),
+                               lr=lr)
+        else:
+            raise NotImplementedError()
+
+    optimizer = get_optimizer(model, learning_rate)
+
+    best_loss_epoch = 0
+    best_loss_valid = np.inf
+    best_state = model.state_dict()
+    best_losses = []
+
+    # losses_train[epoch] = average cross-validated loss for the epoch
+    losses_train = []
+    losses_valid = []
+
+    if to_plot_progress:
+        writer = SummaryWriter()
+    t_st = time.time()
+    epoch = 0
+
+    try:
+        for epoch in range(max_epoch):
+            losses_fold_train = []
+            losses_fold_valid = []
+            for i_fold in range(n_fold_valid):
+                # NOTE: Core part
+                data_train, target_train = fun_data(epoch, i_fold, 'train')
+                data_valid, target_valid = fun_data(epoch, i_fold, 'valid')
+
+                model.train()
+
+                if optimizer_kind == 'LBFGS':
+                    def closure():
+                        optimizer.zero_grad()
+                        out_train = model(data_train)
+                        loss = fun_loss(out_train, target_train)
+                        loss.backward()
+                        return loss
+                    optimizer.step(closure)
+                    out_train = model(data_train)
+                    loss_train1 = fun_loss(out_train, target_train)
+                else:
+                    optimizer.zero_grad()
+                    out_train = model(data_train)
+                    loss_train1 = fun_loss(out_train, target_train)
+                    loss_train1.backward()
+                    optimizer.step()
+                if to_print_grad and epoch == 0 and i_fold == 0:
+                    print_grad(model)
+                losses_fold_train.append(loss_train1)
+
+                if n_fold_valid == 1:
+                    out_valid = out_train.clone()
+                    loss_valid1 = loss_train1.clone()
+                else:
+                    model.eval()
+                    out_valid = model(data_valid)
+                    loss_valid1 = fun_loss(out_valid, target_valid)
+                losses_fold_valid.append(loss_valid1)
+
+            loss_train = torch.mean(torch.tensor(losses_fold_train))
+            loss_valid = torch.mean(torch.tensor(losses_fold_valid))
+            losses_train.append(loss_train.clone())
+            losses_valid.append(loss_valid.clone())
+
+            if to_plot_progress:
+                writer.add_scalar(
+                    'loss_train', loss_train,
+                    global_step=epoch
+                )
+                writer.add_scalar(
+                    'loss_valid', loss_valid,
+                    global_step=epoch
+                )
+
+            # Store best loss
+            if loss_valid < best_loss_valid:
+                # is_best = True
+                best_loss_epoch = epoch
+                best_loss_valid = loss_valid.clone()
+                best_state = model.state_dict()
+            # else:
+                # is_best = False
+            best_losses.append(best_loss_valid)
+
+            # Learning rate reduction and patience
+            if epoch >= reduced_lr_on_epoch + reduce_lr_after and (
+                    best_loss_valid
+                    > best_losses[-reduce_lr_after] - thres_patience
+            ):
+                learning_rate *= reduce_lr_by
+                optimizer = get_optimizer(model, learning_rate)
+                reduced_lr_on_epoch = epoch
+
+            if epoch >= patience and (
+                    best_loss_valid
+                    > best_losses[-patience] - thres_patience
+            ):
+                print('Ran out of patience!')
+                if to_print_grad:
+                    print_grad(model)
+                break
+
+            def print_loss():
+                t_el = time.time() - t_st
+                print('%1.0f sec/%d epochs = %1.1f sec/epoch, Ltrain: %f, '
+                      'Lvalid: %f, LR: %g, best: %f, epochB: %d'
+                      % (t_el, epoch + 1, t_el / (epoch + 1),
+                         loss_train, loss_valid, learning_rate,
+                         best_loss_valid, best_loss_epoch))
+
+            if epoch % show_progress_every == 0:
+                model.train()
+                data_all, target_all = fun_data(epoch, i_fold, 'all')
+                out_all = model(data_all)
+                loss_all = fun_loss(out_all, target_all)
+                print_loss()
+                if to_plot_progress:
+                    model.zero_grad()
+                    loss_all.backward()
+                    d = {
+                        'data_train': data_train,
+                        'data_valid': data_valid,
+                        'data_all': data_all,
+                        'out_train': out_train,
+                        'out_valid': out_valid,
+                        'out_all': out_all,
+                        'target_train': target_train,
+                        'target_valid': target_valid,
+                        'target_all': target_all,
+                        'loss_train': loss_train,
+                        'loss_valid': loss_valid,
+                        'loss_all': loss_all
+                    }
+
+                    for k, f in odict(funs_plot_progress).items():
+                        fig = f(model, d)
+                        # if fig is None:
+                        #     fig = plt.gcf()
+                        writer.add_figure(k, fig, global_step=epoch)
+    except Exception as ex:
+        from lib.pylabyk.cacheutil import is_keyboard_interrupt
+        if not is_keyboard_interrupt(ex):
+            raise ex
+        print('fit interrupted by user at epoch %d' % epoch)
+
+        from lib.pylabyk.localfile import LocalFile, datetime4filename
+        localfile = LocalFile()
+        cache = localfile.get_cache('model_data_target')
+        data_all, target_all = fun_data(epoch, i_fold, 'all')
+        cache.set({
+            'model': model,
+            'data_all': data_all,
+            'target_all': target_all
+        })
+        cache.save()
+
+    print_loss()
+    if to_plot_progress:
+        writer.close()
+
+    model.load_state_dict(best_state)
+    if isinstance(model, OverriddenParameter):
+        print(model.__str__())
+    elif isinstance(model, BoundedModule):
+        pprint(model._parameters_incl_bounded)
+    else:
+        pprint(model.state_dict())
+
+    return best_loss_valid, best_state, losses_train, losses_valid
+
+
+
+def ____Main____():
+    pass
+
+
 if __name__ == 'main':
-    #%%
+    # Demo BoundedModule
     bound = BoundedModule()
 
     bound.register_probability_parameter('prob', [0, 1])
