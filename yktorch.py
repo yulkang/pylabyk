@@ -660,10 +660,10 @@ def print_grad(model):
 def optimize(
         model, fun_data, fun_loss,
         funs_plot_progress=(),
-        optimizer_kind='LBFGS',
-        max_epoch=10000,
-        patience=150,  # How many epochs to wait before quitting
-        thres_patience=0.0001,  # How much should it improve wi patience
+        optimizer_kind='Adam',
+        max_epoch=100,
+        patience=20,  # How many epochs to wait before quitting
+        thres_patience=0.001,  # How much should it improve wi patience
         learning_rate=.5,
         reduce_lr_by=0.5,
         reduced_lr_on_epoch=0,
@@ -723,126 +723,131 @@ def optimize(
     if to_plot_progress:
         writer = SummaryWriter()
     t_st = time.time()
+    epoch = 0
 
-    for epoch in range(max_epoch):
-        losses_fold_train = []
-        losses_fold_valid = []
-        for i_fold in range(n_fold_valid):
-            # NOTE: Core part
-            data_train, target_train = fun_data(epoch, i_fold, 'train')
-            data_valid, target_valid = fun_data(epoch, i_fold, 'valid')
+    try:
+        for epoch in range(max_epoch):
+            losses_fold_train = []
+            losses_fold_valid = []
+            for i_fold in range(n_fold_valid):
+                # NOTE: Core part
+                data_train, target_train = fun_data(epoch, i_fold, 'train')
+                data_valid, target_valid = fun_data(epoch, i_fold, 'valid')
 
-            model.train()
+                model.train()
 
-            if optimizer_kind == 'LBFGS':
-                def closure():
+                if optimizer_kind == 'LBFGS':
+                    def closure():
+                        optimizer.zero_grad()
+                        out_train = model(data_train)
+                        loss = fun_loss(out_train, target_train)
+                        loss.backward()
+                        return loss
+                    optimizer.step(closure)
+                    out_train = model(data_train)
+                    loss_train1 = fun_loss(out_train, target_train)
+                else:
                     optimizer.zero_grad()
                     out_train = model(data_train)
-                    loss = fun_loss(out_train, target_train)
-                    loss.backward()
-                    return loss
-                optimizer.step(closure)
-                out_train = model(data_train)
-                loss_train1 = fun_loss(out_train, target_train)
-            else:
-                optimizer.zero_grad()
-                out_train = model(data_train)
-                loss_train1 = fun_loss(out_train, target_train)
-                loss_train1.backward()
-                optimizer.step()
-            if to_print_grad and epoch == 0 and i_fold == 0:
-                print_grad(model)
-            losses_fold_train.append(loss_train1)
+                    loss_train1 = fun_loss(out_train, target_train)
+                    loss_train1.backward()
+                    optimizer.step()
+                if to_print_grad and epoch == 0 and i_fold == 0:
+                    print_grad(model)
+                losses_fold_train.append(loss_train1)
 
-            if n_fold_valid == 1:
-                out_valid = out_train.clone()
-                loss_valid1 = loss_train1.clone()
-            else:
-                model.eval()
-                out_valid = model(data_valid)
-                loss_valid1 = fun_loss(out_valid, target_valid)
-            losses_fold_valid.append(loss_valid1)
+                if n_fold_valid == 1:
+                    out_valid = out_train.clone()
+                    loss_valid1 = loss_train1.clone()
+                else:
+                    model.eval()
+                    out_valid = model(data_valid)
+                    loss_valid1 = fun_loss(out_valid, target_valid)
+                losses_fold_valid.append(loss_valid1)
 
-        loss_train = torch.mean(torch.tensor(losses_fold_train))
-        loss_valid = torch.mean(torch.tensor(losses_fold_valid))
-        losses_train.append(loss_train.clone())
-        losses_valid.append(loss_valid.clone())
+            loss_train = torch.mean(torch.tensor(losses_fold_train))
+            loss_valid = torch.mean(torch.tensor(losses_fold_valid))
+            losses_train.append(loss_train.clone())
+            losses_valid.append(loss_valid.clone())
 
-        if to_plot_progress:
-            writer.add_scalar(
-                'loss_train', loss_train,
-                global_step=epoch
-            )
-            writer.add_scalar(
-                'loss_valid', loss_valid,
-                global_step=epoch
-            )
-
-        # Store best loss
-        if loss_valid < best_loss_valid:
-            # is_best = True
-            best_loss_epoch = epoch
-            best_loss_valid = loss_valid.clone()
-            best_state = model.state_dict()
-        # else:
-            # is_best = False
-        best_losses.append(best_loss_valid)
-
-        # Learning rate reduction and patience
-        if epoch >= reduced_lr_on_epoch + reduce_lr_after and (
-                best_loss_valid
-                > best_losses[-reduce_lr_after] - thres_patience
-        ):
-            learning_rate *= reduce_lr_by
-            optimizer = get_optimizer(model, learning_rate)
-            reduced_lr_on_epoch = epoch
-
-        if epoch >= patience and (
-                best_loss_valid
-                > best_losses[-patience] - thres_patience
-        ):
-            print('Ran out of patience!')
-            if to_print_grad:
-                print_grad(model)
-            break
-
-        def print_loss():
-            t_el = time.time() - t_st
-            print('%1.0f sec/%d epochs = %1.1f sec/epoch, Ltrain: %f, '
-                  'Lvalid: %f, LR: %g, best: %f, epochB: %d'
-                  % (t_el, epoch + 1, t_el / (epoch + 1),
-                     loss_train, loss_valid, learning_rate,
-                     best_loss_valid, best_loss_epoch))
-
-        if epoch % show_progress_every == 0:
-            model.train()
-            data_all, target_all = fun_data(epoch, i_fold, 'all')
-            out_all = model(data_all)
-            loss_all = fun_loss(out_all, target_all)
-            print_loss()
             if to_plot_progress:
-                model.zero_grad()
-                loss_all.backward()
-                d = {
-                    'data_train': data_train,
-                    'data_valid': data_valid,
-                    'data_all': data_all,
-                    'out_train': out_train,
-                    'out_valid': out_valid,
-                    'out_all': out_all,
-                    'target_train': target_train,
-                    'target_valid': target_valid,
-                    'target_all': target_all,
-                    'loss_train': loss_train,
-                    'loss_valid': loss_valid,
-                    'loss_all': loss_all
-                }
+                writer.add_scalar(
+                    'loss_train', loss_train,
+                    global_step=epoch
+                )
+                writer.add_scalar(
+                    'loss_valid', loss_valid,
+                    global_step=epoch
+                )
 
-                for k, f in odict(funs_plot_progress).items():
-                    fig = f(model, d)
-                    # if fig is None:
-                    #     fig = plt.gcf()
-                    writer.add_figure(k, fig, global_step=epoch)
+            # Store best loss
+            if loss_valid < best_loss_valid:
+                # is_best = True
+                best_loss_epoch = epoch
+                best_loss_valid = loss_valid.clone()
+                best_state = model.state_dict()
+            # else:
+                # is_best = False
+            best_losses.append(best_loss_valid)
+
+            # Learning rate reduction and patience
+            if epoch >= reduced_lr_on_epoch + reduce_lr_after and (
+                    best_loss_valid
+                    > best_losses[-reduce_lr_after] - thres_patience
+            ):
+                learning_rate *= reduce_lr_by
+                optimizer = get_optimizer(model, learning_rate)
+                reduced_lr_on_epoch = epoch
+
+            if epoch >= patience and (
+                    best_loss_valid
+                    > best_losses[-patience] - thres_patience
+            ):
+                print('Ran out of patience!')
+                if to_print_grad:
+                    print_grad(model)
+                break
+
+            def print_loss():
+                t_el = time.time() - t_st
+                print('%1.0f sec/%d epochs = %1.1f sec/epoch, Ltrain: %f, '
+                      'Lvalid: %f, LR: %g, best: %f, epochB: %d'
+                      % (t_el, epoch + 1, t_el / (epoch + 1),
+                         loss_train, loss_valid, learning_rate,
+                         best_loss_valid, best_loss_epoch))
+
+            if epoch % show_progress_every == 0:
+                model.train()
+                data_all, target_all = fun_data(epoch, i_fold, 'all')
+                out_all = model(data_all)
+                loss_all = fun_loss(out_all, target_all)
+                print_loss()
+                if to_plot_progress:
+                    model.zero_grad()
+                    loss_all.backward()
+                    d = {
+                        'data_train': data_train,
+                        'data_valid': data_valid,
+                        'data_all': data_all,
+                        'out_train': out_train,
+                        'out_valid': out_valid,
+                        'out_all': out_all,
+                        'target_train': target_train,
+                        'target_valid': target_valid,
+                        'target_all': target_all,
+                        'loss_train': loss_train,
+                        'loss_valid': loss_valid,
+                        'loss_all': loss_all
+                    }
+
+                    for k, f in odict(funs_plot_progress).items():
+                        fig = f(model, d)
+                        # if fig is None:
+                        #     fig = plt.gcf()
+                        writer.add_figure(k, fig, global_step=epoch)
+    except KeyboardInterrupt:
+        raise Warning('fit interrupted by user at epoch %d' % epoch)
+
     print_loss()
     if to_plot_progress:
         writer.close()
