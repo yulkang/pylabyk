@@ -671,7 +671,8 @@ def optimize(
         to_plot_progress=True,
         show_progress_every=5, # number of epochs
         to_print_grad=True,
-        n_fold_valid=1
+        n_fold_valid=1,
+        **kwargs  # to ignore unnecessary kwargs
 ):
     """
 
