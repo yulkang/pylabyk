@@ -845,7 +845,10 @@ def optimize(
                         # if fig is None:
                         #     fig = plt.gcf()
                         writer.add_figure(k, fig, global_step=epoch)
-    except KeyboardInterrupt:
+    except Exception as ex:
+        from lib.pylabyk.cacheutil import is_keyboard_interrupt
+        if not is_keyboard_interrupt(ex):
+            raise ex
         print('fit interrupted by user at epoch %d' % epoch)
 
         from lib.pylabyk.localfile import LocalFile, datetime4filename

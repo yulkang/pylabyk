@@ -43,12 +43,22 @@ from .argsutil import rmkeys
 ignore_cache = False
 ignored_once = []
 
+
+def is_keyboard_interrupt(exception):
+    # The second condition is necessary for it to work with the stop button
+    # in PyCharm Python console.
+    return (type(exception) is KeyboardInterrupt
+            or type(exception).__name__ == 'KeyboardInterruptException')
+
+
 def datetime4filename():
     from datetime import datetime
     return datetime.now().isoformat().replace(':', ';')
 
+
 def dict_except(d, keys_to_excl):
     return {k:d[k] for k in d if k not in keys_to_excl}
+
 
 def obj2dict(obj, keys_to_excl=[], exclude_hidden=True):
     d = obj.__dict__
@@ -58,10 +68,12 @@ def obj2dict(obj, keys_to_excl=[], exclude_hidden=True):
         d = {k:d[k] for k in d if k not in keys_to_excl}
     return d
 
+
 def dict2obj(d, obj):
     for k in d:
         obj.__dict__[k] = d[k]
     return obj
+
 
 class Cache(object):
     """
