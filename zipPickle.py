@@ -10,6 +10,8 @@ Created on Sun Oct 16 12:38:07 2016
 @author: Zach Dwiel
 """
 
+#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
+
 import pickle
 import gzip
 

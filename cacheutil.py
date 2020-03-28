@@ -31,6 +31,8 @@ val1, val2 = cache.getvalue([subkey1, subkey2])
 (not implemented)
 """
 
+#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
+
 import os
 from . import zipPickle, argsutil
 from collections import OrderedDict as odict

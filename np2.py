@@ -5,6 +5,8 @@ Created on Mon Mar 12 10:28:15 2018
 
 @author: yulkang
 """
+#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
+
 import numpy as np
 import torch
 import scipy

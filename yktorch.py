@@ -1,3 +1,5 @@
+#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
+
 from collections import OrderedDict as odict, namedtuple
 import numpy as np
 from pprint import pprint
