@@ -846,7 +846,18 @@ def optimize(
                         #     fig = plt.gcf()
                         writer.add_figure(k, fig, global_step=epoch)
     except KeyboardInterrupt:
-        raise Warning('fit interrupted by user at epoch %d' % epoch)
+        print('fit interrupted by user at epoch %d' % epoch)
+
+        from lib.pylabyk.localfile import LocalFile, datetime4filename
+        localfile = LocalFile()
+        cache = localfile.get_cache('model_data_target')
+        data_all, target_all = fun_data(epoch, i_fold, 'all')
+        cache.set({
+            'model': model,
+            'data_all': data_all,
+            'target_all': target_all
+        })
+        cache.save()
 
     print_loss()
     if to_plot_progress:

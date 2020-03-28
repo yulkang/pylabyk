@@ -43,6 +43,10 @@ from .argsutil import rmkeys
 ignore_cache = False
 ignored_once = []
 
+def datetime4filename():
+    from datetime import datetime
+    return datetime.now().isoformat().replace(':', ';')
+
 def dict_except(d, keys_to_excl):
     return {k:d[k] for k in d if k not in keys_to_excl}
 
