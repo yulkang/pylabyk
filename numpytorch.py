@@ -136,6 +136,12 @@ def isnan(v):
     else:
         return torch.isnan(v)
 
+
+def nan2v(v, fill=0):
+    v[isnan(v)] = fill
+    return v
+
+
 def nansum(v, *args, inplace=False, **kwargs):
     if not inplace:
         v = v.clone()
@@ -562,6 +568,81 @@ def var_distrib(p, v, axis=None):
             mean_distrib(p, v ** 2, axis=axis)
             - mean_distrib(p, v, axis=axis) ** 2
     )
+
+
+def min_distrib(p:torch.Tensor
+                ) -> (torch.Tensor, torch.Tensor):
+    """
+    Distribution of min of p0[:] and p1[:] when the two are independent.
+    When ndims(p) > 2, each pair of p(:,1,m) and p(:,2,m) is processed
+    separately. p.sum(1) is taken as the number of trials.
+
+    [p_min, p_1st] = min_distrib(p, sum_equals = 'prod')
+
+    p_min(t,1,:): Probability distribution of min(t_1 ~ p(:,1), t_2 ~ p(:,2))
+    p_1st(t,k,:): Probability of t_k happening first at t.
+                  sums(p_1st, [1, 2]) gives all 1's.
+
+    Formula from: http://math.stackexchange.com/questions/308230/expectation-of-the-min-of-two-independent-random-variables
+
+    :param p: [value, id, [batch, ...]]
+    :return: p_min[value, batch, ...], p_1st[id, value, batch, ...]
+    """
+    assert p.shape[0] == 2
+
+    shape0 = p.shape
+    p = p.reshape([shape0[0], shape0[1], -1])
+    p0 = p.clone()
+
+    # p[id, value, batch] = P(value | id, batch)
+    p = sumto1(p, 1)
+
+    # c[id, value, batch] = P(v <= value | id, batch)
+    c = p.cumsum(1)
+
+    # P(T <= either 0 or 1) = P(T <= 0 or 1) - P(T <= 0 and 1)
+    # c_min[1, value, batch]
+    c_min = c.sum(0, keepdim=True) - c.prod(0, keepdim=True)
+
+    # P(T == either 0 or 1) = diff P(T <= either 0 or 1)
+    # p_min[1, value, batch]
+    p_min = F.pad(c_min, [0, 0, 1, 0])
+    p_min = (p_min[:, 1:] - p_min[:, :-1]).clamp_min(0)
+
+    # p_1st[id, value, batch] = P(v == v_min == v_id < v_other | batch)
+    # = P(v_min == v | batch) * P(v_id == v,  v_min = v | batch)
+    p_1st = p_min * nan2v(sumto1(p0, 0))
+
+    # if indep == 'indep':
+    #     # p_both[batch]
+    #     p_both = sum_p[0] * sum_p[1]
+    #
+    #     # p_min[id, value, batch]
+    #     p_min = nan2v(sumto1(p_min, 0).clone()) * sum_p
+    # elif indep == 'disjoint':
+    #     raise NotImplementedError()
+    # else:
+    #     raise ValueError()
+
+    # Special case 1: No p_1st if neither p(:,1) nor p(:,2)
+    any_p = (p != 0).any(0, keepdim=True)
+    p_1st = p_1st * any_p
+
+    # Special case 2: zeros across all values in either id
+    # ch0[id, batch]
+    ch0 = (p == 0).all(1).any(0)
+    # ch00[batch]
+    ch00 = ch0.any(0)
+    p_min[0, :, ch00] = 0
+    p_1st[:, :, ch00] = 0
+
+    # # Keep the total count the same
+    # sum_p[1, 1, batch]
+    sum_p = p0.sum(1, keepdim=True)
+    p_min = nan2v(sumto1(p_min, 1)) * sum_p
+    p_1st = nan2v(sumto1(p_1st, [0, 1])) * sum_p.prod(0, keepdim=True)
+
+    return p_min[0].reshape(shape0[1:]), p_1st.reshape(shape0)
 
 
 def sem(v, dim=0):
