@@ -585,7 +585,7 @@ def min_distrib(p:torch.Tensor
 
     Formula from: http://math.stackexchange.com/questions/308230/expectation-of-the-min-of-two-independent-random-variables
 
-    :param p: [value, id, [batch, ...]]
+    :param p: [id, value, [batch, ...]]
     :return: p_min[value, batch, ...], p_1st[id, value, batch, ...]
     """
     assert p.shape[0] == 2
@@ -636,11 +636,11 @@ def min_distrib(p:torch.Tensor
     p_min[0, :, ch00] = 0
     p_1st[:, :, ch00] = 0
 
-    # # Keep the total count the same
-    # sum_p[1, 1, batch]
-    sum_p = p0.sum(1, keepdim=True)
-    p_min = nan2v(sumto1(p_min, 1)) * sum_p
-    p_1st = nan2v(sumto1(p_1st, [0, 1])) * sum_p.prod(0, keepdim=True)
+    # # Keep the total count the product of the two sums
+    # sum_p[]
+    sum_p = p0.sum(1, keepdim=True).prod(0, keepdim=True)
+    p_min = nan2v(sumto1(p_min, [0, 1])) * sum_p
+    p_1st = nan2v(sumto1(p_1st, [0, 1])) * sum_p
 
     return p_min[0].reshape(shape0[1:]), p_1st.reshape(shape0)
 

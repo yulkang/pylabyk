@@ -26,7 +26,7 @@ if __name__ == '__main__':
     p = torch.tensor([
         [0.5, 0.5],
         [0.5, 0.5]
-    ]) * 1.
+    ]) * 0.1
     p_min, p_1st = npt.min_distrib(p)
     print((p_min, p_1st))
     print((p_min.sum(), p_1st.sum()))
