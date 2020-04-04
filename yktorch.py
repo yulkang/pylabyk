@@ -3,7 +3,7 @@
 from collections import OrderedDict as odict, namedtuple
 import numpy as np
 from pprint import pprint
-from typing import Union, Iterable, List, Tuple, Sequence
+from typing import Union, Iterable, List, Tuple, Sequence, Callable, Dict
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import time
@@ -657,9 +657,20 @@ def print_grad(model):
 #     # for name, tensor in params.items():
 
 
+ModelType = Union[OverriddenParameter, BoundedModule, nn.Module]
+FunDataType = Callable[[str, int, int], (torch.Tensor, torch.Tensor)]
+FunLossType = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+FunPlotProgressType = Callable[
+    [ModelType, Dict[str, torch.Tensor]],
+    (plt.Figure, Dict[str, torch.Tensor])
+]
+
+
 def optimize(
-        model, fun_data, fun_loss,
-        funs_plot_progress=(),
+        model: ModelType,
+        fun_data: FunDataType,
+        fun_loss: FunLossType,
+        funs_plot_progress: Iterable[(str, FunPlotProgressType)],
         optimizer_kind='Adam',
         max_epoch=100,
         patience=20,  # How many epochs to wait before quitting
@@ -673,29 +684,31 @@ def optimize(
         to_print_grad=True,
         n_fold_valid=1,
         **kwargs  # to ignore unnecessary kwargs
-):
+) -> (float, dict, dict, List[float], List[float]):
     """
 
-    @param model: OverriddenParameter, BoundedModule, or torch.nn.Module
-    @type model: Union[OverriddenParameter, BoundedModule, torch.nn.Module]
-    @param fun_data: (epoch, fold_valid=0, mode='train'|'valid'|'all') -> (
-    data, target)
-    @param fun_loss: (model(data), target) -> scalar_loss: torch.Tensor
-    @param funs_plot_progress: Iterable[(name, fun)], where fun(model,
-    d) -> plt.Figure takes dict d with keys 'data_*', 'target_*', 'out_*',
-    'loss_*', where * = 'train'|'valid'
-    @param optimizer_kind: 'SGD'
-    @param max_epoch:
-    @param patience:
-    @param thres_patience:
-    @param learning_rate:
-    @param to_plot_progress:
-    @param reduced_lr_on_epoch:
-    @param reduce_lr_after:
-    @param reduce_lr_by:
-    @param n_fold_valid:
-    @return: best_loss_valid, best_state, losses_train, losses_valid
-    @rtype: float, dict, List[float], List[float]
+    :param model:
+    :param fun_data: (mode='all'|'train'|'valid'|'train_valid'|'test',
+    fold_valid=0, epoch=0)
+    :param fun_loss: (out, target) -> loss
+    :param funs_plot_progress: [(str, fun)] where fun takes dict d with keys
+    'data_*', 'target_*', 'out_*', 'loss_*', where * = 'train', 'valid', etc.
+    :param optimizer_kind:
+    :param max_epoch:
+    :param patience:
+    :param thres_patience:
+    :param learning_rate:
+    :param reduce_lr_by:
+    :param reduced_lr_on_epoch:
+    :param reduce_lr_after:
+    :param to_plot_progress:
+    :param show_progress_every:
+    :param to_print_grad:
+    :param n_fold_valid:
+    :param kwargs:
+    :return: loss_test, best_state, d, losses_train, losses_valid where d
+    contains 'data_*', 'target_*', 'out_*', and 'loss_*', where * is
+    'train_valid', 'test', and 'all'.
     """
     def get_optimizer(model, lr):
         if optimizer_kind == 'SGD':
@@ -732,8 +745,8 @@ def optimize(
             losses_fold_valid = []
             for i_fold in range(n_fold_valid):
                 # NOTE: Core part
-                data_train, target_train = fun_data(epoch, i_fold, 'train')
-                data_valid, target_valid = fun_data(epoch, i_fold, 'valid')
+                data_train, target_train = fun_data('train', i_fold, epoch)
+                data_valid, target_valid = fun_data('valid', i_fold, epoch)
 
                 model.train()
 
@@ -819,33 +832,32 @@ def optimize(
 
             if epoch % show_progress_every == 0:
                 model.train()
-                data_all, target_all = fun_data(epoch, i_fold, 'all')
-                out_all = model(data_all)
-                loss_all = fun_loss(out_all, target_all)
+                data_train_valid, target_train_valid = fun_data(
+                    'train_valid', i_fold, epoch
+                )
+                out_train_valid = model(data_train_valid)
+                loss_train_valid = fun_loss(out_train_valid, target_train_valid)
                 print_loss()
                 if to_plot_progress:
-                    model.zero_grad()
-                    loss_all.backward()
                     d = {
                         'data_train': data_train,
                         'data_valid': data_valid,
-                        'data_all': data_all,
+                        'data_train_valid': data_train_valid,
                         'out_train': out_train,
                         'out_valid': out_valid,
-                        'out_all': out_all,
+                        'out_train_valid': out_train_valid,
                         'target_train': target_train,
                         'target_valid': target_valid,
-                        'target_all': target_all,
+                        'target_train_valid': target_train_valid,
                         'loss_train': loss_train,
                         'loss_valid': loss_valid,
-                        'loss_all': loss_all
+                        'loss_train_valid': loss_train_valid
                     }
 
                     for k, f in odict(funs_plot_progress).items():
-                        fig = f(model, d)
-                        # if fig is None:
-                        #     fig = plt.gcf()
-                        writer.add_figure(k, fig, global_step=epoch)
+                        fig, d = f(model, d)
+                        if fig is not None:
+                            writer.add_figure(k, fig, global_step=epoch)
     except Exception as ex:
         from lib.pylabyk.cacheutil import is_keyboard_interrupt
         if not is_keyboard_interrupt(ex):
@@ -855,11 +867,11 @@ def optimize(
         from lib.pylabyk.localfile import LocalFile, datetime4filename
         localfile = LocalFile()
         cache = localfile.get_cache('model_data_target')
-        data_all, target_all = fun_data(epoch, i_fold, 'all')
+        data_train_valid, target_train_valid = fun_data('all', 0, 0)
         cache.set({
             'model': model,
-            'data_all': data_all,
-            'target_all': target_all
+            'data_train_valid': data_train_valid,
+            'target_train_valid': target_train_valid
         })
         cache.save()
 
@@ -868,6 +880,19 @@ def optimize(
         writer.close()
 
     model.load_state_dict(best_state)
+
+    d = {}
+    for mode in ['train_valid', 'test', 'all']:
+        data, target = fun_data(mode, 0, 0)
+        out = model(data)
+        loss = fun_loss(out, target)
+        d.update({
+            'data_' + mode: data,
+            'target_' + mode: target,
+            'out_' + mode: out,
+            'loss_' + mode: loss
+        })
+
     if isinstance(model, OverriddenParameter):
         print(model.__str__())
     elif isinstance(model, BoundedModule):
@@ -875,8 +900,7 @@ def optimize(
     else:
         pprint(model.state_dict())
 
-    return best_loss_valid, best_state, losses_train, losses_valid
-
+    return d['loss_test'], best_state, d, losses_train, losses_valid
 
 
 def ____Main____():
