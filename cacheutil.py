@@ -33,6 +33,10 @@ val1, val2 = cache.getvalue([subkey1, subkey2])
 
 #  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
+# TODO: add rename_files() and rename_cache() that works with hash (using .csv)
+
+# TODO: pickle dict_filename
+
 import os
 from . import zipPickle, argsutil
 from collections import OrderedDict as odict
