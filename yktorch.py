@@ -658,11 +658,12 @@ def print_grad(model):
 
 
 ModelType = Union[OverriddenParameter, BoundedModule, nn.Module]
-FunDataType = Callable[[str, int, int], (torch.Tensor, torch.Tensor)]
+FunDataType = Callable[[str, int, int],
+                       Tuple[torch.Tensor, torch.Tensor]]
 FunLossType = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 FunPlotProgressType = Callable[
     [ModelType, Dict[str, torch.Tensor]],
-    (plt.Figure, Dict[str, torch.Tensor])
+    Tuple[plt.Figure, Dict[str, torch.Tensor]]
 ]
 
 
@@ -670,7 +671,7 @@ def optimize(
         model: ModelType,
         fun_data: FunDataType,
         fun_loss: FunLossType,
-        funs_plot_progress: Iterable[(str, FunPlotProgressType)],
+        funs_plot_progress: Iterable[Tuple[str, FunPlotProgressType]],
         optimizer_kind='Adam',
         max_epoch=100,
         patience=20,  # How many epochs to wait before quitting
@@ -689,7 +690,7 @@ def optimize(
 
     :param model:
     :param fun_data: (mode='all'|'train'|'valid'|'train_valid'|'test',
-    fold_valid=0, epoch=0)
+    fold_valid=0, epoch=0) -> (data, target)
     :param fun_loss: (out, target) -> loss
     :param funs_plot_progress: [(str, fun)] where fun takes dict d with keys
     'data_*', 'target_*', 'out_*', 'loss_*', where * = 'train', 'valid', etc.
