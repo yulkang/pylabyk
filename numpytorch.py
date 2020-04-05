@@ -573,11 +573,11 @@ def var_distrib(p, v, axis=None):
 def min_distrib(p:torch.Tensor
                 ) -> (torch.Tensor, torch.Tensor):
     """
-    Distribution of min of p0[:] and p1[:] when the two are independent.
-    When ndims(p) > 2, each pair of p(:,1,m) and p(:,2,m) is processed
+    Distribution of the min of independent RVs R0 ~ p[0] and R1 ~ p[1].
+    When ndims(p) > 2, each pair of p[0, r0, :] and p[1, r1, :] is processed
     separately. p.sum(1) is taken as the number of trials.
 
-    [p_min, p_1st] = min_distrib(p, sum_equals = 'prod')
+    p_min, p_1st = min_distrib(p)
 
     p_min(t,1,:): Probability distribution of min(t_1 ~ p(:,1), t_2 ~ p(:,2))
     p_1st(t,k,:): Probability of t_k happening first at t.
@@ -645,8 +645,30 @@ def min_distrib(p:torch.Tensor
     return p_min[0].reshape(shape0[1:]), p_1st.reshape(shape0)
 
 
+def max_distrib(p: torch.Tensor) -> (torch.Tensor, torch.Tensor):
+    """
+    Distribution of the max of independent RVs R0 ~ p[0] and R1 ~ p[1].
+    When ndims(p) > 2, each pair of p[0, r0, :] and p[1, r1, :] is processed
+    separately. p.sum(1) is taken as the number of trials.
+
+    p_max, p_1st = min_distrib(p)
+
+    p_max(t,1,:): Probability distribution of min(t_1 ~ p(:,1), t_2 ~ p(:,2))
+    p_last(t,k,:): Probability of t_k happening first at t.
+                  sums(p_1st, [1, 2]) gives all 1's.
+
+    Formula from: http://math.stackexchange.com/questions/308230/expectation-of-the-min-of-two-independent-random-variables
+
+    :param p: [id, value, [batch, ...]]
+    :return: p_max[value, batch, ...], p_last[id, value, batch, ...]
+    """
+    p_min, p_1st = min_distrib(p.flip(1))
+    return p_min.flip(0), p_1st.flip(1)
+
+
 def sem(v, dim=0):
     return torch.std(v, dim=dim) / torch.sqrt(v.shape[dim])
+
 
 def entropy(tensor, *args, **kwargs):
     """
@@ -658,6 +680,7 @@ def entropy(tensor, *args, **kwargs):
     out = torch.log2(tensor) * tensor
     out[tensor == 0] = 0.
     return out.sum(*args, **kwargs)
+
 
 def softmax_bias(p, slope, bias):
     """
@@ -681,6 +704,7 @@ def softmax_bias(p, slope, bias):
     # k = -torch.log(torch.tensor(2.)) / torch.log(torch.tensor(bias))
     # q = (p ** k ** slope)
     # return q / (q + (1. - p ** k) ** slope)
+
 
 def test_softmax_bias():
     p = torch.linspace(1e-4, 1 - 1e-4, 100);
