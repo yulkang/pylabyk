@@ -76,7 +76,7 @@ class LocalFile(object):
             ) + ext
         )
 
-    def get_cache(self, cache_kind, d=None, subdir=None):
+    def get_cache(self, cache_kind, d=None, subdir=None, **kwargs):
         """
         :type cache_kind: str
         :type d: Union[Iterable[tuple], dict, odict, None]
@@ -91,7 +91,7 @@ class LocalFile(object):
                 argsutil.merge_fileargs(d),
                 [('cache', cache_kind)],
                 sort_merged=False, sort_given=True, def_bef_given=True
-            ), subdir=subdir)
+            ), subdir=subdir), **kwargs
         )
 
     def get_file_fig(self, fig_kind, d=None, ext='.png', subdir=None):
