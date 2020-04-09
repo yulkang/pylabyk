@@ -6,6 +6,7 @@ import torch
 from torch.nn import functional as F
 import numpy_groupies as npg
 from matplotlib import pyplot as plt
+from typing import Union, Iterable, Tuple, Dict
 
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
     Categorical
@@ -104,7 +105,7 @@ def ____TYPE____():
 def float(v):
     return v.type(torch.get_default_dtype())
 
-def numpy(v):
+def numpy(v: Union[torch.Tensor, np.ndarray]):
     """
     :type v: torch.Tensor
     :rtype: np.ndarray
