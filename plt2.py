@@ -340,6 +340,35 @@ def tick_color(xy, ticks, labels, colors):
         _, labels = plt.yticks(ticks, labels)
         set_tick_colors(labels)
 
+
+def ____Colormaps____():
+    pass
+
+
+def cool2(n_lev):
+    def cmap1(lev):
+        return np.linspace([0.4, 0., 1.], [1., 0., 0.], n_lev)[lev]
+    return cmap1
+
+
+def cool2_rev(n_lev):
+    def cmap1(lev):
+        return np.linspace([1., 0., 0.], [0.4, 0., 1.], n_lev)[lev]
+    return cmap1
+
+
+def winter2(n_lev):
+    def cmap1(lev):
+        return np.linspace([0., 0.4, 1.], [0., 0.8, 0.25], n_lev)[lev]
+    return cmap1
+
+
+def winter2_rev(n_lev):
+    def cmap1(lev):
+        return np.linspace([0., 0.8, 0.25], [0., 0.4, 1.], n_lev)[lev]
+    return cmap1
+
+
 def ____Heatmaps____():
     pass
 
