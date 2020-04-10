@@ -95,7 +95,10 @@ def dict_shapes(d, verbose=True):
                 compo = type(v[0])
         elif type(v) is np.ndarray:
             sh1 = v.shape
-            compo = v.dtype.type
+            if isinstance(v, np.object) and v.size > 0:
+                compo = type(v.flatten()[0])
+            else:
+                compo = v.dtype.type
         elif torch.is_tensor(v):
             sh1 = tuple(v.shape)
             compo = v.dtype
