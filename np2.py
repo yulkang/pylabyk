@@ -15,6 +15,7 @@ import numpy_groupies as npg
 import pandas as pd
 from copy import deepcopy, copy
 from . import numpytorch
+from pprint import pprint
 
 npt = numpytorch.npt_torch # choose between torch and np
 
@@ -82,7 +83,7 @@ def mat2cell(m):
     return [v[~np.isnan(v)] for v in m]
 
 
-def dict_shapes(d):
+def dict_shapes(d, verbose=True):
     sh = {}
     for k in d.keys():
         v = d[k]
@@ -105,6 +106,14 @@ def dict_shapes(d):
             sh1 = 1
             compo = None
         sh[k] = (sh1, type(v), compo)
+
+        if verbose:
+            if compo is None:
+                str_compo = ''
+            else:
+                str_compo = '[' + compo.__name__ + ']'
+            print('%15s: %s %s%s' % (k, sh1, type(v).__name__, str_compo))
+
     return sh
 
 
