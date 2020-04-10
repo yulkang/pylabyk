@@ -8,7 +8,7 @@ Created on Tue Feb 13 10:42:06 2018
 
 #  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
-from typing import Union, List, Iterable
+from typing import Union, List, Iterable, Callable
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -345,25 +345,28 @@ def ____Colormaps____():
     pass
 
 
-def cool2(n_lev):
+CMapType = Callable[[int], Iterable[float]]
+
+
+def cool2(n_lev: int) -> CMapType:
     def cmap1(lev):
         return np.linspace([0.4, 0., 1.], [1., 0., 0.], n_lev)[lev]
     return cmap1
 
 
-def cool2_rev(n_lev):
+def cool2_rev(n_lev: int) -> CMapType:
     def cmap1(lev):
         return np.linspace([1., 0., 0.], [0.4, 0., 1.], n_lev)[lev]
     return cmap1
 
 
-def winter2(n_lev):
+def winter2(n_lev: int) -> CMapType:
     def cmap1(lev):
         return np.linspace([0., 0.4, 1.], [0., 0.8, 0.25], n_lev)[lev]
     return cmap1
 
 
-def winter2_rev(n_lev):
+def winter2_rev(n_lev: int) -> CMapType:
     def cmap1(lev):
         return np.linspace([0., 0.8, 0.25], [0., 0.4, 1.], n_lev)[lev]
     return cmap1
