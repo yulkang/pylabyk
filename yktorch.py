@@ -658,8 +658,11 @@ def print_grad(model):
 
 
 ModelType = Union[OverriddenParameter, BoundedModule, nn.Module]
-FunDataType = Callable[[str, int, int],
-                       Tuple[torch.Tensor, torch.Tensor]]
+FunDataType = Callable[
+    [str, int, int], Tuple[torch.Tensor, torch.Tensor, ...]
+    # (mode='all'|'train'|'valid'|'train_valid'|'test', fold_valid=0, epoch=0)
+    # -> (data, target)
+]
 FunLossType = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 FunPlotProgressType = Callable[
     [ModelType, Dict[str, torch.Tensor]],
