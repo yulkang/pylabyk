@@ -3,7 +3,8 @@
 from collections import OrderedDict as odict, namedtuple
 import numpy as np
 from pprint import pprint
-from typing import Union, Iterable, List, Tuple, Sequence, Callable, Dict
+from typing import Union, Iterable, List, Tuple, Sequence, Callable, \
+    Dict
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import time
@@ -435,38 +436,8 @@ class BoundedModule(nn.Module):
             ax = plt.gca()
 
         ax = plt.gca()
-        if named_bounded_params is None:
-            d = odict([(k, v) for k, v in self.named_modules()
-                       if isinstance(v, BoundedParameter)])
-        else:
-            d = named_bounded_params
-
-        names = []
-        v = []
-        lb = []
-        ub = []
-        grad = []
-        for name, param in d.items():
-            v0 = param.v.flatten()
-            if param._param.grad is None:
-                g0 = torch.zeros_like(v0)
-            else:
-                g0 = param._param.grad.flatten()
-
-            for i, (v1, g1) in enumerate(zip(v0, g0)):
-                v.append(v1)
-                grad.append(g1)
-                lb.append(param.lb)
-                ub.append(param.ub)
-                if v0.numel() > 1:
-                    names.append(name + '%d' % i)
-                else:
-                    names.append(name)
-
-        v = npy(torch.stack(v))
-        lb = np.stack(lb)
-        ub = np.stack(ub)
-        grad = -npy(torch.stack(grad))  # minimizing; so take negative
+        names, v, grad, lb, ub = self.get_named_bounded_params(
+            named_bounded_params, exclude=exclude)
         max_grad = np.amax(np.abs(grad))
         if max_grad == 0:
             max_grad = 1.
@@ -498,6 +469,48 @@ class BoundedModule(nn.Module):
 
         return h
 
+    def get_named_bounded_params(
+            self, named_bounded_params: Dict[str, BoundedParameter] = None,
+            exclude: Iterable[str] = ()
+    ) -> (Iterable[str], np.ndarray, np.ndarray, np.ndarray, np.ndarray):
+        """
+
+        :param named_bounded_params:
+        :param exclude:
+        :return: names, v, grad, lb, ub
+        """
+        if named_bounded_params is None:
+            d = odict([(k, v) for k, v in self.named_modules()
+                       if (isinstance(v, BoundedParameter)
+                           and k not in exclude)])
+        else:
+            d = named_bounded_params
+        names = []
+        v = []
+        lb = []
+        ub = []
+        grad = []
+        for name, param in d.items():
+            v0 = param.v.flatten()
+            if param._param.grad is None:
+                g0 = torch.zeros_like(v0)
+            else:
+                g0 = param._param.grad.flatten()
+
+            for i, (v1, g1) in enumerate(zip(v0, g0)):
+                v.append(v1)
+                grad.append(g1)
+                lb.append(param.lb)
+                ub.append(param.ub)
+                if v0.numel() > 1:
+                    names.append(name + '%d' % i)
+                else:
+                    names.append(name)
+        v = npy(torch.stack(v))
+        lb = np.stack(lb)
+        ub = np.stack(ub)
+        grad = -npy(torch.stack(grad))  # minimizing; so take negative
+        return names, v, grad, lb, ub
 
 
 def enforce_float_tensor(v):
@@ -671,13 +684,14 @@ FunPlotProgressType = Callable[
     [ModelType, Dict[str, torch.Tensor]],
     Tuple[plt.Figure, Dict[str, torch.Tensor]]
 ]
+CollectionFunPlotPorgressType = Iterable[Tuple[str, FunPlotProgressType]]
 
 
 def optimize(
         model: ModelType,
         fun_data: FunDataType,
         fun_loss: FunLossType,
-        funs_plot_progress: Iterable[Tuple[str, FunPlotProgressType]],
+        funs_plot_progress: CollectionFunPlotPorgressType,
         optimizer_kind='Adam',
         max_epoch=100,
         patience=20,  # How many epochs to wait before quitting
@@ -908,6 +922,93 @@ def optimize(
         pprint(model.state_dict())
 
     return d['loss_test'], best_state, d, losses_train, losses_valid
+
+
+def tensor2str(v: Union[torch.Tensor], sep='; ') -> str:
+    """Make a string that is human-readable and csv-compatible"""
+    if v is None:
+        return '() None'
+    else:
+        return '(%s) %s' % (
+            sep.join(['%d' % s for s in v.shape]),
+            sep.join(['%g' % v1 for v1 in v.flatten()])
+        )
+
+
+def save_optim_results(
+        model: ModelType = None,
+        best_state: Dict[str, torch.Tensor] = None,
+        d: Dict[str, torch.Tensor] = None,
+        funs_plot: CollectionFunPlotPorgressType = None,
+        fun_file: Callable[[str, str], str] = None,
+        fun_fig_file: Callable[[str, str], str] = None,
+        plot_exts=('.png',)
+) -> Iterable[str]:
+    """
+
+    :param model:
+    :param best_state: model.state_dict()
+    :param d: as returned from optimize()
+    :param funs_plot:
+    :param fun_file: (file_kind, extension) -> fullpath
+    :param fun_fig_file: (file_kind, extension) -> fullpath
+    :param plot_exts:
+    :return:
+    """
+    files = []
+
+    if fun_file is None:
+        def fun_file(name, ext):
+            return name + ext
+
+    if fun_fig_file is None:
+        def fun_plot_file(name, ext):
+            return 'plt=%s%s' % (name, ext)
+
+    if model is not None:
+        best_state = odict(model.named_parameters())
+    if best_state is not None:
+        file = fun_file('best_state', '.csv')
+        with open(file, 'w') as f:
+            if isinstance(model, BoundedModule):
+                names, v, grad, lb, ub = model.get_named_bounded_params()
+
+                f.write('name, value, gradient, lb, ub\n')
+                for name, v1, grad1, lb1, ub1 in zip(
+                    names, v, grad, lb, ub
+                ):
+                    f.write('%s, %g, %g, %g, %g\n' % (
+                        name, v1, grad1, lb1, ub1
+                    ))
+            else:
+                f.write('name, value, gradient\n')
+                for k, v in best_state.items():
+                    f.write('%s, %s, %s\n'
+                            % (k, tensor2str(v), tensor2str(v.grad)))
+        print('Saved to %s' % file)
+        files.append(file)
+
+    if d is not None:
+        file = fun_file('best_loss', '.csv')
+        with open(file, 'w') as f:
+            f.write('name, value\n')
+            for k, v in d.items():
+                if k.startswith('loss'):
+                    f.write('%s, %s\n'
+                            % (k, tensor2str(v)))
+        print('Saved to %s' % file)
+        files.append(file)
+
+    if funs_plot is not None and model is not None and d is not None:
+        funs_plot = odict(funs_plot)
+        for k, fun_plot in funs_plot.items():
+            for plot_ext in plot_exts:
+                file = fun_fig_file(k, plot_ext)
+                fig, _ = fun_plot(model, d)
+                fig.savefig(file, dpi=300)
+                print('Saved to %s' % file)
+                files.append(file)
+    return files
 
 
 def ____Main____():
