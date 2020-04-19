@@ -24,10 +24,12 @@ class LocalFile(object):
     def __init__(
             self,
             pth_root='../Data',
-            subdir_default=''
+            subdir_default='',
+            cache_dir='cache',
     ):
         self.pth_root = pth_root
         self.subdir_default = subdir_default
+        self.cache_dir = cache_dir
 
     def get_pth_out(self, subdir=None):
         if subdir is None:
@@ -37,20 +39,22 @@ class LocalFile(object):
             os.mkdir(pth_out)
         return pth_out
 
-    def get_pth_cache(self, subdir=None):
+    def get_pth_cache(self, subdir=None, cache_dir=None):
+        if cache_dir is None:
+            cache_dir = self.cache_dir
         pth_cache = os.path.join(
-            self.get_pth_out(subdir), 'cache')
+            self.get_pth_out(subdir), cache_dir)
         if not os.path.exists(pth_cache):
             os.mkdir(pth_cache)
         return pth_cache
 
-    def get_file_cache(self, d, subdir=None):
+    def get_file_cache(self, d, subdir=None, cache_dir=None):
         """
         :type d: Union[Iterable[tuple], dict, odict, None]
         :rtype: str
         """
         return os.path.join(
-            self.get_pth_cache(subdir),
+            self.get_pth_cache(subdir, cache_dir=cache_dir),
             cacheutil.dict2fname(d) + '.zpkl'
         )
 
@@ -76,7 +80,7 @@ class LocalFile(object):
             ) + ext
         )
 
-    def get_cache(self, cache_kind, d=None, subdir=None):
+    def get_cache(self, cache_kind, d=None, subdir=None, cache_dir=None):
         """
         :type cache_kind: str
         :type d: Union[Iterable[tuple], dict, odict, None]
@@ -91,7 +95,7 @@ class LocalFile(object):
                 argsutil.merge_fileargs(d),
                 [('cache', cache_kind)],
                 sort_merged=False, sort_given=True, def_bef_given=True
-            ), subdir=subdir)
+            ), subdir=subdir, cache_dir=cache_dir)
         )
 
     def get_file_fig(self, fig_kind, d=None, ext='.png', subdir=None):
