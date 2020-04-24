@@ -560,7 +560,8 @@ def shiftdim(v: torch.Tensor, shift: torch.Tensor, dim=0):
     if torch.is_floating_point(shift):
         lb = shift.floor().long()
         ub = lb + 1
-        p = torch.tensor(1.) - torch.tensor([shift - lb, ub - shift])
+        p = torch.tensor(1.) - torch.cat([shift.reshape([1]) - lb,
+                                          ub - shift.reshape([1])], 0)
         return (
                 shiftdim(v, shift=lb, dim=dim) * p[0]
                 + shiftdim(v, shift=ub, dim=dim) * p[1]
