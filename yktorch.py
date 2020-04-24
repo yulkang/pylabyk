@@ -761,7 +761,7 @@ def optimize(
     epoch = 0
 
     try:
-        for epoch in range(max_epoch):
+        for epoch in range(max([max_epoch, 1])):
             losses_fold_train = []
             losses_fold_valid = []
             for i_fold in range(n_fold_valid):
@@ -778,7 +778,8 @@ def optimize(
                         loss = fun_loss(out_train, target_train)
                         loss.backward()
                         return loss
-                    optimizer.step(closure)
+                    if max_epoch > 0:
+                        optimizer.step(closure)
                     out_train = model(data_train)
                     loss_train1 = fun_loss(out_train, target_train)
                 else:
@@ -786,7 +787,8 @@ def optimize(
                     out_train = model(data_train)
                     loss_train1 = fun_loss(out_train, target_train)
                     loss_train1.backward()
-                    optimizer.step()
+                    if max_epoch > 0:
+                        optimizer.step()
                 if to_print_grad and epoch == 0 and i_fold == 0:
                     print_grad(model)
                 losses_fold_train.append(loss_train1)
