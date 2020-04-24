@@ -556,6 +556,37 @@ def conv_t(p, kernel, **kwargs):
         )[:, :, :nt].squeeze(0)
 
 
+def shiftdim(v: torch.Tensor, shift: torch.Tensor, dim=0):
+    if torch.is_floating_point(shift):
+        lb = shift.floor().long()
+        ub = lb + 1
+        p = torch.tensor(1.) - torch.tensor([shift - lb, ub - shift])
+        return (
+                shiftdim(v, shift=lb, dim=dim) * p[0]
+                + shiftdim(v, shift=ub, dim=dim) * p[1]
+        )
+
+    if dim != 0:
+        v = v.transpose(0, dim)
+
+    if shift == 0:
+        pass
+    elif shift > 0:
+        v = torch.cat([
+            torch.zeros((shift,) + v.shape[1:]),
+            v[:-shift],
+        ])
+    else:
+        v = torch.cat([
+            v[-shift:],
+            torch.zeros((-shift,) + v.shape[1:]),
+        ])
+
+    if dim != 0:
+        v = v.transpose(0, dim)
+    return v
+
+
 def mean_distrib(p, v, axis=None):
     if axis is None:
         kw = {}
