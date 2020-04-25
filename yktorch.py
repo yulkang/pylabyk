@@ -1,16 +1,16 @@
 #  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
-from collections import OrderedDict as odict, namedtuple
 import numpy as np
 from pprint import pprint
 from typing import Union, Iterable, List, Tuple, Sequence, Callable, \
     Dict
+from collections import OrderedDict as odict, namedtuple
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import time
 
 import torch
-from torch import nn
+from torch import nn, Tensor
 from torch.nn import functional as F
 from torch import optim
 from torch.utils.tensorboard import SummaryWriter
@@ -55,22 +55,22 @@ class OverriddenParameter(nn.Module):
 
     @property
     def v(self):
-        return self._param2data(self._param)
+        return self.param2data(self._param)
 
     @v.setter
     def v(self, data):
-        self._param = nn.Parameter(self._data2param(data))
+        self._param = nn.Parameter(self.data2param(data))
 
     def __getitem__(self, key):
         return self.v[key]
 
     def __setitem__(self, key, data):
-        self._param[key] = self._data2param(data)
+        self._param[key] = self.data2param(data)
 
-    def _param2data(self, param):
+    def param2data(self, param):
         raise NotImplementedError()
 
-    def _data2param(self, data):
+    def data2param(self, data):
         raise NotImplementedError()
 
     def __str__(self):
@@ -78,7 +78,7 @@ class OverriddenParameter(nn.Module):
         from textwrap import TextWrapper as TW
         def f(s, **kwargs):
             return TW(**kwargs).fill(s)
-        return str((self._param2data(self._param), type(self).__name__))
+        return str((self.param2data(self._param), type(self).__name__))
 
 
 class BoundedParameter(OverriddenParameter):
@@ -86,13 +86,13 @@ class BoundedParameter(OverriddenParameter):
         super().__init__(**kwargs)
         self.lb = lb
         self.ub = ub
-        self._param = nn.Parameter(self._data2param(data))
+        self._param = nn.Parameter(self.data2param(data))
         # if self._param.ndim == 0:
         #     raise Warning('Use ndim>0 to allow consistent use of [:]. '
         #                   'If ndim=0, use paramname.v to access the '
         #                   'value.')
 
-    def _data2param(self, data):
+    def data2param(self, data):
         lb = self.lb
         ub = self.ub
         data = enforce_float_tensor(data)
@@ -110,7 +110,7 @@ class BoundedParameter(OverriddenParameter):
             p = (data - lb) / (ub - lb)
             return torch.log(p) - torch.log(1. - p)
 
-    def _param2data(self, param):
+    def param2data(self, param):
         lb = self.lb
         ub = self.ub
         param = enforce_float_tensor(param)
@@ -123,18 +123,49 @@ class BoundedParameter(OverriddenParameter):
         else:
             return (1 / (1 + torch.exp(-param))) * (ub - lb) + lb
 
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        state_dict = super().state_dict(
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
+        state_dict.update({
+            prefix + '_lb': self.lb,
+            prefix + '_ub': self.ub
+        })
+        return state_dict
+
+    # NOTE: overriding load_state_dict() doesn't work because it doesn't know
+    #  what prefix to use. Overriding _load_from_state_dict() as below worked.
+    # def load_state_dict(
+    #         self, state_dict,
+    #         strict: bool = ...):
+    #
+    #     state_dict = state_dict.copy()
+    #     self.lb = state_dict.pop('_lb')
+    #     self.ub = state_dict.pop('_ub')
+    #
+    #     return super().load_state_dict(state_dict=state_dict,
+    #                                    strict=strict)
+
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict,
+            missing_keys, unexpected_keys, error_msgs):
+        self.lb = state_dict.pop(prefix + '_lb')
+        self.ub = state_dict.pop(prefix + '_ub')
+        return super()._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict,
+            missing_keys, unexpected_keys, error_msgs)
+
 
 class ProbabilityParameter(OverriddenParameter):
     def __init__(self, prob, probdim=0, **kwargs):
         super().__init__(**kwargs)
         self.probdim = probdim
-        self._param = nn.Parameter(self._data2param(prob))
+        self._param = nn.Parameter(self.data2param(prob))
         if self._param.ndim == 0:
             raise Warning('Use ndim>0 to allow consistent use of [:]. '
                           'If ndim=0, use paramname.v to access the '
                           'value.')
 
-    def _data2param(self, prob):
+    def data2param(self, prob):
         probdim = self.probdim
         prob = enforce_float_tensor(prob)
 
@@ -144,7 +175,7 @@ class ProbabilityParameter(OverriddenParameter):
 
         return torch.log(prob)
 
-    def _param2data(self, conf):
+    def param2data(self, conf):
         return F.softmax(enforce_float_tensor(conf), dim=self.probdim)
 
 
@@ -154,17 +185,17 @@ class CircularParameter(OverriddenParameter):
         data = enforce_float_tensor(data)
         self.lb = lb
         self.ub = ub
-        self._param = nn.Parameter(self._data2param(data))
+        self._param = nn.Parameter(self.data2param(data))
         if self._param.ndim == 0:
             raise Warning('Use ndim>0 to allow consistent use of [:]. '
                           'If ndim=0, use paramname.v to access the '
                           'value.')
 
-    def _data2param(self, data):
+    def data2param(self, data):
         data = enforce_float_tensor(data)
         return (data - self.lb) / (self.ub - self.lb) % 1.
 
-    def _param2data(self, param):
+    def param2data(self, param):
         param = enforce_float_tensor(param)
         return param * (self.ub - self.lb) + self.lb
 
@@ -417,7 +448,7 @@ class BoundedModule(nn.Module):
         for name, v in self._modules.items():
             if isinstance(v, OverriddenParameter):
                 l += indent(
-                    [str((name, v._param2data(v._param)))]
+                    [str((name, v.param2data(v._param)))]
                 )
             else:
                 l += indent(['%s (%s)' % (name, type(v).__name__)]) + \
@@ -704,6 +735,7 @@ def optimize(
         show_progress_every=5, # number of epochs
         to_print_grad=True,
         n_fold_valid=1,
+        filename_suffix='',
         **kwargs  # to ignore unnecessary kwargs
 ) -> (float, dict, dict, List[float], List[float]):
     """
@@ -756,7 +788,7 @@ def optimize(
     losses_valid = []
 
     if to_plot_progress:
-        writer = SummaryWriter()
+        writer = SummaryWriter(filename_suffix=filename_suffix)
     t_st = time.time()
     epoch = 0
 
