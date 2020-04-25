@@ -556,7 +556,7 @@ def conv_t(p, kernel, **kwargs):
         )[:, :, :nt].squeeze(0)
 
 
-def shiftdim(v: torch.Tensor, shift: torch.Tensor, dim=0):
+def shiftdim(v: torch.Tensor, shift: torch.Tensor, dim=0, pad='repeat'):
     if torch.is_floating_point(shift):
         lb = shift.floor().long()
         ub = lb + 1
@@ -572,16 +572,27 @@ def shiftdim(v: torch.Tensor, shift: torch.Tensor, dim=0):
 
     if shift == 0:
         pass
-    elif shift > 0:
-        v = torch.cat([
-            torch.zeros((shift,) + v.shape[1:]),
-            v[:-shift],
-        ])
     else:
-        v = torch.cat([
-            v[-shift:],
-            torch.zeros((-shift,) + v.shape[1:]),
-        ])
+        if shift > 0:
+            if pad == 'repeat':
+                vpad = v[0].expand((shift,) + v.shape[1:])
+            else:
+                vpad = torch.zeros((shift,) + v.shape[1:])
+
+            v = torch.cat([
+                vpad,
+                v[:-shift],
+            ])
+        else:
+            if pad == 'repeat':
+                vpad = v[-1].expand((-shift,) + v.shape[1:])
+            else:
+                vpad = torch.zeros((-shift,) + v.shape[1:])
+
+            v = torch.cat([
+                v[-shift:],
+                vpad,
+            ])
 
     if dim != 0:
         v = v.transpose(0, dim)
