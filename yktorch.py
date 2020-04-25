@@ -82,10 +82,11 @@ class OverriddenParameter(nn.Module):
 
 
 class BoundedParameter(OverriddenParameter):
-    def __init__(self, data, lb=0., ub=1., **kwargs):
+    def __init__(self, data, lb=0., ub=1., skip_loading_lbub=False, **kwargs):
         super().__init__(**kwargs)
         self.lb = lb
         self.ub = ub
+        self.skip_loading_lbub = skip_loading_lbub
         self._param = nn.Parameter(self.data2param(data))
         # if self._param.ndim == 0:
         #     raise Warning('Use ndim>0 to allow consistent use of [:]. '
@@ -128,7 +129,8 @@ class BoundedParameter(OverriddenParameter):
             destination=destination, prefix=prefix, keep_vars=keep_vars)
         state_dict.update({
             prefix + '_lb': self.lb,
-            prefix + '_ub': self.ub
+            prefix + '_ub': self.ub,
+            prefix + '_data': self.v
         })
         return state_dict
 
@@ -148,8 +150,15 @@ class BoundedParameter(OverriddenParameter):
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict,
             missing_keys, unexpected_keys, error_msgs):
-        self.lb = state_dict.pop(prefix + '_lb')
-        self.ub = state_dict.pop(prefix + '_ub')
+        if self.skip_loading_lbub:
+            state_dict.pop(prefix + '_lb')
+            state_dict.pop(prefix + '_ub')
+        else:
+            self.lb = state_dict.pop(prefix + '_lb')
+            self.ub = state_dict.pop(prefix + '_ub')
+        if prefix + '_data' in state_dict:
+            state_dict[prefix + '_param'] = self.data2param(
+                state_dict.pop(prefix + '_data')).detach().clone()
         return super()._load_from_state_dict(
             state_dict, prefix, local_metadata, strict,
             missing_keys, unexpected_keys, error_msgs)
@@ -479,8 +488,8 @@ class BoundedModule(nn.Module):
         # ax = plt.gca()  # CHECKED
 
         for i, (lb1, v1, ub1, g1) in enumerate(zip(lb, v, ub, grad)):
-            plt.text(0, i, '%1.0g' % lb1, ha='left', va='center')
-            plt.text(1, i, '%1.0g' % ub1, ha='right', va='center')
+            plt.text(0, i, '%1.2g' % lb1, ha='left', va='center')
+            plt.text(1, i, '%1.2g' % ub1, ha='right', va='center')
             plt.text(0.5, i, '%1.2g (e%1.0f)' % (v1, np.log10(np.abs(g1))),
                      ha='center',
                      va='center')
@@ -735,7 +744,7 @@ def optimize(
         show_progress_every=5, # number of epochs
         to_print_grad=True,
         n_fold_valid=1,
-        filename_suffix='',
+        comment='',
         **kwargs  # to ignore unnecessary kwargs
 ) -> (float, dict, dict, List[float], List[float]):
     """
@@ -788,7 +797,7 @@ def optimize(
     losses_valid = []
 
     if to_plot_progress:
-        writer = SummaryWriter(filename_suffix=filename_suffix)
+        writer = SummaryWriter(comment=comment)
     t_st = time.time()
     epoch = 0
 
