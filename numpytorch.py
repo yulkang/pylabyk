@@ -599,6 +599,38 @@ def shiftdim(v: torch.Tensor, shift: torch.Tensor, dim=0, pad='repeat'):
     return v
 
 
+def interp1d(query: torch.Tensor, value: torch.Tensor, dim=0) -> torch.Tensor:
+    """
+
+    :param query: index on dim. Should be a FloatTensor for gradient.
+    :param value:
+    :param dim:
+    :return: interpolated to give value[query] (when dim=0)
+    """
+    v = value
+    if dim != 0:
+        v = v.transpose(0, dim)
+    else:
+        v = v
+
+    if torch.is_floating_point(query):
+        q0 = query.floor().long()
+        q1 = q0 + 1
+        p = query - q0
+        v = (
+            interp1d(q0, v, 0) * (torch.tensor(1.) - p.expand_as(v))
+            + interp1d(q1, v, 0) * p.expand_as(v)
+        )
+    else:
+        v = v[query]
+
+    if dim != 0:
+        v = v.transpose(0, dim)
+    else:
+        v = v
+    return v
+
+
 def mean_distrib(p, v, axis=None):
     if axis is None:
         kw = {}
