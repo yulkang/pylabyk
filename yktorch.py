@@ -82,18 +82,20 @@ class OverriddenParameter(nn.Module):
 
 
 class BoundedParameter(OverriddenParameter):
-    def __init__(self, data, lb=0., ub=1., skip_loading_lbub=False, **kwargs):
+    def __init__(self, data, lb=0., ub=1., skip_loading_lbub=False,
+                 requires_grad=True, **kwargs):
         super().__init__(**kwargs)
         self.lb = lb
         self.ub = ub
         self.skip_loading_lbub = skip_loading_lbub
-        self._param = nn.Parameter(self.data2param(data))
-        # if self._param.ndim == 0:
-        #     raise Warning('Use ndim>0 to allow consistent use of [:]. '
-        #                   'If ndim=0, use paramname.v to access the '
-        #                   'value.')
+        self._param = nn.Parameter(self.data2param(data),
+                                   requires_grad=requires_grad)
+        if self._param.ndim == 0:
+            raise Warning('Use ndim>0 to allow consistent use of [:]. '
+                          'If ndim=0, use paramname.v to access the '
+                          'value.')
 
-    def data2param(self, data):
+    def data2param(self, data) -> torch.Tensor:
         lb = self.lb
         ub = self.ub
         data = enforce_float_tensor(data)
@@ -105,6 +107,8 @@ class BoundedParameter(OverriddenParameter):
         elif ub is None:
             data[data < lb + self.epsilon] = lb + self.epsilon
             return torch.log(data - lb)
+        elif lb == ub:
+            return torch.zeros_like(data)
         else:
             data[data < lb + self.epsilon] = lb + self.epsilon
             data[data > ub - self.epsilon] = ub - self.epsilon
@@ -118,11 +122,13 @@ class BoundedParameter(OverriddenParameter):
         if lb is None and ub is None: # Unbounded
             return param
         elif lb is None:
-            return ub - torch.exp(param)
+            return torch.tensor(ub) - torch.exp(param)
         elif ub is None:
             return lb + torch.exp(param)
+        elif lb == ub:
+            return torch.zeros_like(param) + lb
         else:
-            return (1 / (1 + torch.exp(-param))) * (ub - lb) + lb
+            return (1 / (1 + torch.exp(-param))) * (ub - lb) + lb  # noqa
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
         state_dict = super().state_dict(
@@ -150,15 +156,23 @@ class BoundedParameter(OverriddenParameter):
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict,
             missing_keys, unexpected_keys, error_msgs):
+        lb_name = prefix + '_lb'
+        ub_name = prefix + '_ub'
+        param_name = prefix + '_param'
+        data_name = prefix + '_data'
         if self.skip_loading_lbub:
-            state_dict.pop(prefix + '_lb')
-            state_dict.pop(prefix + '_ub')
+            if lb_name in state_dict:
+                state_dict.pop(lb_name)
+            if ub_name in state_dict:
+                state_dict.pop(ub_name)
         else:
-            self.lb = state_dict.pop(prefix + '_lb')
-            self.ub = state_dict.pop(prefix + '_ub')
-        if prefix + '_data' in state_dict:
-            state_dict[prefix + '_param'] = self.data2param(
-                state_dict.pop(prefix + '_data')).detach().clone()
+            if lb_name in state_dict:
+                self.lb = state_dict.pop(lb_name)
+            if ub_name in state_dict:
+                self.ub = state_dict.pop(ub_name)
+        if data_name in state_dict:
+            state_dict[param_name] = self.data2param(
+                state_dict.pop(data_name)).detach().clone()
         return super()._load_from_state_dict(
             state_dict, prefix, local_metadata, strict,
             missing_keys, unexpected_keys, error_msgs)
