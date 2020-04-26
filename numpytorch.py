@@ -517,6 +517,19 @@ def ____STATS____():
     pass
 
 
+def logit(p: torch.Tensor) -> torch.Tensor:
+    return torch.log(p) - torch.log(torch.tensor(1.) - p)
+
+
+def logistic(x: torch.Tensor) -> torch.Tensor:
+    p = torch.tensor(1.) / (torch.tensor(1.) + torch.exp(-x))
+    # p_nan = isnan(p)
+    # if p_nan.any():
+    #     p[(x > 0) & p_nan] = 1.
+    #     p[(x < 0) & p_nan] = 0.
+    return p
+
+
 def conv_t(p, kernel, **kwargs):
     """
     1D convolution with the starting time of the signal and kernel anchored.
