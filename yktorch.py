@@ -172,7 +172,7 @@ class BoundedParameter(OverriddenParameter):
                 self.ub = state_dict.pop(ub_name)
         if data_name in state_dict:
             state_dict[param_name] = self.data2param(
-                state_dict.pop(data_name)).detach().clone()
+                state_dict.pop(data_name).detach().clone())
         return super()._load_from_state_dict(
             state_dict, prefix, local_metadata, strict,
             missing_keys, unexpected_keys, error_msgs)
@@ -566,7 +566,8 @@ class BoundedModule(nn.Module):
         lb = np.stack(lb)
         ub = np.stack(ub)
         grad = -npy(torch.stack(grad))  # minimizing; so take negative
-        return names, v, grad, lb, ub
+        requires_grad = np.stack(requires_grad)
+        return names, v, grad, lb, ub, requires_grad
 
 
 def enforce_float_tensor(v):
@@ -1030,14 +1031,15 @@ def save_optim_results(
         file = fun_file('best_state', '.csv')
         with open(file, 'w') as f:
             if isinstance(model, BoundedModule):
-                names, v, grad, lb, ub = model.get_named_bounded_params()
+                names, v, grad, lb, ub, requires_grad = \
+                    model.get_named_bounded_params()
 
                 f.write('name, value, gradient, lb, ub, requires_grad\n')
-                for name, v1, grad1, lb1, ub1 in zip(
-                    names, v, grad, lb, ub
+                for name, v1, grad1, lb1, ub1, requires_grad1 in zip(
+                    names, v, grad, lb, ub, requires_grad
                 ):
-                    f.write('%s, %g, %g, %g, %g\n' % (
-                        name, v1, grad1, lb1, ub1
+                    f.write('%s, %g, %g, %g, %g, %d\n' % (
+                        name, v1, grad1, lb1, ub1, requires_grad1
                     ))
             else:
                 f.write('name, value, gradient\n')
