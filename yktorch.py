@@ -544,6 +544,7 @@ class BoundedModule(nn.Module):
         lb = []
         ub = []
         grad = []
+        requires_grad = []
         for name, param in d.items():
             v0 = param.v.flatten()
             if param._param.grad is None:
@@ -556,6 +557,7 @@ class BoundedModule(nn.Module):
                 grad.append(g1)
                 lb.append(param.lb)
                 ub.append(param.ub)
+                requires_grad.append(param._param.requires_grad)
                 if v0.numel() > 1:
                     names.append(name + '%d' % i)
                 else:
@@ -1030,7 +1032,7 @@ def save_optim_results(
             if isinstance(model, BoundedModule):
                 names, v, grad, lb, ub = model.get_named_bounded_params()
 
-                f.write('name, value, gradient, lb, ub\n')
+                f.write('name, value, gradient, lb, ub, requires_grad\n')
                 for name, v1, grad1, lb1, ub1 in zip(
                     names, v, grad, lb, ub
                 ):
