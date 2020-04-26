@@ -2,10 +2,11 @@
 
 from lib.pylabyk import cacheutil
 from lib.pylabyk import argsutil
-import os
+import os, shutil
 from collections import OrderedDict as odict
 from typing import Union, Iterable
 from lib.pylabyk.cacheutil import datetime4filename
+
 
 def replace_ext(fullpath, ext_new):
     """
@@ -16,6 +17,32 @@ def replace_ext(fullpath, ext_new):
     """
     fp = os.path.splitext(fullpath)[0]
     return fp + ext_new
+
+
+def add_subdir(fullpath: str, subdir: str) -> str:
+    pth, nam = os.path.split(fullpath)
+    return os.path.join(pth, subdir, nam)
+
+
+def copy2subdir(fullpath: str, subdir: str = None, verbose=True) -> str:
+    """
+
+    :param fullpath:
+    :param subdir: if None or '', skip copying
+    :param verbose:
+    :return: full path to the destination
+    """
+    if subdir is None or subdir == '':
+        return fullpath
+
+    dst = add_subdir(fullpath, subdir)
+    pth = os.path.split(dst)[0]
+    if not os.path.exists(pth):
+        os.mkdir(pth)
+    shutil.copy2(fullpath, dst)
+    if verbose:
+        print('Copied to %s' % dst)
+    return dst
 
 
 class LocalFile(object):
