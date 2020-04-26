@@ -490,7 +490,7 @@ class BoundedModule(nn.Module):
             ax = plt.gca()
 
         ax = plt.gca()
-        names, v, grad, lb, ub = self.get_named_bounded_params(
+        names, v, grad, lb, ub, requires_grad = self.get_named_bounded_params(
             named_bounded_params, exclude=exclude)
         max_grad = np.amax(np.abs(grad))
         if max_grad == 0:
@@ -499,16 +499,29 @@ class BoundedModule(nn.Module):
         grad01 = (grad + max_grad) / (max_grad * 2)
         n = len(v)
 
+        grad01[~requires_grad] = np.nan
+        # (np.amin(grad01) + np.amax(grad01)) / 2
+
         # ax = plt.gca()  # CHECKED
 
-        for i, (lb1, v1, ub1, g1) in enumerate(zip(lb, v, ub, grad)):
-            plt.text(0, i, '%1.2g' % lb1, ha='left', va='center')
-            plt.text(1, i, '%1.2g' % ub1, ha='right', va='center')
-            plt.text(0.5, i, '%1.2g (e%1.0f)' % (v1, np.log10(np.abs(g1))),
+        for i, (lb1, v1, ub1, g1, r1) in enumerate(zip(lb, v, ub, grad,
+                                                       requires_grad)):
+            color = 'k' if r1 else 'gray'
+            plt.text(0, i, '%1.2g' % lb1, ha='left', va='center', color=color)
+            plt.text(1, i, '%1.2g' % ub1, ha='right', va='center', color=color)
+            plt.text(0.5, i, '%1.2g %s'
+                     % (v1,
+                        ('(e%1.0f)' % np.log10(np.abs(g1)))
+                        if r1 else '(fixed)'),
                      ha='center',
-                     va='center')
+                     va='center',
+                     color=color
+                     )
         lut = 256
         colors = plt.get_cmap(cmap, lut)(grad01)
+        for i, r in enumerate(requires_grad):
+            if not r:
+                colors[i, :3] = np.array([0.95, 0.95, 0.95])
         h = ax.barh(np.arange(n), v01, left=0, color=colors)
         ax.set_xlim(-0.025, 1)
         ax.set_xticks([])
