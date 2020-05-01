@@ -1,3 +1,20 @@
+"""
+Options:
+
+1. Use OverriddenParameter
+Pros
+: can assign to slice
+: can use autocompletion
+Cons
+: need to use [:] to refer to the whole tensor
+
+2. Use BoundedModule.register_()
+Pros
+: ?
+Cons
+: cannot assign to slice without using setslice()
+"""
+
 #  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
 import numpy as np
@@ -18,21 +35,6 @@ from torch.utils.tensorboard import SummaryWriter
 from lib.pylabyk import np2, plt2, numpytorch as npt
 from lib.pylabyk.numpytorch import npy, npys
 
-#%% Options
-"""
-1. Use OverriddenParameter
-Pros
-: can assign to slice
-: can use autocompletion
-Cons
-: need to use [:] to refer to the whole tensor
-
-2. Use BoundedModule.register_()
-Pros
-: ?
-Cons
-: cannot assign to slice without using setslice()
-"""
 
 #%% Bounded parameters (under construction)
 # this is for better autocompletion, etc.
@@ -770,6 +772,7 @@ def optimize(
         reduce_lr_by=0.5,
         reduced_lr_on_epoch=0,
         reduce_lr_after=50,
+        reset_lr_after=100,
         to_plot_progress=True,
         show_progress_every=5, # number of epochs
         to_print_grad=True,
@@ -815,6 +818,7 @@ def optimize(
         else:
             raise NotImplementedError()
 
+    learning_rate0 = learning_rate
     optimizer = get_optimizer(model, learning_rate)
 
     best_loss_epoch = 0
@@ -899,10 +903,14 @@ def optimize(
             best_losses.append(best_loss_valid)
 
             # Learning rate reduction and patience
-            if epoch >= reduced_lr_on_epoch + reduce_lr_after and (
-                    best_loss_valid
-                    > best_losses[-reduce_lr_after] - thres_patience
-            ):
+            # if epoch == reduced_lr_on_epoch + reset_lr_after
+            # if epoch == reduced_lr_on_epoch + reduce_lr_after and (
+            #         best_loss_valid
+            #         > best_losses[-reduce_lr_after] - thres_patience
+            # ):
+            if epoch > 0 and epoch % reset_lr_after == 0:
+                learning_rate = learning_rate0
+            elif epoch > 0 and epoch % reduce_lr_after == 0:
                 learning_rate *= reduce_lr_by
                 optimizer = get_optimizer(model, learning_rate)
                 reduced_lr_on_epoch = epoch
