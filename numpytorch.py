@@ -925,13 +925,20 @@ def log_normpdf(sample, mu=0., sigma=1.):
     return Normal(loc=mu, scale=sigma).log_prob(sample)
 
 
-def categrnd(probs):
-    return torch.multinomial(probs, 1)
+# def categrnd(probs):
+#     return torch.multinomial(probs, 1)
+
+
+def categrnd(probs=None, logits=None, sample_shape=()):
+    return torch.distributions.Categorical(
+        probs=probs, logits=logits
+    ).sample(sample_shape=sample_shape)
 
 
 def onehotrnd(probs=None, logits=None, sample_shape=()):
     return torch.distributions.OneHotCategorical(
-        probs=probs, logits=logits).sample(sample_shape=sample_shape)
+        probs=probs, logits=logits
+    ).sample(sample_shape=sample_shape)
 
 
 def mvnpdf_log(x, mu=None, sigma=None):
