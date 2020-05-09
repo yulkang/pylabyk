@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 from typing import Union, Iterable, Tuple, Dict
 
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
-    Categorical
+    Categorical, OneHotCategorical
 
 #%% Wrapper that allows numpy-style syntax for torch
 def ____NUMPY_COMPATIBILITY____():
@@ -927,6 +927,11 @@ def log_normpdf(sample, mu=0., sigma=1.):
 
 def categrnd(probs):
     return torch.multinomial(probs, 1)
+
+
+def onehotrnd(probs=None, logits=None, sample_shape=()):
+    return torch.distributions.OneHotCategorical(
+        probs=probs, logits=logits).sample(sample_shape=sample_shape)
 
 
 def mvnpdf_log(x, mu=None, sigma=None):
