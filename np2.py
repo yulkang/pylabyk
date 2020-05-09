@@ -114,7 +114,10 @@ def dict_shapes(d, verbose=True):
             if compo is None:
                 str_compo = ''
             else:
-                str_compo = '[' + compo.__name__ + ']'
+                try:
+                    str_compo = '[' + compo.__name__ + ']'
+                except AttributeError:
+                    str_compo = '[' + compo.__str__() + ']'
             print('%15s: %s %s%s' % (k, sh1, type(v).__name__, str_compo))
 
     return sh
