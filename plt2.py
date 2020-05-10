@@ -21,10 +21,79 @@ from . import np2
 def ____Subplots____():
     pass
 
+
+def gridplot(
+        nrows: int, ncols: int,
+        left=0.5, right=0.1,
+        bottom=0.5, top=0.5,
+        wspace: Union[float, Iterable[float]] = 0.25,
+        hspace: Union[float, Iterable[float]] = 0.25,
+        width_ratios: Union[float, Iterable[float]] = 1.,
+        height_ratios: Union[float, Iterable[float]] = 0.75,
+        kw_fig=()
+) -> np.ndarray:
+    """
+    Give all size arguments in inches. top and right are top and right
+    margins, rather than top and right coordinates.
+
+    :param nrows:
+    :param ncols:
+    :param left:
+    :param right:
+    :param bottom:
+    :param top:
+    :param wspace:
+    :param hspace:
+    :param width_ratios: widths of columns in inches.
+    :param height_ratios: heights of rows in inches.
+    :param kw_fig:
+    :return: axs[row, col] = plt.Axes
+    """
+    wspace = np.zeros([ncols - 1]) + wspace
+    hspace = np.zeros([nrows - 1]) + hspace
+
+    w = np.zeros([ncols * 2 + 1])
+    h = np.zeros([nrows * 2 + 1])
+
+    w[2:-1:2] = wspace
+    h[2:-1:2] = hspace
+
+    width_ratios = np.zeros([ncols]) + width_ratios
+    height_ratios = np.zeros([nrows]) + height_ratios
+
+    w[1::2] = width_ratios
+    h[1::2] = height_ratios
+
+    w[0] = left
+    w[-1] = right
+    h[-1] = bottom
+    h[0] = top
+
+    fig = plt.figure(**{
+        **dict(kw_fig),
+        'figsize': [w.sum(), h.sum()]
+    })
+    gs = plt.GridSpec(
+        nrows=nrows * 2 + 1, ncols=ncols * 2 + 1,
+        left=0, right=1, bottom=0, top=1,
+        wspace=0, hspace=0,
+        width_ratios=w, height_ratios=h,
+        figure=fig
+    )
+    axs = np.empty([nrows, ncols], dtype=np.object)
+
+    for row in range(nrows):
+        for col in range(ncols):
+            axs[row, col] = plt.subplot(gs[row * 2 + 1, col * 2 + 1])
+
+    return axs
+
+
 def subplotRC(nrow, ncol, row, col, **kwargs):
     iplot = (row - 1) * ncol + col
     ax = plt.subplot(nrow, ncol, iplot, **kwargs)
     return ax
+
 
 def subplotRCs(nrow, ncol, **kwargs):
     ax = np.empty([nrow, ncol], dtype=object)
@@ -32,6 +101,7 @@ def subplotRCs(nrow, ncol, **kwargs):
         for col in range(1, ncol+1):
             ax[row-1, col-1] = subplotRC(nrow, ncol, row, col, **kwargs)
     return ax
+
 
 def coltitle(col_titles, axes):
     """
@@ -45,6 +115,7 @@ def coltitle(col_titles, axes):
     for ax, col in zip(axes[0,:], col_titles):
         h.append(ax.set_title(col))
     return np.array(h)
+
 
 def rowtitle(row_titles, axes, pad=5, ha='right'):
     """
