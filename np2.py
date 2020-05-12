@@ -559,7 +559,7 @@ def circdiff(angle1, angle2, maxangle=None):
     :param angle1: angle scaled to be between 0 and maxangle
     :param angle2: angle scaled to be between 0 and maxangle
     :param maxangle: max angle. defaults to 2 * pi.
-    :return: angular difference, between -.5 and +.5 * maxangle
+    :return: angle1 - angle2, shifted to be between -.5 and +.5 * maxangle
     """
     if maxangle is None:
         maxangle = np.pi * 2
