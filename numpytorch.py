@@ -6,6 +6,7 @@ import torch
 from torch.nn import functional as F
 import numpy_groupies as npg
 from matplotlib import pyplot as plt
+from typing import Union, Iterable
 
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
     Categorical
@@ -101,11 +102,14 @@ def freeze(module):
 def ____TYPE____():
     pass
 
+
 def float(v):
     return v.type(torch.get_default_dtype())
 
+
 def numpy(v):
     """
+    Construct a np.ndarray from tensor; otherwise return the input as is
     :type v: torch.Tensor
     :rtype: np.ndarray
     """
@@ -120,10 +124,27 @@ def numpy(v):
             return v
             # except AssertionError:
             #     return np.array(v)
+
+
 npy = numpy
+
 
 def npys(*args):
     return tuple([npy(v) for v in args])
+
+
+def tensor(v: Union[float, np.ndarray, torch.Tensor], **kwargs):
+    """
+    Construct a tensor if the input is not; otherwise return the input as is.
+    :param v:
+    :param kwargs:
+    :return:
+    """
+    if torch.is_tensor(v):
+        return v
+    else:
+        return torch.tensor(v, **kwargs)
+
 
 #%% NaN-related
 def ____NAN____():
