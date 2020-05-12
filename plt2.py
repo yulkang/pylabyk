@@ -846,9 +846,56 @@ def convert_movie(src_file, ext_new='.mp4'):
     :type src_file: str
     :type ext_new: str
     """
-    import moviepy.editor as mp
-    import os
 
-    clip = mp.VideoFileClip(src_file)
+    import os
     pth, _ = os.path.splitext(src_file)
-    clip.write_videofile(pth + ext_new)
+
+    dst_file = pth + ext_new
+    from send2trash import send2trash
+    if os.path.exists(dst_file):
+        send2trash(dst_file)
+
+    import moviepy.editor as mp
+    clip = mp.VideoFileClip(src_file)
+    clip.write_videofile(dst_file)  # , write_logfile=True)
+
+    # import ffmpy
+    # ff = ffmpy.FFmpeg(
+    #     inputs={src_file: None},
+    #     outputs={dst_file: None}
+    # )
+    # ff.run()
+
+
+class Animator:
+    def __init__(self):
+        self.frames = []
+
+    def append_fig(self, fig: plt.Figure):
+        self.frames.append(fig2array(fig))
+
+    def export(self, file, ext=('.gif', '.mp4'), duration=100, loop=0,
+               kw_gif=()) -> Iterable[str]:
+        if type(ext) is str:
+            ext = [ext]
+
+        import os
+        file_wo_ext = os.path.splitext(file)[0]
+        file_gif = file_wo_ext + '.gif'
+
+        files = [file_gif]
+
+        arrays2gif(self.frames, file_gif,
+                   duration=duration, loop=loop,
+                   **dict(kw_gif))
+
+        for ext1 in ext:
+            if ext1 != '.gif':
+                convert_movie(file_gif, ext1)
+                files.append(file_wo_ext + ext1)
+
+        if '.gif' not in ext:
+            os.remove(file_gif)
+            files = files[1:]
+
+        return files
