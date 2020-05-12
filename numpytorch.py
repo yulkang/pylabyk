@@ -1154,7 +1154,7 @@ def vmpdf_a_given_b(a_prad, b_prad, pconc):
             1.).double()
     return sumto1(vmpdf_prad_pconc(
         dist.flatten(), torch.tensor([0.]),
-        torch.tensor(pconc)
+        tensor(pconc)
     ).reshape([a_prad.numel(), b_prad.numel()]), 1)
 
 
