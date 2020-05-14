@@ -1,24 +1,6 @@
-#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
-
-from collections import OrderedDict as odict, namedtuple
-import numpy as np
-from pprint import pprint
-from typing import Union, Iterable, List, Tuple, Sequence, Callable, Dict
-import matplotlib as mpl
-from matplotlib import pyplot as plt
-import time
-
-import torch
-from torch import nn
-from torch.nn import functional as F
-from torch import optim
-from torch.utils.tensorboard import SummaryWriter
-
-from lib.pylabyk import np2, plt2, numpytorch as npt
-from lib.pylabyk.numpytorch import npy, npys
-
-#%% Options
 """
+Options:
+
 1. Use OverriddenParameter
 Pros
 : can assign to slice
@@ -32,6 +14,27 @@ Pros
 Cons
 : cannot assign to slice without using setslice()
 """
+
+#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
+
+import numpy as np
+from pprint import pprint
+from typing import Union, Iterable, List, Tuple, Sequence, Callable, \
+    Dict
+from collections import OrderedDict as odict, namedtuple
+import matplotlib as mpl
+from matplotlib import pyplot as plt
+import time
+
+import torch
+from torch import nn, Tensor
+from torch.nn import functional as F
+from torch import optim
+from torch.utils.tensorboard import SummaryWriter
+
+from lib.pylabyk import np2, plt2, numpytorch as npt
+from lib.pylabyk.numpytorch import npy, npys
+
 
 #%% Bounded parameters (under construction)
 # this is for better autocompletion, etc.
@@ -54,22 +57,22 @@ class OverriddenParameter(nn.Module):
 
     @property
     def v(self):
-        return self._param2data(self._param)
+        return self.param2data(self._param)
 
     @v.setter
     def v(self, data):
-        self._param = nn.Parameter(self._data2param(data))
+        self._param = nn.Parameter(self.data2param(data))
 
     def __getitem__(self, key):
         return self.v[key]
 
     def __setitem__(self, key, data):
-        self._param[key] = self._data2param(data)
+        self._param[key] = self.data2param(data)
 
-    def _param2data(self, param):
+    def param2data(self, param):
         raise NotImplementedError()
 
-    def _data2param(self, data):
+    def data2param(self, data):
         raise NotImplementedError()
 
     def __str__(self):
@@ -77,21 +80,24 @@ class OverriddenParameter(nn.Module):
         from textwrap import TextWrapper as TW
         def f(s, **kwargs):
             return TW(**kwargs).fill(s)
-        return str((self._param2data(self._param), type(self).__name__))
+        return str((self.param2data(self._param), type(self).__name__))
 
 
 class BoundedParameter(OverriddenParameter):
-    def __init__(self, data, lb=0., ub=1., **kwargs):
+    def __init__(self, data, lb=0., ub=1., skip_loading_lbub=False,
+                 requires_grad=True, **kwargs):
         super().__init__(**kwargs)
         self.lb = lb
         self.ub = ub
-        self._param = nn.Parameter(self._data2param(data))
-        # if self._param.ndim == 0:
-        #     raise Warning('Use ndim>0 to allow consistent use of [:]. '
-        #                   'If ndim=0, use paramname.v to access the '
-        #                   'value.')
+        self.skip_loading_lbub = skip_loading_lbub
+        self._param = nn.Parameter(self.data2param(data),
+                                   requires_grad=requires_grad)
+        if self._param.ndim == 0:
+            raise Warning('Use ndim>0 to allow consistent use of [:]. '
+                          'If ndim=0, use paramname.v to access the '
+                          'value.')
 
-    def _data2param(self, data):
+    def data2param(self, data) -> torch.Tensor:
         lb = self.lb
         ub = self.ub
         data = enforce_float_tensor(data)
@@ -103,37 +109,88 @@ class BoundedParameter(OverriddenParameter):
         elif ub is None:
             data[data < lb + self.epsilon] = lb + self.epsilon
             return torch.log(data - lb)
+        elif lb == ub:
+            return torch.zeros_like(data)
         else:
             data[data < lb + self.epsilon] = lb + self.epsilon
             data[data > ub - self.epsilon] = ub - self.epsilon
             p = (data - lb) / (ub - lb)
             return torch.log(p) - torch.log(1. - p)
 
-    def _param2data(self, param):
+    def param2data(self, param):
         lb = self.lb
         ub = self.ub
         param = enforce_float_tensor(param)
         if lb is None and ub is None: # Unbounded
             return param
         elif lb is None:
-            return ub - torch.exp(param)
+            return torch.tensor(ub) - torch.exp(param)
         elif ub is None:
             return lb + torch.exp(param)
+        elif lb == ub:
+            return torch.zeros_like(param) + lb
         else:
-            return (1 / (1 + torch.exp(-param))) * (ub - lb) + lb
+            return (1 / (1 + torch.exp(-param))) * (ub - lb) + lb  # noqa
+
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        state_dict = super().state_dict(
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
+        state_dict.update({
+            prefix + '_lb': self.lb,
+            prefix + '_ub': self.ub,
+            prefix + '_data': self.v
+        })
+        return state_dict
+
+    # NOTE: overriding load_state_dict() doesn't work because it doesn't know
+    #  what prefix to use. Overriding _load_from_state_dict() as below worked.
+    # def load_state_dict(
+    #         self, state_dict,
+    #         strict: bool = ...):
+    #
+    #     state_dict = state_dict.copy()
+    #     self.lb = state_dict.pop('_lb')
+    #     self.ub = state_dict.pop('_ub')
+    #
+    #     return super().load_state_dict(state_dict=state_dict,
+    #                                    strict=strict)
+
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict,
+            missing_keys, unexpected_keys, error_msgs):
+        lb_name = prefix + '_lb'
+        ub_name = prefix + '_ub'
+        param_name = prefix + '_param'
+        data_name = prefix + '_data'
+        if self.skip_loading_lbub:
+            if lb_name in state_dict:
+                state_dict.pop(lb_name)
+            if ub_name in state_dict:
+                state_dict.pop(ub_name)
+        else:
+            if lb_name in state_dict:
+                self.lb = state_dict.pop(lb_name)
+            if ub_name in state_dict:
+                self.ub = state_dict.pop(ub_name)
+        if data_name in state_dict:
+            state_dict[param_name] = self.data2param(
+                state_dict.pop(data_name).detach().clone())
+        return super()._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict,
+            missing_keys, unexpected_keys, error_msgs)
 
 
 class ProbabilityParameter(OverriddenParameter):
     def __init__(self, prob, probdim=0, **kwargs):
         super().__init__(**kwargs)
         self.probdim = probdim
-        self._param = nn.Parameter(self._data2param(prob))
+        self._param = nn.Parameter(self.data2param(prob))
         if self._param.ndim == 0:
             raise Warning('Use ndim>0 to allow consistent use of [:]. '
                           'If ndim=0, use paramname.v to access the '
                           'value.')
 
-    def _data2param(self, prob):
+    def data2param(self, prob):
         probdim = self.probdim
         prob = enforce_float_tensor(prob)
 
@@ -143,7 +200,7 @@ class ProbabilityParameter(OverriddenParameter):
 
         return torch.log(prob)
 
-    def _param2data(self, conf):
+    def param2data(self, conf):
         return F.softmax(enforce_float_tensor(conf), dim=self.probdim)
 
 
@@ -153,17 +210,17 @@ class CircularParameter(OverriddenParameter):
         data = enforce_float_tensor(data)
         self.lb = lb
         self.ub = ub
-        self._param = nn.Parameter(self._data2param(data))
+        self._param = nn.Parameter(self.data2param(data))
         if self._param.ndim == 0:
             raise Warning('Use ndim>0 to allow consistent use of [:]. '
                           'If ndim=0, use paramname.v to access the '
                           'value.')
 
-    def _data2param(self, data):
+    def data2param(self, data):
         data = enforce_float_tensor(data)
         return (data - self.lb) / (self.ub - self.lb) % 1.
 
-    def _param2data(self, param):
+    def param2data(self, param):
         param = enforce_float_tensor(param)
         return param * (self.ub - self.lb) + self.lb
 
@@ -416,7 +473,7 @@ class BoundedModule(nn.Module):
         for name, v in self._modules.items():
             if isinstance(v, OverriddenParameter):
                 l += indent(
-                    [str((name, v._param2data(v._param)))]
+                    [str((name, v.param2data(v._param)))]
                 )
             else:
                 l += indent(['%s (%s)' % (name, type(v).__name__)]) + \
@@ -435,38 +492,8 @@ class BoundedModule(nn.Module):
             ax = plt.gca()
 
         ax = plt.gca()
-        if named_bounded_params is None:
-            d = odict([(k, v) for k, v in self.named_modules()
-                       if isinstance(v, BoundedParameter)])
-        else:
-            d = named_bounded_params
-
-        names = []
-        v = []
-        lb = []
-        ub = []
-        grad = []
-        for name, param in d.items():
-            v0 = param.v.flatten()
-            if param._param.grad is None:
-                g0 = torch.zeros_like(v0)
-            else:
-                g0 = param._param.grad.flatten()
-
-            for i, (v1, g1) in enumerate(zip(v0, g0)):
-                v.append(v1)
-                grad.append(g1)
-                lb.append(param.lb)
-                ub.append(param.ub)
-                if v0.numel() > 1:
-                    names.append(name + '%d' % i)
-                else:
-                    names.append(name)
-
-        v = npy(torch.stack(v))
-        lb = np.stack(lb)
-        ub = np.stack(ub)
-        grad = -npy(torch.stack(grad))  # minimizing; so take negative
+        names, v, grad, lb, ub, requires_grad = self.get_named_bounded_params(
+            named_bounded_params, exclude=exclude)
         max_grad = np.amax(np.abs(grad))
         if max_grad == 0:
             max_grad = 1.
@@ -474,16 +501,29 @@ class BoundedModule(nn.Module):
         grad01 = (grad + max_grad) / (max_grad * 2)
         n = len(v)
 
+        grad01[~requires_grad] = np.nan
+        # (np.amin(grad01) + np.amax(grad01)) / 2
+
         # ax = plt.gca()  # CHECKED
 
-        for i, (lb1, v1, ub1, g1) in enumerate(zip(lb, v, ub, grad)):
-            plt.text(0, i, '%1.0g' % lb1, ha='left', va='center')
-            plt.text(1, i, '%1.0g' % ub1, ha='right', va='center')
-            plt.text(0.5, i, '%1.2g (e%1.0f)' % (v1, np.log10(np.abs(g1))),
+        for i, (lb1, v1, ub1, g1, r1) in enumerate(zip(lb, v, ub, grad,
+                                                       requires_grad)):
+            color = 'k' if r1 else 'gray'
+            plt.text(0, i, '%1.2g' % lb1, ha='left', va='center', color=color)
+            plt.text(1, i, '%1.2g' % ub1, ha='right', va='center', color=color)
+            plt.text(0.5, i, '%1.2g %s'
+                     % (v1,
+                        ('(e%1.0f)' % np.log10(np.abs(g1)))
+                        if r1 else '(fixed)'),
                      ha='center',
-                     va='center')
+                     va='center',
+                     color=color
+                     )
         lut = 256
         colors = plt.get_cmap(cmap, lut)(grad01)
+        for i, r in enumerate(requires_grad):
+            if not r:
+                colors[i, :3] = np.array([0.95, 0.95, 0.95])
         h = ax.barh(np.arange(n), v01, left=0, color=colors)
         ax.set_xlim(-0.025, 1)
         ax.set_xticks([])
@@ -498,6 +538,51 @@ class BoundedModule(nn.Module):
 
         return h
 
+    def get_named_bounded_params(
+            self, named_bounded_params: Dict[str, BoundedParameter] = None,
+            exclude: Iterable[str] = ()
+    ) -> (Iterable[str], np.ndarray, np.ndarray, np.ndarray, np.ndarray):
+        """
+
+        :param named_bounded_params:
+        :param exclude:
+        :return: names, v, grad, lb, ub
+        """
+        if named_bounded_params is None:
+            d = odict([(k, v) for k, v in self.named_modules()
+                       if (isinstance(v, BoundedParameter)
+                           and k not in exclude)])
+        else:
+            d = named_bounded_params
+        names = []
+        v = []
+        lb = []
+        ub = []
+        grad = []
+        requires_grad = []
+        for name, param in d.items():
+            v0 = param.v.flatten()
+            if param._param.grad is None:
+                g0 = torch.zeros_like(v0)
+            else:
+                g0 = param._param.grad.flatten()
+
+            for i, (v1, g1) in enumerate(zip(v0, g0)):
+                v.append(v1)
+                grad.append(g1)
+                lb.append(param.lb)
+                ub.append(param.ub)
+                requires_grad.append(param._param.requires_grad)
+                if v0.numel() > 1:
+                    names.append(name + '%d' % i)
+                else:
+                    names.append(name)
+        v = npy(torch.stack(v))
+        lb = np.stack(lb)
+        ub = np.stack(ub)
+        grad = -npy(torch.stack(grad))  # minimizing; so take negative
+        requires_grad = np.stack(requires_grad)
+        return names, v, grad, lb, ub, requires_grad
 
 
 def enforce_float_tensor(v):
@@ -658,20 +743,27 @@ def print_grad(model):
 
 
 ModelType = Union[OverriddenParameter, BoundedModule, nn.Module]
-FunDataType = Callable[[str, int, int],
-                       Tuple[torch.Tensor, torch.Tensor]]
+FunDataType = Callable[
+    [str, int, int],
+    Tuple[Union[torch.Tensor, Tuple[torch.Tensor, ...]],
+          Union[torch.Tensor, Tuple[torch.Tensor, ...]]]
+    # (mode='all'|'train'|'valid'|'train_valid'|'test', fold_valid=0, epoch=0)
+    # -> (data, target)
+    # Multiple data and target outputs can be accommodated using tuples.
+]
 FunLossType = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 FunPlotProgressType = Callable[
     [ModelType, Dict[str, torch.Tensor]],
     Tuple[plt.Figure, Dict[str, torch.Tensor]]
 ]
+CollectionFunPlotPorgressType = Iterable[Tuple[str, FunPlotProgressType]]
 
 
 def optimize(
         model: ModelType,
         fun_data: FunDataType,
         fun_loss: FunLossType,
-        funs_plot_progress: Iterable[Tuple[str, FunPlotProgressType]],
+        funs_plot_progress: CollectionFunPlotPorgressType,
         optimizer_kind='Adam',
         max_epoch=100,
         patience=20,  # How many epochs to wait before quitting
@@ -680,10 +772,12 @@ def optimize(
         reduce_lr_by=0.5,
         reduced_lr_on_epoch=0,
         reduce_lr_after=50,
+        reset_lr_after=100,
         to_plot_progress=True,
         show_progress_every=5, # number of epochs
         to_print_grad=True,
         n_fold_valid=1,
+        comment='',
         **kwargs  # to ignore unnecessary kwargs
 ) -> (float, dict, dict, List[float], List[float]):
     """
@@ -724,6 +818,7 @@ def optimize(
         else:
             raise NotImplementedError()
 
+    learning_rate0 = learning_rate
     optimizer = get_optimizer(model, learning_rate)
 
     best_loss_epoch = 0
@@ -736,12 +831,12 @@ def optimize(
     losses_valid = []
 
     if to_plot_progress:
-        writer = SummaryWriter()
+        writer = SummaryWriter(comment=comment)
     t_st = time.time()
     epoch = 0
 
     try:
-        for epoch in range(max_epoch):
+        for epoch in range(max([max_epoch, 1])):
             losses_fold_train = []
             losses_fold_valid = []
             for i_fold in range(n_fold_valid):
@@ -758,7 +853,8 @@ def optimize(
                         loss = fun_loss(out_train, target_train)
                         loss.backward()
                         return loss
-                    optimizer.step(closure)
+                    if max_epoch > 0:
+                        optimizer.step(closure)
                     out_train = model(data_train)
                     loss_train1 = fun_loss(out_train, target_train)
                 else:
@@ -766,7 +862,8 @@ def optimize(
                     out_train = model(data_train)
                     loss_train1 = fun_loss(out_train, target_train)
                     loss_train1.backward()
-                    optimizer.step()
+                    if max_epoch > 0:
+                        optimizer.step()
                 if to_print_grad and epoch == 0 and i_fold == 0:
                     print_grad(model)
                 losses_fold_train.append(loss_train1)
@@ -806,10 +903,14 @@ def optimize(
             best_losses.append(best_loss_valid)
 
             # Learning rate reduction and patience
-            if epoch >= reduced_lr_on_epoch + reduce_lr_after and (
-                    best_loss_valid
-                    > best_losses[-reduce_lr_after] - thres_patience
-            ):
+            # if epoch == reduced_lr_on_epoch + reset_lr_after
+            # if epoch == reduced_lr_on_epoch + reduce_lr_after and (
+            #         best_loss_valid
+            #         > best_losses[-reduce_lr_after] - thres_patience
+            # ):
+            if epoch > 0 and epoch % reset_lr_after == 0:
+                learning_rate = learning_rate0
+            elif epoch > 0 and epoch % reduce_lr_after == 0:
                 learning_rate *= reduce_lr_by
                 optimizer = get_optimizer(model, learning_rate)
                 reduced_lr_on_epoch = epoch
@@ -902,6 +1003,94 @@ def optimize(
         pprint(model.state_dict())
 
     return d['loss_test'], best_state, d, losses_train, losses_valid
+
+
+def tensor2str(v: Union[torch.Tensor], sep='; ') -> str:
+    """Make a string that is human-readable and csv-compatible"""
+    if v is None:
+        return '() None'
+    else:
+        return '(%s) %s' % (
+            sep.join(['%d' % s for s in v.shape]),
+            sep.join(['%g' % v1 for v1 in v.flatten()])
+        )
+
+
+def save_optim_results(
+        model: ModelType = None,
+        best_state: Dict[str, torch.Tensor] = None,
+        d: Dict[str, torch.Tensor] = None,
+        funs_plot: CollectionFunPlotPorgressType = None,
+        fun_file: Callable[[str, str], str] = None,
+        fun_fig_file: Callable[[str, str], str] = None,
+        plot_exts=('.png',)
+) -> Iterable[str]:
+    """
+
+    :param model:
+    :param best_state: model.state_dict()
+    :param d: as returned from optimize()
+    :param funs_plot:
+    :param fun_file: (file_kind, extension) -> fullpath
+    :param fun_fig_file: (file_kind, extension) -> fullpath
+    :param plot_exts:
+    :return:
+    """
+    files = []
+
+    if fun_file is None:
+        def fun_file(name, ext):
+            return name + ext
+
+    if fun_fig_file is None:
+        def fun_plot_file(name, ext):
+            return 'plt=%s%s' % (name, ext)
+
+    if model is not None:
+        best_state = odict(model.named_parameters())
+    if best_state is not None:
+        file = fun_file('best_state', '.csv')
+        with open(file, 'w') as f:
+            if isinstance(model, BoundedModule):
+                names, v, grad, lb, ub, requires_grad = \
+                    model.get_named_bounded_params()
+
+                f.write('name, value, gradient, lb, ub, requires_grad\n')
+                for name, v1, grad1, lb1, ub1, requires_grad1 in zip(
+                    names, v, grad, lb, ub, requires_grad
+                ):
+                    f.write('%s, %g, %g, %g, %g, %d\n' % (
+                        name, v1, grad1, lb1, ub1, requires_grad1
+                    ))
+            else:
+                f.write('name, value, gradient\n')
+                for k, v in best_state.items():
+                    f.write('%s, %s, %s\n'
+                            % (k, tensor2str(v), tensor2str(v.grad)))
+        print('Saved to %s' % file)
+        files.append(file)
+
+    if d is not None:
+        file = fun_file('best_loss', '.csv')
+        with open(file, 'w') as f:
+            f.write('name, value\n')
+            for k, v in d.items():
+                if k.startswith('loss'):
+                    f.write('%s, %s\n'
+                            % (k, tensor2str(v)))
+        print('Saved to %s' % file)
+        files.append(file)
+
+    if funs_plot is not None and model is not None and d is not None:
+        funs_plot = odict(funs_plot)
+        for k, fun_plot in funs_plot.items():
+            for plot_ext in plot_exts:
+                file = fun_fig_file(k, plot_ext)
+                fig, _ = fun_plot(model, d)
+                fig.savefig(file, dpi=300)
+                print('Saved to %s' % file)
+                files.append(file)
+    return files
 
 
 def ____Main____():

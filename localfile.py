@@ -2,10 +2,11 @@
 
 from lib.pylabyk import cacheutil
 from lib.pylabyk import argsutil
-import os
+import os, shutil
 from collections import OrderedDict as odict
 from typing import Union, Iterable
 from lib.pylabyk.cacheutil import datetime4filename
+
 
 def replace_ext(fullpath, ext_new):
     """
@@ -18,16 +19,44 @@ def replace_ext(fullpath, ext_new):
     return fp + ext_new
 
 
+def add_subdir(fullpath: str, subdir: str) -> str:
+    pth, nam = os.path.split(fullpath)
+    return os.path.join(pth, subdir, nam)
+
+
+def copy2subdir(fullpath: str, subdir: str = None, verbose=True) -> str:
+    """
+
+    :param fullpath:
+    :param subdir: if None or '', skip copying
+    :param verbose:
+    :return: full path to the destination
+    """
+    if subdir is None or subdir == '':
+        return fullpath
+
+    dst = add_subdir(fullpath, subdir)
+    pth = os.path.split(dst)[0]
+    if not os.path.exists(pth):
+        os.mkdir(pth)
+    shutil.copy2(fullpath, dst)
+    if verbose:
+        print('Copied to %s' % dst)
+    return dst
+
+
 class LocalFile(object):
     replace_ext = replace_ext
 
     def __init__(
             self,
             pth_root='../Data',
-            subdir_default=''
+            subdir_default='',
+            cache_dir='cache',
     ):
         self.pth_root = pth_root
         self.subdir_default = subdir_default
+        self.cache_dir = cache_dir
 
     def get_pth_out(self, subdir=None):
         if subdir is None:
@@ -37,20 +66,22 @@ class LocalFile(object):
             os.mkdir(pth_out)
         return pth_out
 
-    def get_pth_cache(self, subdir=None):
+    def get_pth_cache(self, subdir=None, cache_dir=None):
+        if cache_dir is None:
+            cache_dir = self.cache_dir
         pth_cache = os.path.join(
-            self.get_pth_out(subdir), 'cache')
+            self.get_pth_out(subdir), cache_dir)
         if not os.path.exists(pth_cache):
             os.mkdir(pth_cache)
         return pth_cache
 
-    def get_file_cache(self, d, subdir=None):
+    def get_file_cache(self, d, subdir=None, cache_dir=None):
         """
         :type d: Union[Iterable[tuple], dict, odict, None]
         :rtype: str
         """
         return os.path.join(
-            self.get_pth_cache(subdir),
+            self.get_pth_cache(subdir, cache_dir=cache_dir),
             cacheutil.dict2fname(d) + '.zpkl'
         )
 

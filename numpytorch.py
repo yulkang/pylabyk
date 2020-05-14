@@ -6,10 +6,10 @@ import torch
 from torch.nn import functional as F
 import numpy_groupies as npg
 from matplotlib import pyplot as plt
-from typing import Union, Iterable
+from typing import Union, Iterable, Tuple, Dict
 
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
-    Categorical
+    Categorical, OneHotCategorical
 
 #%% Wrapper that allows numpy-style syntax for torch
 def ____NUMPY_COMPATIBILITY____():
@@ -106,8 +106,7 @@ def ____TYPE____():
 def float(v):
     return v.type(torch.get_default_dtype())
 
-
-def numpy(v):
+def numpy(v: Union[torch.Tensor, np.ndarray]):
     """
     Construct a np.ndarray from tensor; otherwise return the input as is
     :type v: torch.Tensor
@@ -537,6 +536,19 @@ def ____STATS____():
     pass
 
 
+def logit(p: torch.Tensor) -> torch.Tensor:
+    return torch.log(p) - torch.log(torch.tensor(1.) - p)
+
+
+def logistic(x: torch.Tensor) -> torch.Tensor:
+    p = torch.tensor(1.) / (torch.tensor(1.) + torch.exp(-x))
+    # p_nan = isnan(p)
+    # if p_nan.any():
+    #     p[(x > 0) & p_nan] = 1.
+    #     p[(x < 0) & p_nan] = 0.
+    return p
+
+
 def conv_t(p, kernel, **kwargs):
     """
     1D convolution with the starting time of the signal and kernel anchored.
@@ -574,6 +586,81 @@ def conv_t(p, kernel, **kwargs):
             padding=kernel.shape[-1],
             **kwargs
         )[:, :, :nt].squeeze(0)
+
+
+def shiftdim(v: torch.Tensor, shift: torch.Tensor, dim=0, pad='repeat'):
+    if torch.is_floating_point(shift):
+        lb = shift.floor().long()
+        ub = lb + 1
+        p = torch.tensor(1.) - torch.cat([shift.reshape([1]) - lb,
+                                          ub - shift.reshape([1])], 0)
+        return (
+                shiftdim(v, shift=lb, dim=dim) * p[0]
+                + shiftdim(v, shift=ub, dim=dim) * p[1]
+        )
+
+    if dim != 0:
+        v = v.transpose(0, dim)
+
+    if shift == 0:
+        pass
+    else:
+        if shift > 0:
+            if pad == 'repeat':
+                vpad = v[0].expand((shift,) + v.shape[1:])
+            else:
+                vpad = torch.zeros((shift,) + v.shape[1:])
+
+            v = torch.cat([
+                vpad,
+                v[:-shift],
+            ])
+        else:
+            if pad == 'repeat':
+                vpad = v[-1].expand((-shift,) + v.shape[1:])
+            else:
+                vpad = torch.zeros((-shift,) + v.shape[1:])
+
+            v = torch.cat([
+                v[-shift:],
+                vpad,
+            ])
+
+    if dim != 0:
+        v = v.transpose(0, dim)
+    return v
+
+
+def interp1d(query: torch.Tensor, value: torch.Tensor, dim=0) -> torch.Tensor:
+    """
+
+    :param query: index on dim. Should be a FloatTensor for gradient.
+    :param value:
+    :param dim:
+    :return: interpolated to give value[query] (when dim=0)
+    """
+    v = value
+    if dim != 0:
+        v = v.transpose(0, dim)
+    else:
+        v = v
+
+    if torch.is_floating_point(query):
+        q0 = query.floor().long()
+        q1 = q0 + 1
+        p = query - q0
+        v = (
+            interp1d(q0, v, 0) * (torch.tensor(1.) - p.expand_as(v))
+            + interp1d(q1, v, 0) * p.expand_as(v)
+        )
+    else:
+        v = v[query]
+
+    if dim != 0:
+        v = v.transpose(0, dim)
+    else:
+        v = v
+    return v
 
 
 def mean_distrib(p, v, axis=None):
@@ -857,8 +944,20 @@ def log_normpdf(sample, mu=0., sigma=1.):
     return Normal(loc=mu, scale=sigma).log_prob(sample)
 
 
-def categrnd(probs):
-    return torch.multinomial(probs, 1)
+# def categrnd(probs):
+#     return torch.multinomial(probs, 1)
+
+
+def categrnd(probs=None, logits=None, sample_shape=()):
+    return torch.distributions.Categorical(
+        probs=probs, logits=logits
+    ).sample(sample_shape=sample_shape)
+
+
+def onehotrnd(probs=None, logits=None, sample_shape=()):
+    return torch.distributions.OneHotCategorical(
+        probs=probs, logits=logits
+    ).sample(sample_shape=sample_shape)
 
 
 def mvnpdf_log(x, mu=None, sigma=None):
