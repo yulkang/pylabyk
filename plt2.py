@@ -427,17 +427,30 @@ def cmap(name, **kw):
     return cmap
 
 
-def cmap_alpha(cmap: mpl.colors.Colormap) -> ListedColormap:
+def cmap_alpha(cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
+               n: int = None
+               ) -> ListedColormap:
     """
     Add linear alphas to a colormap
 
     based on https://stackoverflow.com/a/37334212/2565317
 
-    :param cmap: cmap with alpha of 1 / cmap.N
+    :param cmap: cmap with alpha of 1 / cmap.N, or a color (RGB/A or str)
     :return: cmap
     """
-    cmap0 = cmap(np.arange(cmap.N))
-    cmap0[:, -1] = np.linspace(0., 1., cmap.N)
+
+    if isinstance(cmap, mpl.colors.Colormap):
+        if n is None:
+            n = cmap.N
+        cmap0 = cmap(np.arange(n))
+    else:
+        if n is None:
+            n = 256
+        cmap0 = np.repeat(
+            np.array(mpl.colors.to_rgba(cmap))[None, :],
+            repeats=n, axis=0
+        )
+    cmap0[:, -1] = np.linspace(0., 1., cmap0.shape[0])
     cmap1 = ListedColormap(cmap0)
     return cmap1
 
