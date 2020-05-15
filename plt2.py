@@ -383,6 +383,8 @@ def box_off(remove_spines=('right', 'top'),
         ax = plt.gca()  # plt.Axes
     if remove_spines == 'all':
         remove_spines = ['left', 'right', 'top', 'bottom']
+        ax.set_xticks([])
+        ax.set_yticks([])
 
     if 'left' in remove_spines:
         ax.tick_params(axis='y', length=0)
