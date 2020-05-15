@@ -383,8 +383,11 @@ def box_off(remove_spines=('right', 'top'),
         ax = plt.gca()  # plt.Axes
     if remove_spines == 'all':
         remove_spines = ['left', 'right', 'top', 'bottom']
-        ax.set_xticks([])
-        ax.set_yticks([])
+
+    if 'left' in remove_spines:
+        ax.tick_params(axis='y', length=0)
+    if 'bottom' in remove_spines:
+        ax.tick_params(axis='x', length=0)
 
     for r in remove_spines:
         ax.spines[r].set_visible(False)
@@ -741,7 +744,7 @@ def bar_group(y: np.ndarray, yerr: np.ndarray = None,
                   Iterable[Union[str, Iterable[float]]]
               ] = None,
               kw_color=('color',),
-              **kwargs):
+              **kwargs) -> (list, np.ndarray):
     """
 
     :param y: [x, series]
@@ -751,11 +754,12 @@ def bar_group(y: np.ndarray, yerr: np.ndarray = None,
     :param cmap: cmap or list of colors
     :param kw_color: tuple of keyword(s) to use the series color
     :param kwargs: fed to bar()
-    :return:
+    :return: hs, xs[x, series]
     """
     n = y.shape[0]
     m = y.shape[1]
     x = np.arange(n)
+    xs = []
 
     if yerr is None:
         yerr = np.zeros_like(y) + np.nan
@@ -780,9 +784,10 @@ def bar_group(y: np.ndarray, yerr: np.ndarray = None,
             x + dx, height=y1, yerr=yerr1, width=width1,
             **{**kwargs, **kw})
         hs.append(h)
+        xs.append(x + dx)
 
-        print((x + dx, dx, width1, i, cmap.N, i / (m - 1) * (cmap.N - 1)))
-    return hs
+    xs = np.stack(xs, -1)
+    return hs, xs
 
 
 def errorbar_shade(x, y, yerr=None, **kw):
