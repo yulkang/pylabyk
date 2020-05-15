@@ -8,7 +8,7 @@ Created on Tue Feb 13 10:42:06 2018
 
 #  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
-from typing import Union, List, Iterable, Callable
+from typing import Union, List, Iterable, Callable, Sequence
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -447,16 +447,18 @@ def winter2_rev(n_lev: int) -> CMapType:
 def ____Heatmaps____():
     pass
 
-def cmap(name, **kw):
-    import matplotlib as mpl
-    from matplotlib.colors import ListedColormap    
-    
-    if name == 'BuRd':
-        cmap = ListedColormap(np.flip(mpl.cm.RdBu(range(256)), axis=0))
-    else:
-        cmap = plt.cmap(name, **kw)
-        
-    return cmap
+
+# # 'BuRd': use plt.get_cmap('RdBu_rev')
+# def cmap(name, **kw):
+#     import matplotlib as mpl
+#     from matplotlib.colors import ListedColormap
+#
+#     if name == 'BuRd':
+#         cmap = ListedColormap(np.flip(mpl.cm.RdBu(range(256)), axis=0))
+#     else:
+#         cmap = plt.cmap(name, **kw)
+#
+#     return cmap
 
 
 def cmap_alpha(cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
@@ -468,6 +470,7 @@ def cmap_alpha(cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
     based on https://stackoverflow.com/a/37334212/2565317
 
     :param cmap: cmap with alpha of 1 / cmap.N, or a color (RGB/A or str)
+    :param n:
     :return: cmap
     """
 
@@ -729,6 +732,57 @@ def colorbar(mappable=None, ax=None,
 
 def ____Errorbar____():
     pass
+
+
+def bar_group(y: np.ndarray, yerr: np.ndarray = None,
+              width=0.8, width_indiv=1.,
+              cmap: Union[
+                  mpl.colors.Colormap,
+                  Iterable[Union[str, Iterable[float]]]
+              ] = None,
+              kw_color=('color',),
+              **kwargs):
+    """
+
+    :param y: [x, series]
+    :param yerr: [x, series]
+    :param width: distance between centers of the 1st & last bars in a group
+    :param gap: proportion of the gap between bars within a group
+    :param cmap: cmap or list of colors
+    :param kw_color: tuple of keyword(s) to use the series color
+    :param kwargs: fed to bar()
+    :return:
+    """
+    n = y.shape[0]
+    m = y.shape[1]
+    x = np.arange(n)
+
+    if yerr is None:
+        yerr = np.zeros_like(y) + np.nan
+
+    if cmap is None:
+        cmap = plt.get_cmap('tab10')
+    elif not isinstance(cmap, mpl.colors.Colormap):
+        cmap = mpl.colors.ListedColormap(cmap)
+
+    width1 = width * width_indiv / m
+    width0 = width * (m - 1) / m
+
+    hs = []
+    for i, (y1, yerr1) in enumerate(zip(y.T, yerr.T)):
+        if isinstance(cmap, mpl.colors.ListedColormap):
+            color = cmap(i)
+        else:
+            color = cmap(i / (m - 1))
+        dx = (i / (m - 1) - 0.5) * width0
+        kw = {k: color for k in kw_color}
+        h = plt.bar(
+            x + dx, height=y1, yerr=yerr1, width=width1,
+            **{**kwargs, **kw})
+        hs.append(h)
+
+        print((x + dx, dx, width1, i, cmap.N, i / (m - 1) * (cmap.N - 1)))
+    return hs
 
 
 def errorbar_shade(x, y, yerr=None, **kw):
