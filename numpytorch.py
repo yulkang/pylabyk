@@ -678,6 +678,23 @@ def var_distrib(p, v, axis=None):
     )
 
 
+def std_distrib(p, v, axis=None):
+    return var_distrib(p, v, axis=axis).sqrt()
+
+
+def sem_distrib(p, v, axis=None, n=None):
+    if n is None:
+        if axis is None:
+            n = p.sum()
+        else:
+            n = p.sum(axis)
+    v = var_distrib(p, v, axis=axis)
+    if torch.is_tensor(v):
+        return (v / n).sqrt()
+    else:
+        return np.sqrt(v / n)
+
+
 def min_distrib(p:torch.Tensor
                 ) -> (torch.Tensor, torch.Tensor):
     """
