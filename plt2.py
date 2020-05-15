@@ -29,8 +29,8 @@ def gridplot(
         bottom=0.5, top=0.5,
         wspace: Union[float, Iterable[float]] = 0.25,
         hspace: Union[float, Iterable[float]] = 0.25,
-        width_ratios: Union[float, Iterable[float]] = 1.,
-        height_ratios: Union[float, Iterable[float]] = 0.75,
+        widths: Union[float, Iterable[float]] = 1.,
+        heights: Union[float, Iterable[float]] = 0.75,
         kw_fig=()
 ) -> np.ndarray:
     """
@@ -45,8 +45,8 @@ def gridplot(
     :param top:
     :param wspace:
     :param hspace:
-    :param width_ratios: widths of columns in inches.
-    :param height_ratios: heights of rows in inches.
+    :param widths: widths of columns in inches.
+    :param heights: heights of rows in inches.
     :param kw_fig:
     :return: axs[row, col] = plt.Axes
     """
@@ -59,11 +59,11 @@ def gridplot(
     w[2:-1:2] = wspace
     h[2:-1:2] = hspace
 
-    width_ratios = np.zeros([ncols]) + width_ratios
-    height_ratios = np.zeros([nrows]) + height_ratios
+    widths = np.zeros([ncols]) + widths
+    heights = np.zeros([nrows]) + heights
 
-    w[1::2] = width_ratios
-    h[1::2] = height_ratios
+    w[1::2] = widths
+    h[1::2] = heights
 
     w[0] = left
     w[-1] = right
