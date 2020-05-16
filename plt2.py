@@ -97,6 +97,9 @@ class GridAxes:
     def __setitem__(self, key, data):
         self.axs[key] = data
 
+    def flatten(self):
+        return self.axs.flatten()
+
     def __del__(self):
         """Close figure to prevent memory leak"""
         fig = self.axs[0, 0].figure
