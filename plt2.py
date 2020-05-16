@@ -23,71 +23,85 @@ def ____Subplots____():
     pass
 
 
-def gridplot(
-        nrows: int, ncols: int,
-        left=0.5, right=0.1,
-        bottom=0.5, top=0.5,
-        wspace: Union[float, Iterable[float]] = 0.25,
-        hspace: Union[float, Iterable[float]] = 0.25,
-        widths: Union[float, Iterable[float]] = 1.,
-        heights: Union[float, Iterable[float]] = 0.75,
-        kw_fig=()
-) -> np.ndarray:
-    """
-    Give all size arguments in inches. top and right are top and right
-    margins, rather than top and right coordinates.
+class GridAxes:
+    def __init__(self,
+                 nrows: int, ncols: int,
+                 left=0.5, right=0.1,
+                 bottom=0.5, top=0.5,
+                 wspace: Union[float, Iterable[float]] = 0.25,
+                 hspace: Union[float, Iterable[float]] = 0.25,
+                 widths: Union[float, Iterable[float]] = 1.,
+                 heights: Union[float, Iterable[float]] = 0.75,
+                 kw_fig=()
+                 ):
+        """
+        Give all size arguments in inches. top and right are top and right
+        margins, rather than top and right coordinates.
+        Figure is deleted when the GridAxes object is garbage-collected.
 
-    :param nrows:
-    :param ncols:
-    :param left:
-    :param right:
-    :param bottom:
-    :param top:
-    :param wspace:
-    :param hspace:
-    :param widths: widths of columns in inches.
-    :param heights: heights of rows in inches.
-    :param kw_fig:
-    :return: axs[row, col] = plt.Axes
-    """
-    wspace = np.zeros([ncols - 1]) + wspace
-    hspace = np.zeros([nrows - 1]) + hspace
+        :param nrows:
+        :param ncols:
+        :param left:
+        :param right:
+        :param bottom:
+        :param top:
+        :param wspace:
+        :param hspace:
+        :param widths: widths of columns in inches.
+        :param heights: heights of rows in inches.
+        :param kw_fig:
+        :return: axs[row, col] = plt.Axes
+        """
+        wspace = np.zeros([ncols - 1]) + wspace
+        hspace = np.zeros([nrows - 1]) + hspace
 
-    w = np.zeros([ncols * 2 + 1])
-    h = np.zeros([nrows * 2 + 1])
+        w = np.zeros([ncols * 2 + 1])
+        h = np.zeros([nrows * 2 + 1])
 
-    w[2:-1:2] = wspace
-    h[2:-1:2] = hspace
+        w[2:-1:2] = wspace
+        h[2:-1:2] = hspace
 
-    widths = np.zeros([ncols]) + widths
-    heights = np.zeros([nrows]) + heights
+        widths = np.zeros([ncols]) + widths
+        heights = np.zeros([nrows]) + heights
 
-    w[1::2] = widths
-    h[1::2] = heights
+        w[1::2] = widths
+        h[1::2] = heights
 
-    w[0] = left
-    w[-1] = right
-    h[-1] = bottom
-    h[0] = top
+        w[0] = left
+        w[-1] = right
+        h[-1] = bottom
+        h[0] = top
 
-    fig = plt.figure(**{
-        **dict(kw_fig),
-        'figsize': [w.sum(), h.sum()]
-    })
-    gs = plt.GridSpec(
-        nrows=nrows * 2 + 1, ncols=ncols * 2 + 1,
-        left=0, right=1, bottom=0, top=1,
-        wspace=0, hspace=0,
-        width_ratios=w, height_ratios=h,
-        figure=fig
-    )
-    axs = np.empty([nrows, ncols], dtype=np.object)
+        fig = plt.figure(**{
+            **dict(kw_fig),
+            'figsize': [w.sum(), h.sum()]
+        })
+        gs = plt.GridSpec(
+            nrows=nrows * 2 + 1, ncols=ncols * 2 + 1,
+            left=0, right=1, bottom=0, top=1,
+            wspace=0, hspace=0,
+            width_ratios=w, height_ratios=h,
+            figure=fig
+        )
+        axs = np.empty([nrows, ncols], dtype=np.object)
 
-    for row in range(nrows):
-        for col in range(ncols):
-            axs[row, col] = plt.subplot(gs[row * 2 + 1, col * 2 + 1])
+        for row in range(nrows):
+            for col in range(ncols):
+                axs[row, col] = plt.subplot(gs[row * 2 + 1, col * 2 + 1])
 
-    return axs
+        self.axs = axs
+
+    def __getitem__(self, key):
+        return self.axs[key]
+
+    def __setitem__(self, key, data):
+        self.axs[key] = data
+
+    def __del__(self):
+        """Close figure to prevent memory leak"""
+        fig = self.axs[0, 0].figure
+        plt.close(fig)
+        # print('Closed figure %d!' % id(fig))  # CHECKING
 
 
 def subplotRC(nrow, ncol, row, col, **kwargs):
