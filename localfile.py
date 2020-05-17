@@ -61,6 +61,8 @@ class LocalFile(object):
     def get_pth_out(self, subdir=None):
         if subdir is None:
             subdir = self.subdir_default
+        if isinstance(subdir, dict):
+            subdir = argsutil.dict2fname(subdir)
         pth_out = os.path.join(self.pth_root, subdir)
         if not os.path.exists(pth_out):
             os.mkdir(pth_out)
