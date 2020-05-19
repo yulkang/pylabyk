@@ -763,7 +763,7 @@ def bar_group(y: np.ndarray, yerr: np.ndarray = None,
                   Iterable[Union[str, Iterable[float]]]
               ] = None,
               kw_color=('color',),
-              **kwargs) -> (list, np.ndarray):
+              **kwargs) -> (List[mpl.container.BarContainer], np.ndarray):
     """
 
     :param y: [x, series]
@@ -773,7 +773,7 @@ def bar_group(y: np.ndarray, yerr: np.ndarray = None,
     :param cmap: cmap or list of colors
     :param kw_color: tuple of keyword(s) to use the series color
     :param kwargs: fed to bar()
-    :return: hs, xs[x, series]
+    :return: hs[series] = BarContainer, xs[x, series]
     """
     n = y.shape[0]
     m = y.shape[1]
