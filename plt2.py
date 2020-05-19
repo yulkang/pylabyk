@@ -23,6 +23,9 @@ def ____Subplots____():
     pass
 
 
+AxesSlice = Union[plt.Axes, Sequence[plt.Axes], np.ndarray]
+
+
 class GridAxes:
     def __init__(self,
                  nrows: int, ncols: int,
@@ -91,20 +94,24 @@ class GridAxes:
 
         self.axs = axs
 
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> AxesSlice:
         return self.axs[key]
 
-    def __setitem__(self, key, data):
+    def __setitem__(self, key, data: AxesSlice):
         self.axs[key] = data
 
-    def flatten(self):
+    def flatten(self) -> Sequence[plt.Axes]:
         return self.axs.flatten()
+
+    @property
+    def figure(self) -> plt.Figure:
+        return self.axs[0, 0].figure
 
     def __del__(self):
         """Close figure to prevent memory leak"""
         fig = self.axs[0, 0].figure
         plt.close(fig)
-        # print('Closed figure %d!' % id(fig))  # CHECKING
+        # print('Closed figure %d!' % id(fig))  # CHECKED
 
 
 def subplotRC(nrow, ncol, row, col, **kwargs):
