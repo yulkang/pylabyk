@@ -8,7 +8,7 @@ Created on Tue Feb 13 10:42:06 2018
 
 #  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
-from typing import Union, List, Iterable, Callable, Sequence
+from typing import Union, List, Iterable, Callable, Sequence, Mapping, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -19,8 +19,25 @@ import numpy_groupies as npg
 
 from . import np2
 
+
 def ____Subplots____():
     pass
+
+
+AxesArray = Mapping[Tuple[Union[int, slice], ...], plt.Axes]
+
+
+def supxy(axs: AxesArray, xprop=0.5, yprop=0.5) -> Tuple[float, float]:
+    rect_nw = axs[0, 0].get_position().bounds
+    rect_ne = axs[0, -1].get_position().bounds
+    rect_sw = axs[-1, 0].get_position().bounds
+
+    x0 = rect_nw[0]
+    y0 = rect_sw[1]
+    x1 = rect_ne[0] + rect_ne[2]
+    y1 = rect_sw[1] + rect_sw[3]
+
+    return (x1 - x0) * xprop + x0, (y1 - y0) * yprop + y0
 
 
 AxesSlice = Union[plt.Axes, Sequence[plt.Axes], np.ndarray]
@@ -112,6 +129,17 @@ class GridAxes:
         fig = self.axs[0, 0].figure
         plt.close(fig)
         # print('Closed figure %d!' % id(fig))  # CHECKED
+
+    def supxy(self, xprop=0.5, yprop=0.5):
+        return supxy(self.axs[:], xprop=xprop, yprop=yprop)
+
+    @property
+    def supheight(self):
+        return self.supxy(yprop=1)[1] - self.supxy(yprop=0)[1]
+
+    @property
+    def supwidth(self):
+        return self.supxy(xprop=1)[0] - self.supxy(xprop=0)[0]
 
 
 def subplotRC(nrow, ncol, row, col, **kwargs):
@@ -293,6 +321,12 @@ def sameaxes(ax, ax0=None, xy='xy'):
 def same_clim(images, img0=None):
     if type(images) is np.ndarray:
         images = images.reshape(-1)
+    if isinstance(images[0], plt.Axes):
+        axes = images
+        images = []
+        for ax in axes:  # type: plt.Axes
+            im = ax.findobj(mpl.image.AxesImage)
+            images += im
 
     if img0 is None:
         clims = np.array([im.get_clim() for im in images])
@@ -731,32 +765,46 @@ def multiline(xs, ys, c=None, ax=None, **kwargs):
     return lc
 
 
-def colorbar(mappable=None, ax=None,
-             position='right',
-             size='5%',
-             pad=0.05,
-             **kwargs):
+def colorbar(
+        ax: plt.Axes = None,
+        mappable: mpl.cm.ScalarMappable = None,
+        loc='right',
+        width='5%', height='100%',
+        borderpad=-1,
+        kw_inset=(),
+        kw_cbar=(),
+) -> mpl.colorbar.Colorbar:
     """
-    Add a colorbar that has the same with as the image.
-    :param mappable: mpl.cm.ScalarMappable
-    :param ax: plt.Axes
-    :param position: 'right' (default), 'left', 'bottom', 'top'
-    :param size: thickness of the colorbar
-    :param pad: padding between the image and the colorbar
-    :return: mpl.colorbar.Colorbar
+
+    :param ax:
+    :param mappable: defaults to image in the axes
+    :param loc: as for legend
+    :param width: relative to the axes
+    :param height: relative to the axes
+    :param borderpad: relative to the fontsize of the axes.
+    :param kw_inset:
+    :param kw_cbar:
+    :return:
     """
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    if ax is None:
+        ax = plt.gca()
     if mappable is None:
-        if ax is None:
-            ax = plt.gca()
-    else:
-        ax = mappable.axes
+        mappable = ax.findobj(mpl.image.AxesImage)[0]
+    fig = ax.figure
 
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes(position, size=size, pad=pad)
-
-    h_colorbar = plt.colorbar(mappable=mappable, cax=cax, **kwargs)
-    return h_colorbar
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    axins = inset_axes(
+        ax, width=width, height=height, loc=loc,
+        bbox_to_anchor=(0., 0., 1., 1.),
+        bbox_transform=ax.transAxes,
+        borderpad=borderpad,
+        **dict(kw_inset)
+    )
+    cb = fig.colorbar(
+        mappable, cax=axins,
+        **dict(kw_cbar)
+    )
+    return cb
 
 
 def ____Errorbar____():
