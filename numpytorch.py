@@ -904,11 +904,16 @@ def inv_gaussian_mean_std2params(mu, std):
 
 
 def inv_gaussian_pdf_mean_stdev(x, mu, std, dim=0):
-    return inv_gaussian_pdf(
-        x, mu,
+    x, mu, std = expand_all(x, mu, std)
+    incl = x > 0
+    x1 = x[incl]
+    p = torch.zeros_like(x)
+    p[incl] = inv_gaussian_pdf(
+        x1, mu,
         inv_gaussian_variance2lam(mu, std ** 2),
         dim=dim
     )
+    return p
 
 
 def delta(levels, v, dlevel=None):
