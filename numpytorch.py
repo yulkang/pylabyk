@@ -266,6 +266,14 @@ def repeat_all(*args, shape=None, use_expand=False):
     return tuple(out)
 
 def expand_all(*args, shape=None):
+    """
+    Expand tensors so that all tensors are of the same size.
+    Tensors must have the same number of dimensions;
+    otherwise, use expand_batch() to prepend dimensions.
+    :param args:
+    :param shape:
+    :return:
+    """
     return repeat_all(*args, shape=shape, use_expand=True)
 
 def repeat_to_shape(arg, shape):
@@ -906,11 +914,10 @@ def inv_gaussian_mean_std2params(mu, std):
 def inv_gaussian_pdf_mean_stdev(x, mu, std, dim=0):
     x, mu, std = expand_all(x, mu, std)
     incl = x > 0
-    x1 = x[incl]
     p = torch.zeros_like(x)
     p[incl] = inv_gaussian_pdf(
-        x1, mu,
-        inv_gaussian_variance2lam(mu, std ** 2),
+        x[incl], mu[incl],
+        inv_gaussian_variance2lam(mu[incl], std[incl] ** 2),
         dim=dim
     )
     return p
