@@ -879,7 +879,7 @@ def lognormal_params2mean_stdev(loc, scale):
            (torch.exp(scale ** 2) - 1.) * torch.exp(2 * loc + scale ** 2)
 
 
-def inv_gaussian_pdf(x, mu, lam, dim=0):
+def inv_gaussian_pdf(x, mu, lam):
     """
     As in https://en.wikipedia.org/wiki/Inverse_Gaussian_distribution
     @param x: values to query. Must be positive.
@@ -887,9 +887,21 @@ def inv_gaussian_pdf(x, mu, lam, dim=0):
     @param lam: lambda in Wikipedia's notation
     @return: p(x; mu, lam)
     """
-    return sumto1(torch.sqrt(
+    p = torch.sqrt(
         lam / (2 * pi * x ** 3)
-    ) * torch.exp(-lam * (x - mu) ** 2 / (2 * mu ** 2 * x)), dim=dim)
+    ) * torch.exp(-lam * (x - mu) ** 2 / (2 * mu ** 2 * x))
+    return p
+
+
+def inv_gaussian_cdf(x, mu, lam):
+    c0 = torch.distributions.Normal(loc=0., scale=1.).cdf(
+        torch.sqrt(lam / x) * (x / mu - 1.)
+    )
+    c1 = torch.distributions.Normal(loc=0., scale=1.).cdf(
+        -torch.sqrt(lam / x) * (x / mu + 1.)
+    )
+    c = c0 + torch.exp(2. * lam / mu) * c1
+    return c
 
 
 def inv_gaussian_variance(mu, lam):
@@ -911,15 +923,30 @@ def inv_gaussian_mean_std2params(mu, std):
     return mu, inv_gaussian_variance2lam(mu, std ** 2)
 
 
-def inv_gaussian_pdf_mean_stdev(x, mu, std, dim=0):
+def inv_gaussian_pmf_mean_stdev(
+        x: torch.Tensor, mu: torch.Tensor, std: torch.Tensor, dx=None
+) -> torch.Tensor:
+    """
+
+    :param x: must be a 1-dim tensor along dim.
+    :param mu:
+    :param std:
+    :param dx:
+    :return:
+    """
+    if dx is None:
+        x1 = x.flatten()
+        dx = x1[1] - x1[0]
+    x = torch.cat([x, torch.tensor([x[-1] + dx])], dim=0)
+
     x, mu, std = expand_all(x, mu, std)
     incl = x > 0
     p = torch.zeros_like(x)
     p[incl] = inv_gaussian_pdf(
         x[incl], mu[incl],
-        inv_gaussian_variance2lam(mu[incl], std[incl] ** 2),
-        dim=dim
+        inv_gaussian_variance2lam(mu[incl], std[incl] ** 2)
     )
+    p = p[1:] - p[:-1]
     return p
 
 
