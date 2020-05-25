@@ -935,9 +935,8 @@ def inv_gaussian_pmf_mean_stdev(
     :return:
     """
     if dx is None:
-        x1 = x.flatten()
-        dx = x1[1] - x1[0]
-    x = torch.cat([x, torch.tensor([x[-1] + dx])], dim=0)
+        dx = x[[1]] - x[[0]]
+    # x = torch.cat([x, x[[-1]] + dx], dim=0)
 
     x, mu, std = expand_all(x, mu, std)
     incl = x > 0
@@ -946,7 +945,20 @@ def inv_gaussian_pmf_mean_stdev(
         x[incl], mu[incl],
         inv_gaussian_variance2lam(mu[incl], std[incl] ** 2)
     )
-    p = p[1:] - p[:-1]
+
+    # c = inv_gaussian_cdf(
+    #     x[[-1]] + dx, mu,
+    #     inv_gaussian_variance2lam(mu, std ** 2)
+    # )
+
+    # # p = p[1:] - p[:-1]
+    # p[incl] = p[incl] / c[incl]
+    # p[torch.isnan(p)] = 0.
+
+    p[incl] = p[incl] * dx
+
+    if torch.any(torch.isnan(p)):
+        print('--')
     return p
 
 
