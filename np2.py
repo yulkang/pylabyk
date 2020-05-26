@@ -559,15 +559,18 @@ def pdf_trapezoid(x, center, width_top, width_bottom):
     p[p < 0] = 0
     return p
 
-#%% Circular stats
+
 def ____CIRCSTAT____():
     pass
+
 
 def rad2deg(rad):
     return rad / np.pi * 180.
 
+
 def deg2rad(deg):
     return deg / 180. * np.pi
+
 
 def circdiff(angle1, angle2, maxangle=None):
     """
@@ -580,6 +583,25 @@ def circdiff(angle1, angle2, maxangle=None):
         maxangle = np.pi * 2
     return (((angle1 / maxangle)
              - (angle2 / maxangle) + .5) % 1. - .5) * maxangle
+
+
+def rotation_matrix(rad, dim=(-2, -1)):
+    cat = np.concatenate
+    return cat((
+        cat((np.cos(rad), -np.sin(rad)), dim[1]),
+        cat((np.sin(rad), np.cos(rad)), dim[1])), dim[0])
+
+
+def rotate(v, rad: np.ndarray) -> np.ndarray:
+    """
+
+    :param v: [batch_dims, (x0, y0)]
+    :param rad: [batch_dims]
+    :return: [batch_dims, (x, y)]
+    """
+    rotmat = rotation_matrix(np.expand_dims(rad, (-1, -2)))
+    return np.squeeze(rotmat @ np.expand_dims(v, -1), -1)
+
 
 #%% Transform
 def ____TRANSFORM____():
