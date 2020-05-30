@@ -84,13 +84,6 @@ pi = torch.tensor(np.pi)
 pi2 = torch.tensor(np.pi * 2)
 
 #%% Utility functions specifically for PyTorch
-def enforce_tensor(v, min_ndim=1):
-    if not torch.is_tensor(v):
-        v = torch.tensor(v)
-    if v.ndimension() < min_ndim:
-        v = v.expand(v.shape + torch.Size([1] * (min_ndim - v.ndimension())))
-    return v
-
 def ____GRADIENT____():
     pass
 
@@ -101,6 +94,27 @@ def freeze(module):
 #%% Types
 def ____TYPE____():
     pass
+
+
+def tensor(v: Union[float, np.ndarray, torch.Tensor],
+           min_ndim=1,
+           **kwargs):
+    """
+    Construct a tensor if the input is not; otherwise return the input as is.
+    Same as enforce_tensor
+    :param v:
+    :param min_ndim:
+    :param kwargs:
+    :return:
+    """
+    if not torch.is_tensor(v):
+        v = torch.tensor(v, **kwargs)
+    if v.ndimension() < min_ndim:
+        v = v.expand(v.shape + torch.Size([1] * (min_ndim - v.ndimension())))
+    return v
+
+
+enforce_tensor = tensor
 
 
 def float(v):
@@ -130,19 +144,6 @@ npy = numpy
 
 def npys(*args):
     return tuple([npy(v) for v in args])
-
-
-def tensor(v: Union[float, np.ndarray, torch.Tensor], **kwargs):
-    """
-    Construct a tensor if the input is not; otherwise return the input as is.
-    :param v:
-    :param kwargs:
-    :return:
-    """
-    if torch.is_tensor(v):
-        return v
-    else:
-        return torch.tensor(v, **kwargs)
 
 
 #%% NaN-related
