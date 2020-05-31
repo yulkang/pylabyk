@@ -16,6 +16,7 @@ import pandas as pd
 from copy import deepcopy, copy
 from . import numpytorch
 from pprint import pprint
+from typing import Union, Sequence, Iterable
 
 npt = numpytorch.npt_torch # choose between torch and np
 
@@ -559,15 +560,18 @@ def pdf_trapezoid(x, center, width_top, width_bottom):
     p[p < 0] = 0
     return p
 
-#%% Circular stats
+
 def ____CIRCSTAT____():
     pass
+
 
 def rad2deg(rad):
     return rad / np.pi * 180.
 
+
 def deg2rad(deg):
     return deg / 180. * np.pi
+
 
 def circdiff(angle1, angle2, maxangle=None):
     """
@@ -581,17 +585,38 @@ def circdiff(angle1, angle2, maxangle=None):
     return (((angle1 / maxangle)
              - (angle2 / maxangle) + .5) % 1. - .5) * maxangle
 
-#%% Transform
+
+def rotation_matrix(rad, dim=(-2, -1)):
+    cat = np.concatenate
+    return cat((
+        cat((np.cos(rad), -np.sin(rad)), dim[1]),
+        cat((np.sin(rad), np.cos(rad)), dim[1])), dim[0])
+
+
+def rotate(v, rad: np.ndarray) -> np.ndarray:
+    """
+
+    :param v: [batch_dims, (x0, y0)]
+    :param rad: [batch_dims]
+    :return: [batch_dims, (x, y)]
+    """
+    rotmat = rotation_matrix(np.expand_dims(rad, (-1, -2)))
+    return np.squeeze(rotmat @ np.expand_dims(v, -1), -1)
+
+
 def ____TRANSFORM____():
     pass
+
 
 def logit(v):
     """logit function"""
     return np.log(v) - np.log(1 - v)
 
+
 def logistic(v):
     """inverse logit function"""
     return 1 / (np.exp(-v) + 1)
+
 
 def softmax(dv):
     if type(dv) is torch.Tensor:
@@ -600,13 +625,14 @@ def softmax(dv):
     else:
         edv = np.exp(dv)
         p = edv / np.sum(edv)
-        
     return p
+
 
 def softargmax(dv):
     p = softmax(dv)
     a = np.nonzero(np.random.multinomial(1, p))[0][0]
     return a
+
 
 def project(a, b, axis=None, scalar_proj=False):
     """
@@ -622,9 +648,10 @@ def project(a, b, axis=None, scalar_proj=False):
     else:
         return proj * b
 
-#%% Binary operations
+
 def ____BINARY_OPS____():
     pass
+
 
 def conv_circ( signal, ker ):
     '''
@@ -636,9 +663,39 @@ def conv_circ( signal, ker ):
     '''
     return np.real(np.fft.ifft( np.fft.fft(signal)*np.fft.fft(ker) ))
 
-#%% Image
+
+def ____COMPARISON____():
+    pass
+
+
+def startswith(a: Sequence, b: Sequence) -> bool:
+    """
+    a and b should be the same type: tuple, list, np.ndarray, or torch.tensor
+
+    EXAMPLE:
+        startswith(np.array([1, 2, 3]), np.array([1, 2]))
+            True
+        startswith(np.array([1, 2, 3]), np.array([1, 2, 3, 4]))
+            False
+        startswith((1, 2), (1, 2, 3))
+            False
+        startswith((1, 2), (1,))
+            True
+
+    :param a: tuple, list, np.ndarray, or torch.tensor
+    :param b: same type as a
+    :return: True if a starts with b
+    """
+    v = len(a) >= len(b) and a[:len(b)] == b
+    try:
+        return v.all()
+    except AttributeError:
+        return v
+
+
 def ____IMAGE____():
     pass
+
 
 def nansmooth(u, sigma=1.):
     from scipy import ndimage
@@ -718,11 +775,10 @@ def demo_convolve_time():
     print(res)
     print((src2.shape, kernel.shape, res.shape))
 
-    pass
-
 
 def ____TIME____():
     pass
+
 
 def timeit(fun, *args, repeat=1, return_out=False, **kwargs):
     """
