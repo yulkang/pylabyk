@@ -72,6 +72,7 @@ class GridAxes:
         :param kw_fig:
         :return: axs[row, col] = plt.Axes
         """
+
         wspace = np.zeros([ncols - 1]) + wspace
         hspace = np.zeros([nrows - 1]) + hspace
 
@@ -91,6 +92,17 @@ class GridAxes:
         w[-1] = right
         h[-1] = bottom
         h[0] = top
+
+        self.w = w
+        self.h = h
+        self.top = top
+        self.bottom = bottom
+        self.left = left
+        self.right = right
+        self.widths = widths
+        self.heights = heights
+        self.wspace = wspace
+        self.hspace = hspace
 
         fig = plt.figure(**{
             **dict(kw_fig),
@@ -140,6 +152,19 @@ class GridAxes:
     @property
     def supwidth(self):
         return self.supxy(xprop=1)[0] - self.supxy(xprop=0)[0]
+
+    def suptitle(self, txt: str,
+                 xprop=0.5, pad=0.05, fontsize=12, yprop=None,
+                 va='top', ha='center', **kwargs):
+        if yprop is None:
+            if va == 'top' or va == 'center':
+                yprop = (np.sum(self.h) - pad) / np.sum(self.h)
+            elif va == 'bottom':
+                yprop = (np.sum(self.h[1:]) + pad) / np.sum(self.h)
+
+        return plt.figtext(
+            self.supxy(xprop=xprop)[0], yprop, txt,
+            ha=ha, va=va, fontsize=fontsize, **kwargs)
 
 
 def subplotRC(nrow, ncol, row, col, **kwargs):
