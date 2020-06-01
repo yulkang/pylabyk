@@ -525,7 +525,9 @@ def ____Heatmaps____():
 
 
 def cmap_alpha(cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
-               n: int = None
+               n: int = None,
+               alpha_max=1.,
+               alpha_min=0.,
                ) -> ListedColormap:
     """
     Add linear alphas to a colormap
@@ -548,7 +550,7 @@ def cmap_alpha(cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
             np.array(mpl.colors.to_rgba(cmap))[None, :],
             repeats=n, axis=0
         )
-    cmap0[:, -1] = np.linspace(0., 1., cmap0.shape[0])
+    cmap0[:, -1] = np.linspace(alpha_min, alpha_max, cmap0.shape[0])
     cmap1 = ListedColormap(cmap0)
     return cmap1
 
