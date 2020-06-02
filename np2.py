@@ -149,7 +149,13 @@ def listdict2dictlist(listdict: list, to_array=False) -> dict:
     """
     d = {k: [d[k] for d in listdict] for k in listdict[0].keys()}
     if to_array:
-        d = {k: np.array(d[k]) for k in d.keys()}
+        for k in d.keys():
+            v = d[k]
+            if torch.is_tensor(v[0]):
+                v = np.array([v1.clone().detach().numpy() for v1 in v])
+            else:
+                v = np.array(v)
+            d[k] = v
     return d
 
 
