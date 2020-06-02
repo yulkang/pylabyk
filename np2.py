@@ -124,8 +124,10 @@ def dict_shapes(d, verbose=True):
     return sh
 
 
-def filt_dict(d, incl):
+def filt_dict(d: dict, incl: np.ndarray) -> dict:
     """
+    Copy d[k][incl] if d[k] is np.ndarray and d[k].shape[1] == incl.shape[0];
+    otherwise copy the whole value.
     @type d: dict
     @type incl: np.ndarray
     @rtype: dict
@@ -138,14 +140,17 @@ def filt_dict(d, incl):
     }
 
 
-def listdict2dictlist(listdict):
+def listdict2dictlist(listdict: list, to_array=False) -> dict:
     """
     @type listdict: list
     @param listdict: list of dicts with the same keys
     @return: dictlist: dict of lists of the same lengths
     @rtype: dict
     """
-    return {k: [d[k] for d in listdict] for k in listdict[0].keys()}
+    d = {k: [d[k] for d in listdict] for k in listdict[0].keys()}
+    if to_array:
+        d = {k: np.array(d[k], dtype=np.object) for k in d.keys()}
+    return d
 
 
 def dictkeys(d, keys):
