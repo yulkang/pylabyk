@@ -149,7 +149,7 @@ def listdict2dictlist(listdict: list, to_array=False) -> dict:
     """
     d = {k: [d[k] for d in listdict] for k in listdict[0].keys()}
     if to_array:
-        d = {k: np.array(d[k], dtype=np.object) for k in d.keys()}
+        d = {k: np.array(d[k]) for k in d.keys()}
     return d
 
 
