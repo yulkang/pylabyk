@@ -752,18 +752,18 @@ FunDataType = Callable[
     # Multiple data and target outputs can be accommodated using tuples.
 ]
 FunLossType = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
-FunPlotProgressType = Callable[
+PlotFunType = Callable[
     [ModelType, Dict[str, torch.Tensor]],
     Tuple[plt.Figure, Dict[str, torch.Tensor]]
 ]
-CollectionFunPlotPorgressType = Iterable[Tuple[str, FunPlotProgressType]]
+PlotFunsType = Iterable[Tuple[str, PlotFunType]]
 
 
 def optimize(
         model: ModelType,
         fun_data: FunDataType,
         fun_loss: FunLossType,
-        funs_plot_progress: CollectionFunPlotPorgressType,
+        plotfuns: PlotFunsType,
         optimizer_kind='Adam',
         max_epoch=100,
         patience=20,  # How many epochs to wait before quitting
@@ -786,7 +786,7 @@ def optimize(
     :param fun_data: (mode='all'|'train'|'valid'|'train_valid'|'test',
     fold_valid=0, epoch=0) -> (data, target)
     :param fun_loss: (out, target) -> loss
-    :param funs_plot_progress: [(str, fun)] where fun takes dict d with keys
+    :param plotfuns: [(str, fun)] where fun takes dict d with keys
     'data_*', 'target_*', 'out_*', 'loss_*', where * = 'train', 'valid', etc.
     :param optimizer_kind:
     :param max_epoch:
@@ -956,7 +956,7 @@ def optimize(
                         'loss_train_valid': loss_train_valid
                     }
 
-                    for k, f in odict(funs_plot_progress).items():
+                    for k, f in odict(plotfuns).items():
                         fig, d = f(model, d)
                         if fig is not None:
                             writer.add_figure(k, fig, global_step=epoch)
@@ -1020,8 +1020,8 @@ def save_optim_results(
         model: ModelType = None,
         best_state: Dict[str, torch.Tensor] = None,
         d: Dict[str, torch.Tensor] = None,
-        funs_plot: CollectionFunPlotPorgressType = None,
-        fun_file: Callable[[str, str], str] = None,
+        plotfuns: PlotFunsType = None,
+        fun_tab_file: Callable[[str, str], str] = None,
         fun_fig_file: Callable[[str, str], str] = None,
         plot_exts=('.png',)
 ) -> Iterable[str]:
@@ -1030,26 +1030,26 @@ def save_optim_results(
     :param model:
     :param best_state: model.state_dict()
     :param d: as returned from optimize()
-    :param funs_plot:
-    :param fun_file: (file_kind, extension) -> fullpath
+    :param plotfuns:
+    :param fun_tab_file: (file_kind, extension) -> fullpath
     :param fun_fig_file: (file_kind, extension) -> fullpath
     :param plot_exts:
     :return:
     """
     files = []
 
-    if fun_file is None:
-        def fun_file(name, ext):
+    if fun_tab_file is None:
+        def fun_tab_file(name, ext):
             return name + ext
 
     if fun_fig_file is None:
-        def fun_plot_file(name, ext):
+        def fun_fig_file(name, ext):
             return 'plt=%s%s' % (name, ext)
 
     if model is not None:
         best_state = odict(model.named_parameters())
     if best_state is not None:
-        file = fun_file('best_state', '.csv')
+        file = fun_tab_file('best_state', '.csv')
         with open(file, 'w') as f:
             if isinstance(model, BoundedModule):
                 names, v, grad, lb, ub, requires_grad = \
@@ -1071,7 +1071,7 @@ def save_optim_results(
         files.append(file)
 
     if d is not None:
-        file = fun_file('best_loss', '.csv')
+        file = fun_tab_file('best_loss', '.csv')
         with open(file, 'w') as f:
             f.write('name, value\n')
             for k, v in d.items():
@@ -1081,9 +1081,9 @@ def save_optim_results(
         print('Saved to %s' % file)
         files.append(file)
 
-    if funs_plot is not None and model is not None and d is not None:
-        funs_plot = odict(funs_plot)
-        for k, fun_plot in funs_plot.items():
+    if plotfuns is not None and model is not None and d is not None:
+        plotfuns = odict(plotfuns)
+        for k, fun_plot in plotfuns.items():
             for plot_ext in plot_exts:
                 file = fun_fig_file(k, plot_ext)
                 fig, _ = fun_plot(model, d)

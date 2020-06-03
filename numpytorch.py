@@ -267,6 +267,14 @@ def repeat_all(*args, shape=None, use_expand=False):
     return tuple(out)
 
 def expand_all(*args, shape=None):
+    """
+    Expand tensors so that all tensors are of the same size.
+    Tensors must have the same number of dimensions;
+    otherwise, use expand_batch() to prepend dimensions.
+    :param args:
+    :param shape:
+    :return:
+    """
     return repeat_all(*args, shape=shape, use_expand=True)
 
 def repeat_to_shape(arg, shape):
@@ -872,7 +880,7 @@ def lognormal_params2mean_stdev(loc, scale):
            (torch.exp(scale ** 2) - 1.) * torch.exp(2 * loc + scale ** 2)
 
 
-def inv_gaussian_pdf(x, mu, lam, dim=0):
+def inv_gaussian_pdf(x, mu, lam):
     """
     As in https://en.wikipedia.org/wiki/Inverse_Gaussian_distribution
     @param x: values to query. Must be positive.
@@ -880,9 +888,29 @@ def inv_gaussian_pdf(x, mu, lam, dim=0):
     @param lam: lambda in Wikipedia's notation
     @return: p(x; mu, lam)
     """
-    return sumto1(torch.sqrt(
+    p = torch.sqrt(
         lam / (2 * pi * x ** 3)
-    ) * torch.exp(-lam * (x - mu) ** 2 / (2 * mu ** 2 * x)), dim=dim)
+    ) * torch.exp(-lam * (x - mu) ** 2 / (2 * mu ** 2 * x))
+    return p
+
+
+def inv_gaussian_cdf(x, mu, lam):
+    c0 = torch.distributions.Normal(loc=0., scale=1.).cdf(
+        torch.sqrt(lam / x) * (x / mu - 1.)
+    )
+    c1 = torch.distributions.Normal(loc=0., scale=1.).cdf(
+        -torch.sqrt(lam / x) * (x / mu + 1.)
+    )
+
+    if torch.any(torch.isnan(c0)):
+        print('--')  # CHECKING
+    if torch.any(torch.isnan(c1)):
+        print('--')  # CHECKING
+
+    c = c0 + torch.exp(2. * lam / mu) * c1
+    if torch.any(torch.isnan(c)):
+        print('--')  # CHECKING
+    return c
 
 
 def inv_gaussian_variance(mu, lam):
@@ -904,12 +932,109 @@ def inv_gaussian_mean_std2params(mu, std):
     return mu, inv_gaussian_variance2lam(mu, std ** 2)
 
 
-def inv_gaussian_pdf_mean_stdev(x, mu, std, dim=0):
-    return inv_gaussian_pdf(
-        x, mu,
-        inv_gaussian_variance2lam(mu, std ** 2),
-        dim=dim
+def inv_gaussian_pmf_mean_stdev(
+        x: torch.Tensor, mu: torch.Tensor, std: torch.Tensor, dx=None,
+        algo='diff_cdf'
+) -> torch.Tensor:
+    """
+
+    :param x: must be a 1-dim tensor along dim.
+    :param mu:
+    :param std:
+    :param dx:
+    :return:
+    """
+    if dx is None:
+        dx = x[[1]] - x[[0]]
+
+    # --- Most robust against NaN; least valid
+    if algo == 'dx':
+        x, mu, std = expand_all(x, mu, std)
+        p = torch.zeros_like(x)
+        incl = x > 0
+        p[incl] = inv_gaussian_pdf(
+            x[incl], mu[incl],
+            inv_gaussian_variance2lam(mu[incl], std[incl] ** 2)
+        )
+        p[incl] = p[incl] * dx
+
+    elif algo == 'diff_cdf':
+        # --- Least robust against NaN; most valid
+        x = torch.cat([x, x[[-1]] + dx], dim=0)
+        x, mu, std = expand_all(x, mu, std)
+        c = torch.zeros_like(x)
+        incl = x > 0
+        c[incl] = inv_gaussian_cdf(
+            x[incl], mu[incl],
+            inv_gaussian_variance2lam(mu[incl], std[incl] ** 2)
+        )
+
+        is_nan = torch.isnan(c)
+        if torch.any(is_nan):
+            t = ((x - mu) / std)
+            print(t[is_nan])
+            print(t[~is_nan])
+            print('--')
+
+        p = c[1:] - c[:-1]
+
+    elif algo == 'norm_w_cdf':
+        x, mu, std = expand_all(x, mu, std)
+        p = torch.zeros_like(x)
+        incl = x > 0
+        p[incl] = inv_gaussian_pdf(
+            x[incl], mu[incl],
+            inv_gaussian_variance2lam(mu[incl], std[incl] ** 2)
+        )
+        c = inv_gaussian_cdf(
+            x[[-1]] + dx, mu,
+            inv_gaussian_variance2lam(mu, std ** 2)
+        )
+        p[incl] = p[incl] / c[incl]
+
+    else:
+        raise ValueError()
+
+    # p[torch.isnan(p)] = 0.
+    is_nan = torch.isnan(p)
+    if torch.any(is_nan):
+        print('--')
+    return p
+
+
+def lognorm_params_given_mean_stdev(mean: torch.Tensor, stdev: torch.Tensor
+                                    ) -> (torch.Tensor, torch.Tensor):
+    sigma = torch.sqrt(torch.log(1 + (stdev / mean) ** 2))
+    mu = torch.log(mean) - sigma ** 2 / 2.
+    return mu, sigma
+
+
+def lognorm_pmf(x: torch.Tensor, mean: torch.Tensor, stdev: torch.Tensor,
+                ) -> torch.Tensor:
+    """
+
+    :param x: must be monotonic increasing with equal increment on dim 0
+    :param mean:
+    :param stdev:
+    :return: p[k] = P(x[k] < X < x[k + 1]; mean, stdev)
+    """
+
+    mu, sigma = lognorm_params_given_mean_stdev(mean, stdev)
+
+    dx = x[[1]] - x[[0]]
+    x = torch.cat([x, x[[-1]] + dx], dim=0)
+    x, mu, sigma = expand_all(x, mu, sigma)
+    c = torch.zeros_like(x)
+    incl = x > 0
+    c[incl] = torch.distributions.LogNormal(mu[incl], sigma[incl]).cdf(
+        x[incl]
     )
+    p = c[1:] - c[:-1]
+
+    is_nan = torch.isnan(p)
+    if torch.any(is_nan):
+        print('--')
+    return p
 
 
 def delta(levels, v, dlevel=None):
