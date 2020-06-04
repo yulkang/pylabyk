@@ -412,7 +412,7 @@ def beautify_psychometric(ax=None,
                     linestyle='-', zorder=-1,
                     linewidth=0.5)
 
-def detach_axis(xy='xy', amin=0, amax=None, ax=None, spine=None):
+def detach_axis(xy='xy', amin=0., amax=None, ax=None, spine=None):
     if xy == 'xy':
         for xy1 in ['x', 'y']:
             detach_axis(xy1, amin, amax, ax)
@@ -471,8 +471,10 @@ def box_off(remove_spines=('right', 'top'),
 
     if 'left' in remove_spines:
         ax.tick_params(axis='y', length=0)
+        ax.set_yticklabels([])
     if 'bottom' in remove_spines:
         ax.tick_params(axis='x', length=0)
+        ax.set_xticklabels([])
 
     for r in remove_spines:
         ax.spines[r].set_visible(False)
