@@ -853,6 +853,8 @@ def bar_group(y: np.ndarray, yerr: np.ndarray = None,
     :param y: [x, series]
     :param yerr: [x, series]
     :param width: distance between centers of the 1st & last bars in a group
+    :param width_indiv: individual bar's width in proportion to the distance
+    between the left edge of neighboring bars within a group
     :param gap: proportion of the gap between bars within a group
     :param cmap: cmap or list of colors
     :param kw_color: tuple of keyword(s) to use the series color
