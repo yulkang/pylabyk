@@ -836,6 +836,52 @@ def ____Errorbar____():
     pass
 
 
+def patch_chance_level(
+        level=None, signs=(-1, 1), ax: plt.Axes = None,
+        xy='y', color=(0.7, 0.7, 0.7)
+):
+    if level is None:
+        level = np.log(10.)
+    if ax is None:
+        ax = plt.gca()
+
+    hs = []
+    for sign in signs:
+        if xy == 'y':
+            if ax.yaxis.get_scale() == 'log':
+                vmin = 1.
+                level1 = level * 10 ** sign
+            else:
+                vmin = 0.
+                level1 = level * sign
+
+            lim = ax.get_xlim()
+            rect = mpl.patches.Rectangle(
+                [lim[0], vmin], lim[1] - lim[0], level1,
+                linewidth=0,
+                fc=color,
+                zorder=-1
+            )
+        elif xy == 'x':
+            if ax.xaxis.get_scale() == 'log':
+                vmin = 1.
+                level1 = level * 10 ** sign
+            else:
+                vmin = 0.
+                level1 = level * sign
+
+            lim = ax.get_ylim()
+            rect = mpl.patches.Rectangle(
+                [vmin, lim[0]], level1, lim[1] - lim[0],
+                linewidth=0,
+                fc=color,
+                zorder=-1
+            )
+        ax.add_patch(rect)
+        hs.append(rect)
+    return hs
+
+
 def bar_group(y: np.ndarray, yerr: np.ndarray = None,
               width=0.8, width_indiv=1.,
               cmap: Union[
