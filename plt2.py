@@ -57,7 +57,8 @@ class GridAxes:
         """
         Give all size arguments in inches. top and right are top and right
         margins, rather than top and right coordinates.
-        Figure is deleted when the GridAxes object is garbage-collected.
+        Figure is deleted when the GridAxes object is garbage-collected,
+        so the object needs to be returned for the figure to be saved.
 
         :param nrows:
         :param ncols:
