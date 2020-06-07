@@ -52,7 +52,8 @@ class GridAxes:
                  hspace: Union[float, Iterable[float]] = 0.25,
                  widths: Union[float, Iterable[float]] = 1.,
                  heights: Union[float, Iterable[float]] = 0.75,
-                 kw_fig=()
+                 kw_fig=(),
+                 close_on_del=True,
                  ):
         """
         Give all size arguments in inches. top and right are top and right
@@ -104,6 +105,7 @@ class GridAxes:
         self.heights = heights
         self.wspace = wspace
         self.hspace = hspace
+        self.close_on_del = close_on_del
 
         fig = plt.figure(**{
             **dict(kw_fig),
@@ -139,9 +141,12 @@ class GridAxes:
 
     def __del__(self):
         """Close figure to prevent memory leak"""
-        fig = self.axs[0, 0].figure
-        plt.close(fig)
-        # print('Closed figure %d!' % id(fig))  # CHECKED
+        if self.close_on_del:
+            fig = self.axs[0, 0].figure
+            # import sys
+            # if sys.getrefcount(fig) == 0:
+            plt.close(fig)
+            # print('Closed figure %d!' % id(fig))  # CHECKED
 
     def supxy(self, xprop=0.5, yprop=0.5):
         return supxy(self.axs[:], xprop=xprop, yprop=yprop)
