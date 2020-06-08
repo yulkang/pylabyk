@@ -100,17 +100,22 @@ def tensor(v: Union[float, np.ndarray, torch.Tensor],
            min_ndim=1,
            **kwargs):
     """
-    Construct a tensor if the input is not; otherwise return the input as is.
+    Construct a tensor if the input is not; otherwise return the input as is,
+    but return None as is for convenience when input is not passed.
     Same as enforce_tensor
     :param v:
     :param min_ndim:
     :param kwargs:
     :return:
     """
-    if not torch.is_tensor(v):
-        v = torch.tensor(v, **kwargs)
-    if v.ndimension() < min_ndim:
-        v = v.expand(v.shape + torch.Size([1] * (min_ndim - v.ndimension())))
+    if v is None:
+        pass
+    else:
+        if not torch.is_tensor(v):
+            v = torch.tensor(v, **kwargs)
+        if v.ndimension() < min_ndim:
+            v = v.expand(v.shape
+                         + torch.Size([1] * (min_ndim - v.ndimension())))
     return v
 
 
@@ -158,7 +163,7 @@ def isnan(v):
         return torch.isnan(v)
 
 
-def nan2v(v, fill=0):
+def nan2v(v, fill=0.):
     v[isnan(v)] = fill
     return v
 

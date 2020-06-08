@@ -87,8 +87,8 @@ class BoundedParameter(OverriddenParameter):
     def __init__(self, data, lb=0., ub=1., skip_loading_lbub=False,
                  requires_grad=True, **kwargs):
         super().__init__(**kwargs)
-        self.lb = lb
-        self.ub = ub
+        self.lb = npt.tensor(lb)
+        self.ub = npt.tensor(ub)
         self.skip_loading_lbub = skip_loading_lbub
         self._param = nn.Parameter(self.data2param(data),
                                    requires_grad=requires_grad)
@@ -101,7 +101,7 @@ class BoundedParameter(OverriddenParameter):
         lb = self.lb
         ub = self.ub
         data = enforce_float_tensor(data)
-        if lb is None and ub is None:# Unbounded
+        if lb is None and ub is None:  # Unbounded
             return data
         elif lb is None:
             data[data > ub - self.epsilon] = ub - self.epsilon
@@ -109,11 +109,20 @@ class BoundedParameter(OverriddenParameter):
         elif ub is None:
             data[data < lb + self.epsilon] = lb + self.epsilon
             return torch.log(data - lb)
-        elif lb == ub:
+        elif npt.tensor(lb == ub).all():
             return torch.zeros_like(data)
         else:
-            data[data < lb + self.epsilon] = lb + self.epsilon
-            data[data > ub - self.epsilon] = ub - self.epsilon
+            too_small = data < lb + self.epsilon
+            try:
+                data[too_small] = lb + self.epsilon
+            except RuntimeError:
+                data[too_small] = (lb + self.epsilon)[too_small]
+
+            too_big = data > ub - self.epsilon
+            try:
+                data[too_big] = ub - self.epsilon
+            except RuntimeError:
+                data[too_big] = (ub - self.epsilon)[too_big]
             p = (data - lb) / (ub - lb)
             return torch.log(p) - torch.log(1. - p)
 
@@ -127,7 +136,7 @@ class BoundedParameter(OverriddenParameter):
             return torch.tensor(ub) - torch.exp(param)
         elif ub is None:
             return lb + torch.exp(param)
-        elif lb == ub:
+        elif npt.tensor(lb == ub).all():
             return torch.zeros_like(param) + lb
         else:
             return (1 / (1 + torch.exp(-param))) * (ub - lb) + lb  # noqa
@@ -169,9 +178,9 @@ class BoundedParameter(OverriddenParameter):
                 state_dict.pop(ub_name)
         else:
             if lb_name in state_dict:
-                self.lb = state_dict.pop(lb_name)
+                self.lb = npt.tensor(state_dict.pop(lb_name))
             if ub_name in state_dict:
-                self.ub = state_dict.pop(ub_name)
+                self.ub = npt.tensor(state_dict.pop(ub_name))
         if data_name in state_dict:
             state_dict[param_name] = self.data2param(
                 state_dict.pop(data_name).detach().clone())
@@ -247,15 +256,20 @@ class BoundedModule(nn.Module):
 
     # Bounded parameters whose elements are individually bounded
     def register_bounded_parameter(self, name, data, lb=0., ub=1.):
+        lb = npt.tensor(lb)
+        ub = npt.tensor(ub)
         data = enforce_float_tensor(data)
         self._params_bounded[name] = {'lb':lb, 'ub':ub}
         param = self._bounded_data2param(data, lb, ub)
-        self.register_parameter('_bounded_' + name, nn.Parameter(param))
+        self.register_parameter('_bounded_' + name,
+                                nn.Parameter(param, requires_grad=True))
         self.params_bounded.__dict__[name] = None # just a reminder
 
     def _bounded_data2param(self, data, lb=0., ub=1.):
         data = enforce_float_tensor(data)
-        if lb is None and ub is None:# Unbounded
+        lb = npt.tensor(lb)
+        ub = npt.tensor(ub)
+        if lb is None and ub is None:  # Unbounded
             return data
         elif lb is None:
             data[data > ub - self.epsilon] = ub - self.epsilon
@@ -270,15 +284,17 @@ class BoundedModule(nn.Module):
             return torch.log(p) - torch.log(1. - p)
 
     def _bounded_param2data(self, param, lb=0., ub=1.):
+        lb = npt.tensor(lb)
+        ub = npt.tensor(ub)
         param = enforce_float_tensor(param)
-        if lb is None and ub is None: # Unbounded
+        if lb is None and ub is None:  # Unbounded
             return param
         elif lb is None:
             return ub - torch.exp(param)
         elif ub is None:
             return lb + torch.exp(param)
         else:
-            return (1 / (1 + torch.exp(-param))) * (ub - lb) + lb
+            return (1. / (1. + torch.exp(-param))) * (ub - lb) + lb
 
     # Probability parameters that should sum to 1 on a dimension
     def register_probability_parameter(self,
@@ -566,12 +582,14 @@ class BoundedModule(nn.Module):
                 g0 = torch.zeros_like(v0)
             else:
                 g0 = param._param.grad.flatten()
+            l0 = npt.tensor(param.lb).expand_as(param.v).flatten()
+            u0 = npt.tensor(param.ub).expand_as(param.v).flatten()
 
-            for i, (v1, g1) in enumerate(zip(v0, g0)):
+            for i, (v1, g1, l1, u1) in enumerate(zip(v0, g0, l0, u0)):
                 v.append(v1)
                 grad.append(g1)
-                lb.append(param.lb)
-                ub.append(param.ub)
+                lb.append(l1)
+                ub.append(u1)
                 requires_grad.append(param._param.requires_grad)
                 if v0.numel() > 1:
                     names.append(name + '%d' % i)
