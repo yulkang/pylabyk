@@ -10,6 +10,7 @@ Created on Mon Mar 12 10:28:15 2018
 import numpy as np
 import torch
 import scipy
+from scipy import interpolate
 from scipy import stats
 import numpy_groupies as npg
 import pandas as pd
@@ -503,16 +504,16 @@ def nansem(v, axis=None, **kwargs):
     n = np.sum(~np.isnan(v), axis=axis, **kwargs)
     return s / np.sqrt(n)
 
-def wpercentile(w, prct, axis=None):
+
+def wpercentile(w: np.ndarray, prct, axis=None):
     """
-    :type v: np.ndarray
     """
     if axis is not None:
         raise NotImplementedError()
     cw = np.concatenate([np.zeros(1), np.cumsum(w)])
     cw /= cw[-1]
-    f = scipy.interpolate.interp1d(cw, np.arange(len(cw)) - .5)
-    return f(prct/100.)
+    f = interpolate.interp1d(cw, np.arange(len(cw)) - .5)
+    return f(prct / 100.)
 
     # if axis is None:
     #     axis = 0
@@ -524,6 +525,7 @@ def wpercentile(w, prct, axis=None):
     # cw = np.cumsum(w, axis)
     # cw = np.concatenate
     # f = stats.interpolate.interp1d(w, cv)
+
 
 def wmedian(w, axis=None):
     return wpercentile(w, prct=50, axis=axis)
