@@ -817,6 +817,11 @@ def timeit(fun, *args, repeat=1, return_out=False, **kwargs):
         return t_el
 
 
+def nowstr():
+    import datetime
+    return '{date:%Y%m%dT%H%M%S}'.format(date=datetime.datetime.now())
+
+
 def ____STRING____():
     pass
 
