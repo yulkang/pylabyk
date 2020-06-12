@@ -460,6 +460,7 @@ def hide_ticklabels(xy='xy', ax=None):
         plt.setp(ax.get_yticklabels(), visible=False)
 
 def box_off(remove_spines=('right', 'top'),
+            remove_ticklabels=True,
             ax=None):
     """
     :param remove_spines: 'all': remove all spines and ticks; or a list
@@ -477,10 +478,12 @@ def box_off(remove_spines=('right', 'top'),
 
     if 'left' in remove_spines:
         ax.tick_params(axis='y', length=0)
-        ax.set_yticklabels([])
+        if remove_ticklabels:
+            ax.set_yticklabels([])
     if 'bottom' in remove_spines:
         ax.tick_params(axis='x', length=0)
-        ax.set_xticklabels([])
+        if remove_ticklabels:
+            ax.set_xticklabels([])
 
     for r in remove_spines:
         ax.spines[r].set_visible(False)
