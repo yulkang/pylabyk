@@ -40,7 +40,7 @@ def supxy(axs: AxesArray, xprop=0.5, yprop=0.5) -> Tuple[float, float]:
     return (x1 - x0) * xprop + x0, (y1 - y0) * yprop + y0
 
 
-AxesSlice = Union[plt.Axes, Sequence[plt.Axes], np.ndarray]
+AxesSlice = Union[plt.Axes, Sequence[plt.Axes], np.ndarray, AxesArray]
 
 
 class GridAxes:
