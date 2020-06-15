@@ -12,6 +12,7 @@ from typing import Union, List, Iterable, Callable, Sequence, Mapping, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from matplotlib import patches
 from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
 
@@ -840,6 +841,54 @@ def colorbar(
 
 def ____Errorbar____():
     pass
+
+
+def patch_wave(y_wave0, x_lim,
+               wave_margin=0.05,
+               wave_amplitude=0.05,
+               width_wave=0.82,
+               color='w',
+               axis_wave='x',
+               ax: plt.Axes = None) -> patches.Polygon:
+    """
+    Add a wavy occluding polygon to a bar graph to indicate out-of-limit values
+    :param y_wave0:
+    :param x_lim:
+    :param wave_margin: relative to x_lim
+    :param wave_amplitude: relative to x_lim
+    :param width_wave: data unit, along y_wave0
+    :param color:
+    :param axis_wave: 'x' for barh; 'y' for bar (vertical)
+    :param ax:
+    :return:
+    """
+
+    wave_margin = x_lim * wave_margin
+    wave_amplitude = -np.abs(x_lim) * wave_amplitude
+    nxy_wave = 50
+    x_wave = np.concatenate([
+        np.array([x_lim]),
+        x_lim - wave_margin - wave_amplitude
+        + wave_amplitude * np.sin(np.linspace(0, 2 * np.pi, nxy_wave)),
+        np.array([x_lim])
+    ])
+    y_wave = np.concatenate([
+        np.array([y_wave0 - width_wave / 2]),
+        y_wave0 + np.linspace(-1, 1, nxy_wave) * width_wave / 2,
+        np.array([y_wave0 + width_wave / 2])
+    ])
+    xy_wave = np.stack([x_wave, y_wave], -1)
+    if axis_wave == 'y':
+        xy_wave = np.flip(xy_wave, -1)
+
+    patch = patches.Polygon(
+        xy_wave,
+        edgecolor='None', facecolor=color)
+
+    if ax is not None:
+        ax.add_patch(patch)
+
+    return patch
 
 
 def patch_chance_level(
