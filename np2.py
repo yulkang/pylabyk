@@ -496,7 +496,7 @@ def sumto1(v, axis=None, ignore_nan=True):
     else:
         if type(v) is np.ndarray:
             return v / v.sum(axis=axis, keepdims=True)
-        else: # v is torch.Tensor
+        else:  # v is torch.Tensor
             return v / v.sum(axis, keepdim=True)
 
 def nansem(v, axis=None, **kwargs):
