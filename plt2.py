@@ -8,23 +8,176 @@ Created on Tue Feb 13 10:42:06 2018
 
 #  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
-from typing import Union, List, Iterable
+from typing import Union, List, Iterable, Callable, Sequence, Mapping, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
 
 import numpy_groupies as npg
 
 from . import np2
 
+
 def ____Subplots____():
     pass
+
+
+AxesArray = Mapping[Tuple[Union[int, slice], ...], plt.Axes]
+
+
+def supxy(axs: AxesArray, xprop=0.5, yprop=0.5) -> Tuple[float, float]:
+    rect_nw = axs[0, 0].get_position().bounds
+    rect_ne = axs[0, -1].get_position().bounds
+    rect_sw = axs[-1, 0].get_position().bounds
+
+    x0 = rect_nw[0]
+    y0 = rect_sw[1]
+    x1 = rect_ne[0] + rect_ne[2]
+    y1 = rect_sw[1] + rect_sw[3]
+
+    return (x1 - x0) * xprop + x0, (y1 - y0) * yprop + y0
+
+
+AxesSlice = Union[plt.Axes, Sequence[plt.Axes], np.ndarray]
+
+
+class GridAxes:
+    def __init__(self,
+                 nrows: int, ncols: int,
+                 left=0.5, right=0.1,
+                 bottom=0.5, top=0.5,
+                 wspace: Union[float, Iterable[float]] = 0.25,
+                 hspace: Union[float, Iterable[float]] = 0.25,
+                 widths: Union[float, Iterable[float]] = 1.,
+                 heights: Union[float, Iterable[float]] = 0.75,
+                 kw_fig=(),
+                 close_on_del=True,
+                 ):
+        """
+        Give all size arguments in inches. top and right are top and right
+        margins, rather than top and right coordinates.
+        Figure is deleted when the GridAxes object is garbage-collected,
+        so the object needs to be returned for the figure to be saved.
+
+        :param nrows:
+        :param ncols:
+        :param left:
+        :param right:
+        :param bottom:
+        :param top:
+        :param wspace:
+        :param hspace:
+        :param widths: widths of columns in inches.
+        :param heights: heights of rows in inches.
+        :param kw_fig:
+        :return: axs[row, col] = plt.Axes
+        """
+
+        wspace = np.zeros([ncols - 1]) + wspace
+        hspace = np.zeros([nrows - 1]) + hspace
+
+        w = np.zeros([ncols * 2 + 1])
+        h = np.zeros([nrows * 2 + 1])
+
+        w[2:-1:2] = wspace
+        h[2:-1:2] = hspace
+
+        widths = np.zeros([ncols]) + widths
+        heights = np.zeros([nrows]) + heights
+
+        w[1::2] = widths
+        h[1::2] = heights
+
+        w[0] = left
+        w[-1] = right
+        h[-1] = bottom
+        h[0] = top
+
+        self.w = w
+        self.h = h
+        self.top = top
+        self.bottom = bottom
+        self.left = left
+        self.right = right
+        self.widths = widths
+        self.heights = heights
+        self.wspace = wspace
+        self.hspace = hspace
+        self.close_on_del = close_on_del
+
+        fig = plt.figure(**{
+            **dict(kw_fig),
+            'figsize': [w.sum(), h.sum()]
+        })
+        gs = plt.GridSpec(
+            nrows=nrows * 2 + 1, ncols=ncols * 2 + 1,
+            left=0, right=1, bottom=0, top=1,
+            wspace=0, hspace=0,
+            width_ratios=w, height_ratios=h,
+            figure=fig
+        )
+        axs = np.empty([nrows, ncols], dtype=np.object)
+
+        for row in range(nrows):
+            for col in range(ncols):
+                axs[row, col] = plt.subplot(gs[row * 2 + 1, col * 2 + 1])
+
+        self.axs = axs
+
+    def __getitem__(self, key) -> AxesSlice:
+        return self.axs[key]
+
+    def __setitem__(self, key, data: AxesSlice):
+        self.axs[key] = data
+
+    def flatten(self) -> Sequence[plt.Axes]:
+        return self.axs.flatten()
+
+    @property
+    def figure(self) -> plt.Figure:
+        return self.axs[0, 0].figure
+
+    def __del__(self):
+        """Close figure to prevent memory leak"""
+        if self.close_on_del:
+            fig = self.axs[0, 0].figure
+            # import sys
+            # if sys.getrefcount(fig) == 0:
+            plt.close(fig)
+            # print('Closed figure %d!' % id(fig))  # CHECKED
+
+    def supxy(self, xprop=0.5, yprop=0.5):
+        return supxy(self.axs[:], xprop=xprop, yprop=yprop)
+
+    @property
+    def supheight(self):
+        return self.supxy(yprop=1)[1] - self.supxy(yprop=0)[1]
+
+    @property
+    def supwidth(self):
+        return self.supxy(xprop=1)[0] - self.supxy(xprop=0)[0]
+
+    def suptitle(self, txt: str,
+                 xprop=0.5, pad=0.05, fontsize=12, yprop=None,
+                 va='top', ha='center', **kwargs):
+        if yprop is None:
+            if va == 'top' or va == 'center':
+                yprop = (np.sum(self.h) - pad) / np.sum(self.h)
+            elif va == 'bottom':
+                yprop = (np.sum(self.h[1:]) + pad) / np.sum(self.h)
+
+        return plt.figtext(
+            self.supxy(xprop=xprop)[0], yprop, txt,
+            ha=ha, va=va, fontsize=fontsize, **kwargs)
+
 
 def subplotRC(nrow, ncol, row, col, **kwargs):
     iplot = (row - 1) * ncol + col
     ax = plt.subplot(nrow, ncol, iplot, **kwargs)
     return ax
+
 
 def subplotRCs(nrow, ncol, **kwargs):
     ax = np.empty([nrow, ncol], dtype=object)
@@ -32,6 +185,7 @@ def subplotRCs(nrow, ncol, **kwargs):
         for col in range(1, ncol+1):
             ax[row-1, col-1] = subplotRC(nrow, ncol, row, col, **kwargs)
     return ax
+
 
 def coltitle(col_titles, axes):
     """
@@ -45,6 +199,7 @@ def coltitle(col_titles, axes):
     for ax, col in zip(axes[0,:], col_titles):
         h.append(ax.set_title(col))
     return np.array(h)
+
 
 def rowtitle(row_titles, axes, pad=5, ha='right'):
     """
@@ -197,6 +352,12 @@ def sameaxes(ax, ax0=None, xy='xy'):
 def same_clim(images, img0=None):
     if type(images) is np.ndarray:
         images = images.reshape(-1)
+    if isinstance(images[0], plt.Axes):
+        axes = images
+        images = []
+        for ax in axes:  # type: plt.Axes
+            im = ax.findobj(mpl.image.AxesImage)
+            images += im
 
     if img0 is None:
         clims = np.array([im.get_clim() for im in images])
@@ -257,7 +418,7 @@ def beautify_psychometric(ax=None,
                     linestyle='-', zorder=-1,
                     linewidth=0.5)
 
-def detach_axis(xy='xy', amin=0, amax=None, ax=None, spine=None):
+def detach_axis(xy='xy', amin=0., amax=None, ax=None, spine=None):
     if xy == 'xy':
         for xy1 in ['x', 'y']:
             detach_axis(xy1, amin, amax, ax)
@@ -299,6 +460,7 @@ def hide_ticklabels(xy='xy', ax=None):
         plt.setp(ax.get_yticklabels(), visible=False)
 
 def box_off(remove_spines=('right', 'top'),
+            remove_ticklabels=True,
             ax=None):
     """
     :param remove_spines: 'all': remove all spines and ticks; or a list
@@ -313,6 +475,15 @@ def box_off(remove_spines=('right', 'top'),
         remove_spines = ['left', 'right', 'top', 'bottom']
         ax.set_xticks([])
         ax.set_yticks([])
+
+    if 'left' in remove_spines:
+        ax.tick_params(axis='y', length=0)
+        if remove_ticklabels:
+            ax.set_yticklabels([])
+    if 'bottom' in remove_spines:
+        ax.tick_params(axis='x', length=0)
+        if remove_ticklabels:
+            ax.set_xticklabels([])
 
     for r in remove_spines:
         ax.spines[r].set_visible(False)
@@ -340,19 +511,84 @@ def tick_color(xy, ticks, labels, colors):
         _, labels = plt.yticks(ticks, labels)
         set_tick_colors(labels)
 
+
+def ____Colormaps____():
+    pass
+
+
+CMapType = Callable[[int], Iterable[float]]
+
+
+def cool2(n_lev: int) -> CMapType:
+    def cmap1(lev):
+        return np.linspace([0.4, 0., 1.], [1., 0., 0.], n_lev)[lev]
+    return cmap1
+
+
+def cool2_rev(n_lev: int) -> CMapType:
+    def cmap1(lev):
+        return np.linspace([1., 0., 0.], [0.4, 0., 1.], n_lev)[lev]
+    return cmap1
+
+
+def winter2(n_lev: int) -> CMapType:
+    def cmap1(lev):
+        return np.linspace([0., 0.4, 1.], [0., 0.8, 0.25], n_lev)[lev]
+    return cmap1
+
+
+def winter2_rev(n_lev: int) -> CMapType:
+    def cmap1(lev):
+        return np.linspace([0., 0.8, 0.25], [0., 0.4, 1.], n_lev)[lev]
+    return cmap1
+
+
 def ____Heatmaps____():
     pass
 
-def cmap(name, **kw):
-    import matplotlib as mpl
-    from matplotlib.colors import ListedColormap    
-    
-    if name == 'BuRd':
-        cmap = ListedColormap(np.flip(mpl.cm.RdBu(range(256)), axis=0))
+
+# # 'BuRd': use plt.get_cmap('RdBu_rev')
+# def cmap(name, **kw):
+#     import matplotlib as mpl
+#     from matplotlib.colors import ListedColormap
+#
+#     if name == 'BuRd':
+#         cmap = ListedColormap(np.flip(mpl.cm.RdBu(range(256)), axis=0))
+#     else:
+#         cmap = plt.cmap(name, **kw)
+#
+#     return cmap
+
+
+def cmap_alpha(cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
+               n: int = None,
+               alpha_max=1.,
+               alpha_min=0.,
+               ) -> ListedColormap:
+    """
+    Add linear alphas to a colormap
+
+    based on https://stackoverflow.com/a/37334212/2565317
+
+    :param cmap: cmap with alpha of 1 / cmap.N, or a color (RGB/A or str)
+    :param n:
+    :return: cmap
+    """
+
+    if isinstance(cmap, mpl.colors.Colormap):
+        if n is None:
+            n = cmap.N
+        cmap0 = cmap(np.arange(n))
     else:
-        cmap = plt.cmap(name, **kw)
-        
-    return cmap
+        if n is None:
+            n = 256
+        cmap0 = np.repeat(
+            np.array(mpl.colors.to_rgba(cmap))[None, :],
+            repeats=n, axis=0
+        )
+    cmap0[:, -1] = np.linspace(alpha_min, alpha_max, cmap0.shape[0])
+    cmap1 = ListedColormap(cmap0)
+    return cmap1
 
 
 def colormap2arr(arr,cmap):
@@ -567,36 +803,151 @@ def multiline(xs, ys, c=None, ax=None, **kwargs):
     return lc
 
 
-def colorbar(mappable=None, ax=None,
-             position='right',
-             size='5%',
-             pad=0.05,
-             **kwargs):
+def colorbar(
+        ax: plt.Axes = None,
+        mappable: mpl.cm.ScalarMappable = None,
+        loc='right',
+        width='5%', height='100%',
+        borderpad=-1,
+        kw_inset=(),
+        kw_cbar=(),
+) -> mpl.colorbar.Colorbar:
     """
-    Add a colorbar that has the same with as the image.
-    :param mappable: mpl.cm.ScalarMappable
-    :param ax: plt.Axes
-    :param position: 'right' (default), 'left', 'bottom', 'top'
-    :param size: thickness of the colorbar
-    :param pad: padding between the image and the colorbar
-    :return: mpl.colorbar.Colorbar
+
+    :param ax:
+    :param mappable: defaults to image in the axes
+    :param loc: as for legend
+    :param width: relative to the axes
+    :param height: relative to the axes
+    :param borderpad: relative to the fontsize of the axes.
+    :param kw_inset:
+    :param kw_cbar:
+    :return:
     """
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    if ax is None:
+        ax = plt.gca()
     if mappable is None:
-        if ax is None:
-            ax = plt.gca()
-    else:
-        ax = mappable.axes
+        mappable = ax.findobj(mpl.image.AxesImage)[0]
+    fig = ax.figure
 
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes(position, size=size, pad=pad)
-
-    h_colorbar = plt.colorbar(mappable=mappable, cax=cax, **kwargs)
-    return h_colorbar
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    axins = inset_axes(
+        ax, width=width, height=height, loc=loc,
+        bbox_to_anchor=(0., 0., 1., 1.),
+        bbox_transform=ax.transAxes,
+        borderpad=borderpad,
+        **dict(kw_inset)
+    )
+    cb = fig.colorbar(
+        mappable, cax=axins,
+        **dict(kw_cbar)
+    )
+    return cb
 
 
 def ____Errorbar____():
     pass
+
+
+def patch_chance_level(
+        level=None, signs=(-1, 1), ax: plt.Axes = None,
+        xy='y', color=(0.7, 0.7, 0.7)
+):
+    if level is None:
+        level = np.log(10.)
+    if ax is None:
+        ax = plt.gca()
+
+    hs = []
+    for sign in signs:
+        if xy == 'y':
+            if ax.yaxis.get_scale() == 'log':
+                vmin = 1.
+                level1 = level * 10 ** sign
+            else:
+                vmin = 0.
+                level1 = level * sign
+
+            lim = ax.get_xlim()
+            rect = mpl.patches.Rectangle(
+                [lim[0], vmin], lim[1] - lim[0], level1,
+                linewidth=0,
+                fc=color,
+                zorder=-1
+            )
+        elif xy == 'x':
+            if ax.xaxis.get_scale() == 'log':
+                vmin = 1.
+                level1 = level * 10 ** sign
+            else:
+                vmin = 0.
+                level1 = level * sign
+
+            lim = ax.get_ylim()
+            rect = mpl.patches.Rectangle(
+                [vmin, lim[0]], level1, lim[1] - lim[0],
+                linewidth=0,
+                fc=color,
+                zorder=-1
+            )
+        ax.add_patch(rect)
+        hs.append(rect)
+    return hs
+
+
+def bar_group(y: np.ndarray, yerr: np.ndarray = None,
+              width=0.8, width_indiv=1.,
+              cmap: Union[
+                  mpl.colors.Colormap,
+                  Iterable[Union[str, Iterable[float]]]
+              ] = None,
+              kw_color=('color',),
+              **kwargs) -> (List[mpl.container.BarContainer], np.ndarray):
+    """
+
+    :param y: [x, series]
+    :param yerr: [x, series]
+    :param width: distance between centers of the 1st & last bars in a group
+    :param width_indiv: individual bar's width in proportion to the distance
+    between the left edge of neighboring bars within a group
+    :param gap: proportion of the gap between bars within a group
+    :param cmap: cmap or list of colors
+    :param kw_color: tuple of keyword(s) to use the series color
+    :param kwargs: fed to bar()
+    :return: hs[series] = BarContainer, xs[x, series]
+    """
+    n = y.shape[0]
+    m = y.shape[1]
+    x = np.arange(n)
+    xs = []
+
+    if yerr is None:
+        yerr = np.zeros_like(y) + np.nan
+
+    if cmap is None:
+        cmap = plt.get_cmap('tab10')
+    elif not isinstance(cmap, mpl.colors.Colormap):
+        cmap = mpl.colors.ListedColormap(cmap)
+
+    width1 = width * width_indiv / m
+    width0 = width * (m - 1) / m
+
+    hs = []
+    for i, (y1, yerr1) in enumerate(zip(y.T, yerr.T)):
+        if isinstance(cmap, mpl.colors.ListedColormap):
+            color = cmap(i)
+        else:
+            color = cmap(i / (m - 1))
+        dx = (i / (m - 1) - 0.5) * width0
+        kw = {k: color for k in kw_color}
+        h = plt.bar(
+            x + dx, height=y1, yerr=yerr1, width=width1,
+            **{**kwargs, **kw})
+        hs.append(h)
+        xs.append(x + dx)
+
+    xs = np.stack(xs, -1)
+    return hs, xs
 
 
 def errorbar_shade(x, y, yerr=None, **kw):
@@ -775,9 +1126,56 @@ def convert_movie(src_file, ext_new='.mp4'):
     :type src_file: str
     :type ext_new: str
     """
-    import moviepy.editor as mp
-    import os
 
-    clip = mp.VideoFileClip(src_file)
+    import os
     pth, _ = os.path.splitext(src_file)
-    clip.write_videofile(pth + ext_new)
+
+    dst_file = pth + ext_new
+    from send2trash import send2trash
+    if os.path.exists(dst_file):
+        send2trash(dst_file)
+
+    import moviepy.editor as mp
+    clip = mp.VideoFileClip(src_file)
+    clip.write_videofile(dst_file)  # , write_logfile=True)
+
+    # import ffmpy
+    # ff = ffmpy.FFmpeg(
+    #     inputs={src_file: None},
+    #     outputs={dst_file: None}
+    # )
+    # ff.run()
+
+
+class Animator:
+    def __init__(self):
+        self.frames = []
+
+    def append_fig(self, fig: plt.Figure):
+        self.frames.append(fig2array(fig))
+
+    def export(self, file, ext=('.gif', '.mp4'), duration=100, loop=0,
+               kw_gif=()) -> Iterable[str]:
+        if type(ext) is str:
+            ext = [ext]
+
+        import os
+        file_wo_ext = os.path.splitext(file)[0]
+        file_gif = file_wo_ext + '.gif'
+
+        files = [file_gif]
+
+        arrays2gif(self.frames, file_gif,
+                   duration=duration, loop=loop,
+                   **dict(kw_gif))
+
+        for ext1 in ext:
+            if ext1 != '.gif':
+                convert_movie(file_gif, ext1)
+                files.append(file_wo_ext + ext1)
+
+        if '.gif' not in ext:
+            os.remove(file_gif)
+            files = files[1:]
+
+        return files

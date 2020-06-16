@@ -6,9 +6,10 @@ import torch
 from torch.nn import functional as F
 import numpy_groupies as npg
 from matplotlib import pyplot as plt
+from typing import Union, Iterable, Tuple, Dict
 
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
-    Categorical
+    Categorical, OneHotCategorical
 
 device0 = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -97,6 +98,33 @@ def freeze(module):
 def ____TYPE____():
     pass
 
+
+def tensor(v: Union[float, np.ndarray, torch.Tensor],
+           min_ndim=1,
+           **kwargs):
+    """
+    Construct a tensor if the input is not; otherwise return the input as is,
+    but return None as is for convenience when input is not passed.
+    Same as enforce_tensor
+    :param v:
+    :param min_ndim:
+    :param kwargs:
+    :return:
+    """
+    if v is None:
+        pass
+    else:
+        if not torch.is_tensor(v):
+            v = torch.tensor(v, **kwargs)
+        if v.ndimension() < min_ndim:
+            v = v.expand(v.shape
+                         + torch.Size([1] * (min_ndim - v.ndimension())))
+    return v
+
+
+enforce_tensor = tensor
+
+
 def float(v):
     return v.type(torch.get_default_dtype())
 
@@ -179,6 +207,7 @@ def float(v):
 
 def numpy(v: Union[torch.Tensor, np.ndarray]):
     """
+    Construct a np.ndarray from tensor; otherwise return the input as is
     :type v: torch.Tensor
     :rtype: np.ndarray
     """
@@ -193,10 +222,14 @@ def numpy(v: Union[torch.Tensor, np.ndarray]):
             return v
             # except AssertionError:
             #     return np.array(v)
+
+
 npy = numpy
+
 
 def npys(*args):
     return tuple([npy(v) for v in args])
+
 
 #%% NaN-related
 def ____NAN____():
@@ -210,7 +243,7 @@ def isnan(v):
         return torch.isnan(v)
 
 
-def nan2v(v, fill=0):
+def nan2v(v, fill=0.):
     v[isnan(v)] = fill
     return v
 
@@ -319,6 +352,14 @@ def repeat_all(*args, shape=None, use_expand=False):
     return tuple(out)
 
 def expand_all(*args, shape=None):
+    """
+    Expand tensors so that all tensors are of the same size.
+    Tensors must have the same number of dimensions;
+    otherwise, use expand_batch() to prepend dimensions.
+    :param args:
+    :param shape:
+    :return:
+    """
     return repeat_all(*args, shape=shape, use_expand=True)
 
 def repeat_to_shape(arg, shape):
@@ -589,6 +630,19 @@ def ____STATS____():
     pass
 
 
+def logit(p: torch.Tensor) -> torch.Tensor:
+    return torch.log(p) - torch.log(torch.tensor(1.) - p)
+
+
+def logistic(x: torch.Tensor) -> torch.Tensor:
+    p = torch.tensor(1.) / (torch.tensor(1.) + torch.exp(-x))
+    # p_nan = isnan(p)
+    # if p_nan.any():
+    #     p[(x > 0) & p_nan] = 1.
+    #     p[(x < 0) & p_nan] = 0.
+    return p
+
+
 def conv_t(p, kernel, **kwargs):
     """
     1D convolution with the starting time of the signal and kernel anchored.
@@ -628,6 +682,81 @@ def conv_t(p, kernel, **kwargs):
         )[:, :, :nt].squeeze(0)
 
 
+def shiftdim(v: torch.Tensor, shift: torch.Tensor, dim=0, pad='repeat'):
+    if torch.is_floating_point(shift):
+        lb = shift.floor().long()
+        ub = lb + 1
+        p = torch.tensor(1.) - torch.cat([shift.reshape([1]) - lb,
+                                          ub - shift.reshape([1])], 0)
+        return (
+                shiftdim(v, shift=lb, dim=dim) * p[0]
+                + shiftdim(v, shift=ub, dim=dim) * p[1]
+        )
+
+    if dim != 0:
+        v = v.transpose(0, dim)
+
+    if shift == 0:
+        pass
+    else:
+        if shift > 0:
+            if pad == 'repeat':
+                vpad = v[0].expand((shift,) + v.shape[1:])
+            else:
+                vpad = torch.zeros((shift,) + v.shape[1:])
+
+            v = torch.cat([
+                vpad,
+                v[:-shift],
+            ])
+        else:
+            if pad == 'repeat':
+                vpad = v[-1].expand((-shift,) + v.shape[1:])
+            else:
+                vpad = torch.zeros((-shift,) + v.shape[1:])
+
+            v = torch.cat([
+                v[-shift:],
+                vpad,
+            ])
+
+    if dim != 0:
+        v = v.transpose(0, dim)
+    return v
+
+
+def interp1d(query: torch.Tensor, value: torch.Tensor, dim=0) -> torch.Tensor:
+    """
+
+    :param query: index on dim. Should be a FloatTensor for gradient.
+    :param value:
+    :param dim:
+    :return: interpolated to give value[query] (when dim=0)
+    """
+    v = value
+    if dim != 0:
+        v = v.transpose(0, dim)
+    else:
+        v = v
+
+    if torch.is_floating_point(query):
+        q0 = query.floor().long()
+        q1 = q0 + 1
+        p = query - q0
+        v = (
+            interp1d(q0, v, 0) * (torch.tensor(1.) - p.expand_as(v))
+            + interp1d(q1, v, 0) * p.expand_as(v)
+        )
+    else:
+        v = v[query]
+
+    if dim != 0:
+        v = v.transpose(0, dim)
+    else:
+        v = v
+    return v
+
+
 def mean_distrib(p, v, axis=None):
     if axis is None:
         kw = {}
@@ -641,6 +770,23 @@ def var_distrib(p, v, axis=None):
             mean_distrib(p, v ** 2, axis=axis)
             - mean_distrib(p, v, axis=axis) ** 2
     )
+
+
+def std_distrib(p, v, axis=None):
+    return var_distrib(p, v, axis=axis).sqrt()
+
+
+def sem_distrib(p, v, axis=None, n=None):
+    if n is None:
+        if axis is None:
+            n = p.sum()
+        else:
+            n = p.sum(axis)
+    v = var_distrib(p, v, axis=axis)
+    if torch.is_tensor(v):
+        return (v / n).sqrt()
+    else:
+        return np.sqrt(v / n)
 
 
 def min_distrib(p:torch.Tensor
@@ -819,7 +965,7 @@ def lognormal_params2mean_stdev(loc, scale):
            (torch.exp(scale ** 2) - 1.) * torch.exp(2 * loc + scale ** 2)
 
 
-def inv_gaussian_pdf(x, mu, lam, dim=0):
+def inv_gaussian_pdf(x, mu, lam):
     """
     As in https://en.wikipedia.org/wiki/Inverse_Gaussian_distribution
     @param x: values to query. Must be positive.
@@ -827,9 +973,29 @@ def inv_gaussian_pdf(x, mu, lam, dim=0):
     @param lam: lambda in Wikipedia's notation
     @return: p(x; mu, lam)
     """
-    return sumto1(torch.sqrt(
+    p = torch.sqrt(
         lam / (2 * pi * x ** 3)
-    ) * torch.exp(-lam * (x - mu) ** 2 / (2 * mu ** 2 * x)), dim=dim)
+    ) * torch.exp(-lam * (x - mu) ** 2 / (2 * mu ** 2 * x))
+    return p
+
+
+def inv_gaussian_cdf(x, mu, lam):
+    c0 = torch.distributions.Normal(loc=0., scale=1.).cdf(
+        torch.sqrt(lam / x) * (x / mu - 1.)
+    )
+    c1 = torch.distributions.Normal(loc=0., scale=1.).cdf(
+        -torch.sqrt(lam / x) * (x / mu + 1.)
+    )
+
+    if torch.any(torch.isnan(c0)):
+        print('--')  # CHECKING
+    if torch.any(torch.isnan(c1)):
+        print('--')  # CHECKING
+
+    c = c0 + torch.exp(2. * lam / mu) * c1
+    if torch.any(torch.isnan(c)):
+        print('--')  # CHECKING
+    return c
 
 
 def inv_gaussian_variance(mu, lam):
@@ -851,12 +1017,109 @@ def inv_gaussian_mean_std2params(mu, std):
     return mu, inv_gaussian_variance2lam(mu, std ** 2)
 
 
-def inv_gaussian_pdf_mean_stdev(x, mu, std, dim=0):
-    return inv_gaussian_pdf(
-        x, mu,
-        inv_gaussian_variance2lam(mu, std ** 2),
-        dim=dim
+def inv_gaussian_pmf_mean_stdev(
+        x: torch.Tensor, mu: torch.Tensor, std: torch.Tensor, dx=None,
+        algo='diff_cdf'
+) -> torch.Tensor:
+    """
+
+    :param x: must be a 1-dim tensor along dim.
+    :param mu:
+    :param std:
+    :param dx:
+    :return:
+    """
+    if dx is None:
+        dx = x[[1]] - x[[0]]
+
+    # --- Most robust against NaN; least valid
+    if algo == 'dx':
+        x, mu, std = expand_all(x, mu, std)
+        p = torch.zeros_like(x)
+        incl = x > 0
+        p[incl] = inv_gaussian_pdf(
+            x[incl], mu[incl],
+            inv_gaussian_variance2lam(mu[incl], std[incl] ** 2)
+        )
+        p[incl] = p[incl] * dx
+
+    elif algo == 'diff_cdf':
+        # --- Least robust against NaN; most valid
+        x = torch.cat([x, x[[-1]] + dx], dim=0)
+        x, mu, std = expand_all(x, mu, std)
+        c = torch.zeros_like(x)
+        incl = x > 0
+        c[incl] = inv_gaussian_cdf(
+            x[incl], mu[incl],
+            inv_gaussian_variance2lam(mu[incl], std[incl] ** 2)
+        )
+
+        is_nan = torch.isnan(c)
+        if torch.any(is_nan):
+            t = ((x - mu) / std)
+            print(t[is_nan])
+            print(t[~is_nan])
+            print('--')
+
+        p = c[1:] - c[:-1]
+
+    elif algo == 'norm_w_cdf':
+        x, mu, std = expand_all(x, mu, std)
+        p = torch.zeros_like(x)
+        incl = x > 0
+        p[incl] = inv_gaussian_pdf(
+            x[incl], mu[incl],
+            inv_gaussian_variance2lam(mu[incl], std[incl] ** 2)
+        )
+        c = inv_gaussian_cdf(
+            x[[-1]] + dx, mu,
+            inv_gaussian_variance2lam(mu, std ** 2)
+        )
+        p[incl] = p[incl] / c[incl]
+
+    else:
+        raise ValueError()
+
+    # p[torch.isnan(p)] = 0.
+    is_nan = torch.isnan(p)
+    if torch.any(is_nan):
+        print('--')
+    return p
+
+
+def lognorm_params_given_mean_stdev(mean: torch.Tensor, stdev: torch.Tensor
+                                    ) -> (torch.Tensor, torch.Tensor):
+    sigma = torch.sqrt(torch.log(1 + (stdev / mean) ** 2))
+    mu = torch.log(mean) - sigma ** 2 / 2.
+    return mu, sigma
+
+
+def lognorm_pmf(x: torch.Tensor, mean: torch.Tensor, stdev: torch.Tensor,
+                ) -> torch.Tensor:
+    """
+
+    :param x: must be monotonic increasing with equal increment on dim 0
+    :param mean:
+    :param stdev:
+    :return: p[k] = P(x[k] < X < x[k + 1]; mean, stdev)
+    """
+
+    mu, sigma = lognorm_params_given_mean_stdev(mean, stdev)
+
+    dx = x[[1]] - x[[0]]
+    x = torch.cat([x, x[[-1]] + dx], dim=0)
+    x, mu, sigma = expand_all(x, mu, sigma)
+    c = torch.zeros_like(x)
+    incl = x > 0
+    c[incl] = torch.distributions.LogNormal(mu[incl], sigma[incl]).cdf(
+        x[incl]
     )
+    p = c[1:] - c[:-1]
+
+    is_nan = torch.isnan(p)
+    if torch.any(is_nan):
+        print('--')
+    return p
 
 
 def delta(levels, v, dlevel=None):
@@ -892,7 +1155,7 @@ def normrnd(mu=0., sigma=1., sample_shape=(), return_distrib=False):
     @rtype: Union[(torch.Tensor, torch.distributions.Distribution),
     torch.Tensor]
     """
-    d = Normal(loc=mu, scale=sigma)
+    d = Normal(loc=tensor(mu), scale=tensor(sigma))
     s = d.rsample(sample_shape)
     if return_distrib:
         return s, d
@@ -909,8 +1172,20 @@ def log_normpdf(sample, mu=0., sigma=1.):
     return Normal(loc=mu, scale=sigma).log_prob(sample)
 
 
-def categrnd(probs):
-    return torch.multinomial(probs, 1)
+# def categrnd(probs):
+#     return torch.multinomial(probs, 1)
+
+
+def categrnd(probs=None, logits=None, sample_shape=()):
+    return torch.distributions.Categorical(
+        probs=probs, logits=logits
+    ).sample(sample_shape=sample_shape)
+
+
+def onehotrnd(probs=None, logits=None, sample_shape=()):
+    return torch.distributions.OneHotCategorical(
+        probs=probs, logits=logits
+    ).sample(sample_shape=sample_shape)
 
 
 def mvnpdf_log(x, mu=None, sigma=None):
@@ -1206,7 +1481,7 @@ def vmpdf_a_given_b(a_prad, b_prad, pconc):
             1.).double()
     return sumto1(vmpdf_prad_pconc(
         dist.flatten(), torch.tensor([0.]),
-        torch.tensor(pconc)
+        tensor(pconc)
     ).reshape([a_prad.numel(), b_prad.numel()]), 1)
 
 

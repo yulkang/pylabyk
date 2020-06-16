@@ -10,11 +10,14 @@ Created on Mon Mar 12 10:28:15 2018
 import numpy as np
 import torch
 import scipy
+from scipy import interpolate
 from scipy import stats
 import numpy_groupies as npg
 import pandas as pd
 from copy import deepcopy, copy
 from . import numpytorch
+from pprint import pprint
+from typing import Union, Sequence, Iterable
 
 npt = numpytorch.npt_torch # choose between torch and np
 
@@ -82,7 +85,7 @@ def mat2cell(m):
     return [v[~np.isnan(v)] for v in m]
 
 
-def dict_shapes(d):
+def dict_shapes(d, verbose=True):
     sh = {}
     for k in d.keys():
         v = d[k]
@@ -94,7 +97,10 @@ def dict_shapes(d):
                 compo = type(v[0])
         elif type(v) is np.ndarray:
             sh1 = v.shape
-            compo = v.dtype.type
+            if isinstance(v, np.object) and v.size > 0:
+                compo = type(v.flatten()[0])
+            else:
+                compo = v.dtype.type
         elif torch.is_tensor(v):
             sh1 = tuple(v.shape)
             compo = v.dtype
@@ -105,11 +111,24 @@ def dict_shapes(d):
             sh1 = 1
             compo = None
         sh[k] = (sh1, type(v), compo)
+
+        if verbose:
+            if compo is None:
+                str_compo = ''
+            else:
+                try:
+                    str_compo = '[' + compo.__name__ + ']'
+                except AttributeError:
+                    str_compo = '[' + compo.__str__() + ']'
+            print('%15s: %s %s%s' % (k, sh1, type(v).__name__, str_compo))
+
     return sh
 
 
-def filt_dict(d, incl):
+def filt_dict(d: dict, incl: np.ndarray) -> dict:
     """
+    Copy d[k][incl] if d[k] is np.ndarray and d[k].shape[1] == incl.shape[0];
+    otherwise copy the whole value.
     @type d: dict
     @type incl: np.ndarray
     @rtype: dict
@@ -122,14 +141,23 @@ def filt_dict(d, incl):
     }
 
 
-def listdict2dictlist(listdict):
+def listdict2dictlist(listdict: list, to_array=False) -> dict:
     """
     @type listdict: list
     @param listdict: list of dicts with the same keys
     @return: dictlist: dict of lists of the same lengths
     @rtype: dict
     """
-    return {k: [d[k] for d in listdict] for k in listdict[0].keys()}
+    d = {k: [d[k] for d in listdict] for k in listdict[0].keys()}
+    if to_array:
+        for k in d.keys():
+            v = d[k]
+            if torch.is_tensor(v[0]):
+                v = np.array([v1.clone().detach().numpy() for v1 in v])
+            else:
+                v = np.array(v)
+            d[k] = v
+    return d
 
 
 def dictkeys(d, keys):
@@ -468,7 +496,7 @@ def sumto1(v, axis=None, ignore_nan=True):
     else:
         if type(v) is np.ndarray:
             return v / v.sum(axis=axis, keepdims=True)
-        else: # v is torch.Tensor
+        else:  # v is torch.Tensor
             return v / v.sum(axis, keepdim=True)
 
 def nansem(v, axis=None, **kwargs):
@@ -476,16 +504,16 @@ def nansem(v, axis=None, **kwargs):
     n = np.sum(~np.isnan(v), axis=axis, **kwargs)
     return s / np.sqrt(n)
 
-def wpercentile(w, prct, axis=None):
+
+def wpercentile(w: np.ndarray, prct, axis=None):
     """
-    :type v: np.ndarray
     """
     if axis is not None:
         raise NotImplementedError()
     cw = np.concatenate([np.zeros(1), np.cumsum(w)])
     cw /= cw[-1]
-    f = scipy.interpolate.interp1d(cw, np.arange(len(cw)) - .5)
-    return f(prct/100.)
+    f = interpolate.interp1d(cw, np.arange(len(cw)) - .5)
+    return f(prct / 100.)
 
     # if axis is None:
     #     axis = 0
@@ -497,6 +525,7 @@ def wpercentile(w, prct, axis=None):
     # cw = np.cumsum(w, axis)
     # cw = np.concatenate
     # f = stats.interpolate.interp1d(w, cv)
+
 
 def wmedian(w, axis=None):
     return wpercentile(w, prct=50, axis=axis)
@@ -544,39 +573,63 @@ def pdf_trapezoid(x, center, width_top, width_bottom):
     p[p < 0] = 0
     return p
 
-#%% Circular stats
+
 def ____CIRCSTAT____():
     pass
+
 
 def rad2deg(rad):
     return rad / np.pi * 180.
 
+
 def deg2rad(deg):
     return deg / 180. * np.pi
+
 
 def circdiff(angle1, angle2, maxangle=None):
     """
     :param angle1: angle scaled to be between 0 and maxangle
     :param angle2: angle scaled to be between 0 and maxangle
     :param maxangle: max angle. defaults to 2 * pi.
-    :return: angular difference, between -.5 and +.5 * maxangle
+    :return: angle1 - angle2, shifted to be between -.5 and +.5 * maxangle
     """
     if maxangle is None:
         maxangle = np.pi * 2
     return (((angle1 / maxangle)
              - (angle2 / maxangle) + .5) % 1. - .5) * maxangle
 
-#%% Transform
+
+def rotation_matrix(rad, dim=(-2, -1)):
+    cat = np.concatenate
+    return cat((
+        cat((np.cos(rad), -np.sin(rad)), dim[1]),
+        cat((np.sin(rad), np.cos(rad)), dim[1])), dim[0])
+
+
+def rotate(v, rad: np.ndarray) -> np.ndarray:
+    """
+
+    :param v: [batch_dims, (x0, y0)]
+    :param rad: [batch_dims]
+    :return: [batch_dims, (x, y)]
+    """
+    rotmat = rotation_matrix(np.expand_dims(rad, (-1, -2)))
+    return np.squeeze(rotmat @ np.expand_dims(v, -1), -1)
+
+
 def ____TRANSFORM____():
     pass
+
 
 def logit(v):
     """logit function"""
     return np.log(v) - np.log(1 - v)
 
+
 def logistic(v):
     """inverse logit function"""
     return 1 / (np.exp(-v) + 1)
+
 
 def softmax(dv):
     if type(dv) is torch.Tensor:
@@ -585,13 +638,14 @@ def softmax(dv):
     else:
         edv = np.exp(dv)
         p = edv / np.sum(edv)
-        
     return p
+
 
 def softargmax(dv):
     p = softmax(dv)
     a = np.nonzero(np.random.multinomial(1, p))[0][0]
     return a
+
 
 def project(a, b, axis=None, scalar_proj=False):
     """
@@ -607,9 +661,10 @@ def project(a, b, axis=None, scalar_proj=False):
     else:
         return proj * b
 
-#%% Binary operations
+
 def ____BINARY_OPS____():
     pass
+
 
 def conv_circ( signal, ker ):
     '''
@@ -621,9 +676,39 @@ def conv_circ( signal, ker ):
     '''
     return np.real(np.fft.ifft( np.fft.fft(signal)*np.fft.fft(ker) ))
 
-#%% Image
+
+def ____COMPARISON____():
+    pass
+
+
+def startswith(a: Sequence, b: Sequence) -> bool:
+    """
+    a and b should be the same type: tuple, list, np.ndarray, or torch.tensor
+
+    EXAMPLE:
+        startswith(np.array([1, 2, 3]), np.array([1, 2]))
+            True
+        startswith(np.array([1, 2, 3]), np.array([1, 2, 3, 4]))
+            False
+        startswith((1, 2), (1, 2, 3))
+            False
+        startswith((1, 2), (1,))
+            True
+
+    :param a: tuple, list, np.ndarray, or torch.tensor
+    :param b: same type as a
+    :return: True if a starts with b
+    """
+    v = len(a) >= len(b) and a[:len(b)] == b
+    try:
+        return v.all()
+    except AttributeError:
+        return v
+
+
 def ____IMAGE____():
     pass
+
 
 def nansmooth(u, sigma=1.):
     from scipy import ndimage
@@ -703,11 +788,10 @@ def demo_convolve_time():
     print(res)
     print((src2.shape, kernel.shape, res.shape))
 
-    pass
-
 
 def ____TIME____():
     pass
+
 
 def timeit(fun, *args, repeat=1, return_out=False, **kwargs):
     """
@@ -731,6 +815,11 @@ def timeit(fun, *args, repeat=1, return_out=False, **kwargs):
         return t_el, out
     else:
         return t_el
+
+
+def nowstr():
+    import datetime
+    return '{date:%Y%m%dT%H%M%S}'.format(date=datetime.datetime.now())
 
 
 def ____STRING____():
