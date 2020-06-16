@@ -10,6 +10,9 @@ from matplotlib import pyplot as plt
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
     Categorical
 
+device0 = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+
 #%% Wrapper that allows numpy-style syntax for torch
 def ____NUMPY_COMPATIBILITY____():
     pass
@@ -83,13 +86,6 @@ pi = torch.tensor(np.pi)
 pi2 = torch.tensor(np.pi * 2)
 
 #%% Utility functions specifically for PyTorch
-def enforce_tensor(v, min_ndim=1):
-    if not torch.is_tensor(v):
-        v = torch.tensor(v)
-    if v.ndimension() < min_ndim:
-        v = v.expand(v.shape + torch.Size([1] * (min_ndim - v.ndimension())))
-    return v
-
 def ____GRADIENT____():
     pass
 
@@ -104,14 +100,91 @@ def ____TYPE____():
 def float(v):
     return v.type(torch.get_default_dtype())
 
-def numpy(v):
+
+def tensor(v: Union[float, np.ndarray, torch.Tensor],
+           min_ndim=1,
+           device=None,
+           **kwargs):
+    """
+    Construct a tensor if the input is not; otherwise return the input as is,
+    but return None as is for convenience when input is not passed.
+    Same as enforce_tensor
+    :param v:
+    :param min_ndim:
+    :param device:
+    :param kwargs:
+    :return:
+    """
+    if device is None:
+        device = device0
+
+    if v is None:
+        pass
+    else:
+        if not torch.is_tensor(v):
+            v = torch.tensor(v, device=device, **kwargs)
+        if v.ndimension() < min_ndim:
+            v = v.expand(v.shape
+                         + torch.Size([1] * (min_ndim - v.ndimension())))
+    return v
+
+
+enforce_tensor = tensor
+
+def cuda(v):
+    """call cuda() if cuda is available; otherwise ignored."""
+    if torch.cuda.is_available():
+        v.cuda()
+
+
+def zeros(*args, **kwargs):
+    return torch.zeros(*args, **{'device': device0, **kwargs})
+
+
+def ones(*args, **kwargs):
+    return torch.ones(*args, **{'device': device0, **kwargs})
+
+
+def zeros_like(*args, **kwargs):
+    return torch.zeros_like(*args, **{'device': device0, **kwargs})
+
+
+def ones_like(*args, **kwargs):
+    return torch.ones_like(*args, **{'device': device0, **kwargs})
+
+
+def eye(*args, **kwargs):
+    return torch.eye(*args, **{'device': device0, **kwargs})
+
+
+def empty(*args, **kwargs):
+    return torch.empty(*args, **{'device': device0, **kwargs})
+
+
+def empty_like(*args, **kwargs):
+    return torch.empty_like(*args, **{'device': device0, **kwargs})
+
+
+def arange(*args, **kwargs):
+    return torch.arange(*args, **{'device': device0, **kwargs})
+
+
+def linspace(*args, **kwargs):
+    return torch.linspace(*args, **{'device': device0, **kwargs})
+
+
+def float(v):
+    return v.type(torch.get_default_dtype())
+
+
+def numpy(v: Union[torch.Tensor, np.ndarray]):
     """
     :type v: torch.Tensor
     :rtype: np.ndarray
     """
     try:
         return v.clone().detach().numpy()
-    except AttributeError:
+    except TypeError:
         try:
             return v.clone().detach().cpu().numpy()
         except AttributeError:
@@ -1147,7 +1220,7 @@ def vmpdf(x, mu, scale=None, normalize=True):
         mu = mu / scale
         # mu[scale[:,0] == 0, :] = 0.
 
-    vm = vmf.VonMisesFisher(mu, scale + torch.zeros([1,1]))
+    vm = vmf.VonMisesFisher(mu, scale + torch.zeros([1,1], device=device0))
     p = torch.exp(vm.log_prob(x))
     # if scale == 0.:
     #     p = torch.ones_like(p) / p.shape[0]

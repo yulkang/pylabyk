@@ -1,24 +1,6 @@
-#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
-
-from collections import OrderedDict as odict, namedtuple
-import numpy as np
-from pprint import pprint
-from typing import Union, Iterable, List, Tuple, Sequence, Callable, Dict
-import matplotlib as mpl
-from matplotlib import pyplot as plt
-import time
-
-import torch
-from torch import nn
-from torch.nn import functional as F
-from torch import optim
-from torch.utils.tensorboard import SummaryWriter
-
-from lib.pylabyk import np2, plt2, numpytorch as npt
-from lib.pylabyk.numpytorch import npy, npys
-
-#%% Options
 """
+Options:
+
 1. Use OverriddenParameter
 Pros
 : can assign to slice
@@ -32,6 +14,28 @@ Pros
 Cons
 : cannot assign to slice without using setslice()
 """
+
+#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
+
+import numpy as np
+from pprint import pprint
+from typing import Union, Iterable, List, Tuple, Sequence, Callable, \
+    Dict
+from collections import OrderedDict as odict, namedtuple
+import matplotlib as mpl
+from matplotlib import pyplot as plt
+import time
+
+import torch
+from torch import nn, Tensor
+from torch.nn import functional as F
+from torch import optim
+from torch.utils.tensorboard import SummaryWriter
+
+from lib.pylabyk import np2, plt2, numpytorch as npt
+from lib.pylabyk.numpytorch import npy, npys
+
+default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 #%% Bounded parameters (under construction)
 # this is for better autocompletion, etc.
@@ -500,13 +504,15 @@ class BoundedModule(nn.Module):
 
 
 
-def enforce_float_tensor(v):
+def enforce_float_tensor(v: Union[torch.Tensor, np.ndarray], device=None
+                         ) -> torch.Tensor:
     """
-    :type v: torch.Tensor, np.ndarray
     :rtype: torch.DoubleTensor, torch.FloatTensor
     """
+    if device is None:
+        device = default_device
     if not torch.is_tensor(v):
-        return torch.tensor(v, dtype=torch.get_default_dtype())
+        return torch.tensor(v, dtype=torch.get_default_dtype(), device=device)
     elif not torch.is_floating_point(v):
         return v.float()
     else:
