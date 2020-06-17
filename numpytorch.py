@@ -81,11 +81,6 @@ class WrapTorch(object):
 npt_torch = WrapTorch()
 npt_numpy = np # Perhaps not fine if torch syntax is used
 
-#%% Constants
-nan = torch.tensor(np.nan)
-pi = torch.tensor(np.pi)
-pi2 = torch.tensor(np.pi * 2)
-
 #%% Utility functions specifically for PyTorch
 def ____GRADIENT____():
     pass
@@ -97,32 +92,6 @@ def freeze(module):
 #%% Types
 def ____TYPE____():
     pass
-
-
-def tensor(v: Union[float, np.ndarray, torch.Tensor],
-           min_ndim=1,
-           **kwargs):
-    """
-    Construct a tensor if the input is not; otherwise return the input as is,
-    but return None as is for convenience when input is not passed.
-    Same as enforce_tensor
-    :param v:
-    :param min_ndim:
-    :param kwargs:
-    :return:
-    """
-    if v is None:
-        pass
-    else:
-        if not torch.is_tensor(v):
-            v = torch.tensor(v, **kwargs)
-        if v.ndimension() < min_ndim:
-            v = v.expand(v.shape
-                         + torch.Size([1] * (min_ndim - v.ndimension())))
-    return v
-
-
-enforce_tensor = tensor
 
 
 def float(v):
@@ -231,11 +200,17 @@ def npys(*args):
     return tuple([npy(v) for v in args])
 
 
+#%% Constants
+nan = tensor(np.nan)
+pi = tensor(np.pi)
+pi2 = tensor(np.pi * 2)
+
+
 #%% NaN-related
 def ____NAN____():
     pass
 
-nanint = torch.tensor(np.nan).long()
+nanint = tensor(np.nan).long()
 def isnan(v):
     if v.dtype is torch.long:
         return v == nanint
@@ -330,12 +305,12 @@ def repeat_all(*args, shape=None, use_expand=False):
     max_shape = torch.ones(ndim, dtype=torch.long)
     for arg in args:
         max_shape, _ = torch.max(torch.cat([
-            torch.tensor(arg.shape)[None, :], max_shape[None, :]],
+            tensor(arg.shape)[None, :], max_shape[None, :]],
             dim=0), dim=0)
     if shape is None:
         shape = max_shape
     else:
-        shape = torch.tensor(shape)
+        shape = tensor(shape)
         is_free = shape == -1
         shape[is_free] = max_shape[is_free]
 
@@ -344,10 +319,10 @@ def repeat_all(*args, shape=None, use_expand=False):
         if use_expand:
             out.append(arg.expand(
                 *tuple(shape)))
-                # *tuple((shape / torch.tensor(arg.shape)).long())))
+                # *tuple((shape / tensor(arg.shape)).long())))
         else:
             out.append(arg.repeat(
-                *tuple((shape / torch.tensor(arg.shape)).long())))
+                *tuple((shape / tensor(arg.shape)).long())))
 
     return tuple(out)
 
@@ -373,7 +348,7 @@ def repeat_to_shape(arg, shape):
 def max_shape(shapes):
     return torch.Size(
         torch.max(
-            torch.stack([torch.tensor(v) for v in shapes]),
+            torch.stack([tensor(v) for v in shapes]),
             dim=0
         )[0]
     )
@@ -385,7 +360,7 @@ def repeat_dim(tensor, repeat, dim):
     :type dim: int
     """
     rep = torch.ones(tensor.dim(), dtype=torch.long)
-    rep[dim] = torch.tensor(repeat)
+    rep[dim] = tensor(repeat)
     return tensor.repeat(torch.Size(rep))
 
 def repeat_batch(*args,
@@ -471,14 +446,14 @@ def expand_upto_dim(args, dim, to_expand_left=True):
         for o1 in out1:
             max_shape, _ = torch.max(torch.cat([
                 max_shape[None,:],
-                torch.tensor(o1.shape[:dim])[None,:]
+                tensor(o1.shape[:dim])[None,:]
             ], dim=0), dim=0)
         out2 = []
         ndim_kept = len(out1[0].shape[dim:])
         for o1 in out1:
             out2.append(o1.repeat([
                 int(a) for a in torch.cat([
-                    max_shape / torch.tensor(o1.shape[:dim],
+                    max_shape / tensor(o1.shape[:dim],
                                               dtype=torch.long),
                     torch.ones(ndim_kept, dtype=torch.long)
                 ], 0)
@@ -494,14 +469,14 @@ def expand_upto_dim(args, dim, to_expand_left=True):
         # for o1 in out1:
         #     max_shape = torch.max(torch.cat([
         #         max_shape[None,:],
-        #         torch.tensor(arg.shape[dim:])[None,:]
+        #         tensor(arg.shape[dim:])[None,:]
         #     ], dim=0), dim=0)
         # out2 = []
         # ndim_kept = len(out1[0].shape[dim:])
         # for arg in args:
         #     out2.append(arg.repeat(
         #         [1] * ndim_kept
-        #         + list(max_shape / torch.tensor(arg.shape[:dim]))))
+        #         + list(max_shape / tensor(arg.shape[:dim]))))
     return tuple(out2)
 
 #%% Permute
@@ -548,7 +523,7 @@ def unravel_index(v, shape, **kwargs):
     :type kwargs: dict
     :return: torch.LongTensor
     """
-    return torch.tensor(np.unravel_index(v, shape, **kwargs))
+    return tensor(np.unravel_index(v, shape, **kwargs))
 
 def ravel_multi_index(v, shape, **kwargs):
     """
@@ -558,7 +533,7 @@ def ravel_multi_index(v, shape, **kwargs):
     :type kwargs: dict
     :return: torch.LongTensor
     """
-    return torch.tensor(np.ravel_multi_index(v, shape, **kwargs))
+    return tensor(np.ravel_multi_index(v, shape, **kwargs))
 
 #%% Algebra
 def sumto1(v, dim=None, axis=None, keepdim=True):
@@ -610,14 +585,14 @@ def aggregate(subs, val=1., *args, **kwargs):
         # subs = np.concatenate(npys(*(sub.reshape(1,-1) for sub in subs)), 0)
     elif torch.is_tensor(subs):
         subs = npy(subs)
-    return torch.tensor(npg.aggregate(subs, val, *args, **kwargs))
+    return tensor(npg.aggregate(subs, val, *args, **kwargs))
 
     # if size is None:
     #     size = torch.max(subs, 1)
     # elif not torch.is_tensor(size):
-    #     size = torch.tensor(size)
+    #     size = tensor(size)
     # #%%
-    # cumsize = torch.cumprod(torch.cat((torch.tensor([1]), size.flip(0)),
+    # cumsize = torch.cumprod(torch.cat((tensor([1]), size.flip(0)),
     #                                   0)).flip(0)
     # #%%
     # ind = subs * cumsize[:,None]
@@ -631,11 +606,11 @@ def ____STATS____():
 
 
 def logit(p: torch.Tensor) -> torch.Tensor:
-    return torch.log(p) - torch.log(torch.tensor(1.) - p)
+    return torch.log(p) - torch.log(tensor(1.) - p)
 
 
 def logistic(x: torch.Tensor) -> torch.Tensor:
-    p = torch.tensor(1.) / (torch.tensor(1.) + torch.exp(-x))
+    p = tensor(1.) / (tensor(1.) + torch.exp(-x))
     # p_nan = isnan(p)
     # if p_nan.any():
     #     p[(x > 0) & p_nan] = 1.
@@ -686,7 +661,7 @@ def shiftdim(v: torch.Tensor, shift: torch.Tensor, dim=0, pad='repeat'):
     if torch.is_floating_point(shift):
         lb = shift.floor().long()
         ub = lb + 1
-        p = torch.tensor(1.) - torch.cat([shift.reshape([1]) - lb,
+        p = tensor(1.) - torch.cat([shift.reshape([1]) - lb,
                                           ub - shift.reshape([1])], 0)
         return (
                 shiftdim(v, shift=lb, dim=dim) * p[0]
@@ -744,7 +719,7 @@ def interp1d(query: torch.Tensor, value: torch.Tensor, dim=0) -> torch.Tensor:
         q1 = q0 + 1
         p = query - q0
         v = (
-            interp1d(q0, v, 0) * (torch.tensor(1.) - p.expand_as(v))
+            interp1d(q0, v, 0) * (tensor(1.) - p.expand_as(v))
             + interp1d(q1, v, 0) * p.expand_as(v)
         )
     else:
@@ -920,14 +895,14 @@ def softmax_bias(p, slope, bias):
     q = q / (q + (1. - k) * (1. - p) ** slope)
     return q
 
-    # k = -torch.log(torch.tensor(2.)) / torch.log(torch.tensor(bias))
+    # k = -torch.log(tensor(2.)) / torch.log(tensor(bias))
     # q = (p ** k ** slope)
     # return q / (q + (1. - p ** k) ** slope)
 
 
 def test_softmax_bias():
     p = torch.linspace(1e-4, 1 - 1e-4, 100);
-    q = softmax_bias(p, torch.tensor(1.), p)
+    q = softmax_bias(p, tensor(1.), p)
     plt.subplot(2, 3, 1)
     plt.plot(*npys(p, q))
     plt.xlabel('bias \& p')
@@ -935,16 +910,16 @@ def test_softmax_bias():
     plt.subplot(2, 3, 2)
     biases = torch.linspace(1e-6, 1 - 1e-6, 5)
     for bias in biases:
-        q = softmax_bias(p, torch.tensor(1.), bias)
+        q = softmax_bias(p, tensor(1.), bias)
         plt.plot(*npys(p, q))
     plt.xticks(npy(biases))
     plt.yticks(npy(biases))
     plt.grid(True)
     plt.axis('square')
 
-    for col, bias in enumerate(torch.tensor([0.25, 0.5, 0.75])):
+    for col, bias in enumerate(tensor([0.25, 0.5, 0.75])):
         plt.subplot(2, 3, 4 + col)
-        for slope in torch.tensor([0., 1., 2.]):
+        for slope in tensor([0., 1., 2.]):
             q = softmax_bias(p, slope, bias)
             plt.plot(*npys(p, q))
         plt.xticks(npy(biases))
@@ -1197,7 +1172,7 @@ def mvnpdf_log(x, mu=None, sigma=None):
     :rtype: torch.FloatTensor
     """
     if mu is None:
-        mu = torch.tensor([0.])
+        mu = tensor([0.])
     if sigma is None:
         sigma = torch.eye(len(mu))
     d = MultivariateNormal(loc=mu,
@@ -1296,18 +1271,18 @@ def kron(a, b):
     :type b: torch.Tensor
     :rtype: torch.Tensor
     """
-    siz1 = torch.Size(torch.tensor(a.shape[-2:]) * torch.tensor(b.shape[-2:]))
+    siz1 = torch.Size(tensor(a.shape[-2:]) * tensor(b.shape[-2:]))
     res = a.unsqueeze(-1).unsqueeze(-3) * b.unsqueeze(-2).unsqueeze(-4)
     siz0 = res.shape[:-4]
     return res.reshape(siz0 + siz1)
 
 def test_kron():
-    a = repeat_dim(torch.tensor([
+    a = repeat_dim(tensor([
         [1., 0., 0., 0.],
         [0., 0., 1., 0.],
         [0., 0., 0., 1.]
     ]).unsqueeze(0), 5, 0)
-    b = torch.tensor([[1.,1.,0.],[0.,1.,1.]]).unsqueeze(0)
+    b = tensor([[1.,1.,0.],[0.,1.,1.]]).unsqueeze(0)
     res = kron(a, b)
     print(res)
     print(a.shape)
@@ -1365,7 +1340,7 @@ def block_diag(m):
     m2 = m.unsqueeze(-2)
     eye = attach_dim(torch.eye(n).unsqueeze(-2), d - 3, 1)
     return (m2 * eye).reshape(
-        siz0 + torch.Size(torch.tensor(siz1) * n)
+        siz0 + torch.Size(tensor(siz1) * n)
     )
 
 def unblock_diag(m, n=None, size_block=None):
@@ -1378,10 +1353,10 @@ def unblock_diag(m, n=None, size_block=None):
     """
     # not vectorized yet
     if size_block is None:
-        size_block = torch.Size(torch.tensor(m.shape[-2:]) // n)
+        size_block = torch.Size(tensor(m.shape[-2:]) // n)
     elif n is None:
-        n = m.shape[-2] // torch.tensor(size_block[0])
-        assert n == m.shape[-1] // torch.tensor(size_block[1])
+        n = m.shape[-2] // tensor(size_block[0])
+        assert n == m.shape[-1] // tensor(size_block[1])
     else:
         raise ValueError('n or size_block must be given!')
     m = p2st(m, 2)
@@ -1432,6 +1407,10 @@ def circdiff(angle1, angle2, maxangle=pi2):
     :param maxangle: max angle. defaults to 2 * pi.
     :return: angular difference, between -.5 and +.5 * maxangle
     """
+    angle1 = tensor(angle1)
+    angle2 = tensor(angle2)
+    maxangle = tensor(maxangle)
+
     return (((angle1 / maxangle) - (angle2 / maxangle) + .5) % 1. - .5) * maxangle
 
 
@@ -1480,7 +1459,7 @@ def vmpdf_a_given_b(a_prad, b_prad, pconc):
     dist = ((a_prad.reshape([-1, 1]) - b_prad.reshape([1, -1])) %
             1.).double()
     return sumto1(vmpdf_prad_pconc(
-        dist.flatten(), torch.tensor([0.]),
+        dist.flatten(), tensor([0.]),
         tensor(pconc)
     ).reshape([a_prad.numel(), b_prad.numel()]), 1)
 
