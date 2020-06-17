@@ -1419,7 +1419,7 @@ def rad2deg(rad):
 
 
 def deg2rad(deg):
-    return deg / 180 * pi
+    return deg / 180. * pi
 
 
 def prad2unitvec(prad, dim=-1):
