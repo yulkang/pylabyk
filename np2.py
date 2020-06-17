@@ -19,6 +19,8 @@ from . import numpytorch
 from pprint import pprint
 from typing import Union, Sequence, Iterable
 
+from .numpytorch import npy, npys
+
 npt = numpytorch.npt_torch # choose between torch and np
 
 #%% Shape
@@ -153,7 +155,7 @@ def listdict2dictlist(listdict: list, to_array=False) -> dict:
         for k in d.keys():
             v = d[k]
             if torch.is_tensor(v[0]):
-                v = np.array([v1.clone().detach().numpy() for v1 in v])
+                v = np.array([npy(v1) for v1 in v])
             else:
                 v = np.array(v)
             d[k] = v

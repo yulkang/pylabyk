@@ -180,17 +180,14 @@ def numpy(v: Union[torch.Tensor, np.ndarray]):
     :type v: torch.Tensor
     :rtype: np.ndarray
     """
-    try:
-        return v.clone().detach().numpy()
-    except TypeError:
+
+    if isinstance(v, np.ndarray) or sparse.isspmatrix(v) or np.isscalar(v):
+        return v
+    else:
         try:
+            return v.clone().detach().numpy()
+        except TypeError:
             return v.clone().detach().cpu().numpy()
-        except AttributeError:
-            assert isinstance(v, np.ndarray) or sparse.isspmatrix(v) \
-                   or np.isscalar(v)
-            return v
-            # except AssertionError:
-            #     return np.array(v)
 
 
 npy = numpy
