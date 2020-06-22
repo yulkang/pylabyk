@@ -174,7 +174,7 @@ def float(v):
     return v.type(torch.get_default_dtype())
 
 
-def numpy(v: Union[torch.Tensor, np.ndarray]):
+def numpy(v: Union[torch.Tensor, np.ndarray, Iterable]):
     """
     Construct a np.ndarray from tensor; otherwise return the input as is
     :type v: torch.Tensor
@@ -184,10 +184,13 @@ def numpy(v: Union[torch.Tensor, np.ndarray]):
     if isinstance(v, np.ndarray) or sparse.isspmatrix(v) or np.isscalar(v):
         return v
     else:
-        try:
-            return v.clone().detach().numpy()
-        except TypeError:
-            return v.clone().detach().cpu().numpy()
+        if torch.is_tensor(v):
+            try:
+                return v.clone().detach().numpy()
+            except TypeError:
+                return v.clone().detach().cpu().numpy()
+        else:
+            return np.array(v)
 
 
 npy = numpy
