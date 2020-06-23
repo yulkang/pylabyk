@@ -1457,6 +1457,7 @@ def pconc2conc(pconc):
 def vmpdf_prad_pconc(prad, ploc, pconc, normalize=True):
     """
     :param prad: 0 to 1 maps to 0 to 2*pi radians
+    :param ploc: 0 to 1 maps to 0 to 2*pi radians
     :param pconc: 0 to 1 maps to 0 to inf concentration
     :rtype: torch.Tensor
     """
