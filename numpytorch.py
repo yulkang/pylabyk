@@ -1189,9 +1189,29 @@ def bootstrap(fun, samp, n_boot=100):
         res.append(fun(samp1))
     return res, ix
 
+
 #%% Linear algebra
 def ____LINEAR_ALGEBRA____():
     pass
+
+
+def prod_sumto1(
+        a: torch.Tensor, b: torch.Tensor, dim=None, keepdim=True
+) -> torch.Tensor:
+    """
+    Prevents over/underflow
+    """
+    c_log = torch.log(a) + torch.log(b)
+    if dim is None:
+        c_log = c_log - torch.max(c_log)
+    else:
+        c_log = c_log - torch.max(c_log, dim=dim, keepdim=keepdim)[0]
+    c = torch.exp(c_log)
+    if dim is None:
+        c = c / torch.sum(c)
+    else:
+        c = c / torch.sum(c, dim=dim, keepdim=keepdim)
+    return c
 
 
 def vec2mat0(vec):
@@ -1397,8 +1417,10 @@ def crossvalincl(n_tr, i_fold, n_fold=10, mode='consec'):
     else:
         raise NotImplementedError('mode=%s is not implemented!' % mode)
 
+
 def ____CIRCULAR_STATS____():
     pass
+
 
 def circdiff(angle1, angle2, maxangle=pi2):
     """
