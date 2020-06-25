@@ -935,6 +935,38 @@ def ____DISTRIBUTIONS_SAMPLING____():
     pass
 
 
+def brownian_bridge(n_step, sample_shape=()) -> torch.Tensor:
+    """
+    :param n_step: first and last steps are 0 and 1
+    :param sample_shape:
+    :return: b[step, sample_shape]
+    """
+    assert n_step >= 2
+
+    if not isinstance(sample_shape, Iterable):
+        sample_shape = (sample_shape,)
+        to_squeeze = True
+    else:
+        sample_shape = tuple(sample_shape)
+        to_squeeze = len(sample_shape) == 0
+    t = torch.linspace(0., 1., n_step)
+
+    # DEF: r[step, sample_shape]
+    r = normrnd(0., 1.,
+                sample_shape=(n_step - 1,) + sample_shape
+                ) / (n_step - 1) ** (1/2)
+    r = torch.cat([
+        zeros((1,) + sample_shape + (1,)),
+        r
+    ], 0)
+    c = r.cumsum(0)
+    c = c - c[[-1], :] * append_dim(t, c.ndim - t.ndim)
+
+    if to_squeeze:
+        c = c.squeeze(-1)
+    return c
+
+
 def lognormal_params2mean_stdev(loc, scale):
     return torch.exp(loc + scale ** 2 / 2.), \
            (torch.exp(scale ** 2) - 1.) * torch.exp(2 * loc + scale ** 2)
