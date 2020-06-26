@@ -6,7 +6,7 @@ import torch
 from torch.nn import functional as F
 import numpy_groupies as npg
 from matplotlib import pyplot as plt
-from typing import Union, Iterable, Tuple, Dict
+from typing import Union, Iterable, Tuple, Dict, Sequence
 
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
     Categorical, OneHotCategorical
@@ -101,7 +101,7 @@ def float(v):
 def tensor(v: Union[float, np.ndarray, torch.Tensor],
            min_ndim=1,
            device=None,
-           **kwargs):
+           **kwargs) -> torch.Tensor:
     """
     Construct a tensor if the input is not; otherwise return the input as is,
     but return None as is for convenience when input is not passed.
@@ -124,6 +124,10 @@ def tensor(v: Union[float, np.ndarray, torch.Tensor],
             v = v.expand(v.shape
                          + torch.Size([1] * (min_ndim - v.ndimension())))
     return v
+
+
+def longtensor(v, **kwargs) -> torch.LongTensor:
+    return tensor(v, dtype=torch.long, **kwargs)  # noqa
 
 
 enforce_tensor = tensor
@@ -511,9 +515,9 @@ def permute2en(v, ndim_st=1):
 p2en = permute2en
 
 
-#%% Indices
 def ____INDICES____():
     pass
+
 
 def unravel_index(v, shape, **kwargs):
     """
@@ -525,17 +529,40 @@ def unravel_index(v, shape, **kwargs):
     """
     return tensor(np.unravel_index(v, shape, **kwargs))
 
-def ravel_multi_index(v, shape, **kwargs):
+
+def ravel_multi_index(v: Iterable[torch.LongTensor],
+                      shape: Iterable[int], **kwargs) -> torch.LongTensor:
     """
     For now, just use np.ravel_multi_index()
-    :type v: torch.LongTensor
-    :type shape: torch.Size, tuple, list
-    :type kwargs: dict
-    :return: torch.LongTensor
     """
-    return tensor(np.ravel_multi_index(v, shape, **kwargs))
+    return longtensor(np.ravel_multi_index(v, shape, **kwargs))
 
-#%% Algebra
+
+def discretize(a, vmin, vmax=None, nv=None) -> torch.LongTensor:
+    """
+    Discretize a float tensor into the closest index
+    :param a: float-valued tensor
+    :param vmin: either minimum value or an evenly spaced vector.
+    :param vmax: if given, the maximum value
+    :param nv: number of bins.
+    :return: index between 0 and nv - 1 inclusive.
+    """
+    if not torch.is_tensor(a):
+        a = tensor(a)
+    if vmax is None:
+        vmax = vmin[-1]
+        nv = len(vmin)
+        vmin = vmin[0]
+
+    return torch.round(
+        ((a - vmin) / (vmax - vmin)) * (nv - 1)
+    ).long().clamp(0, nv - 1)  # noqa
+
+
+def ____Algebra____():
+    pass
+
+
 def sumto1(v, dim=None, axis=None, keepdim=True):
     """
     Make v sum to 1 across dim, i.e., make dim conditioned on the rest.
