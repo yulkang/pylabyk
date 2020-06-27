@@ -14,19 +14,24 @@ Created on Sun Oct 16 12:38:07 2016
 
 import pickle
 import gzip
+import torch
 
 def save(object, filename, protocol = -1):
     """Save an object to a compressed disk file.
        Works well with huge objects.
     """
     file = gzip.GzipFile(filename, 'wb')
-    pickle.dump(object, file, protocol)
+    # pickle.dump(object, file, protocol)
+    torch.save(object, file, pickle_protocol=protocol)
     file.close()
 
-def load(filename):
+def load(filename, map_location='cpu'):
     """Loads a compressed object from disk
     """
-    file = gzip.GzipFile(filename, 'rb')
-    object = pickle.load(file)
-    file.close()
+    try:
+        with gzip.GzipFile(filename, 'rb') as file:
+            object = pickle.load(file)
+    except RuntimeError:
+        with gzip.GzipFile(filename, 'rb') as file:
+            object = torch.load(file, map_location=map_location)
     return object
