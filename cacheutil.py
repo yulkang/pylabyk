@@ -42,6 +42,7 @@ from . import zipPickle, argsutil
 from collections import OrderedDict as odict
 from .argsutil import dict2fname, kwdef, fullpath2hash, rmkeys
 from typing import List
+import torch
 
 ignore_cache = False
 ignored_once = []
@@ -90,7 +91,9 @@ class Cache(object):
     See example_cache_custom_file()
     """
     def __init__(self, fullpath='cache.zpkl', key=None, verbose=True,
-                 ignore_key=False, hash_fname=False):
+                 ignore_key=False, hash_fname=False,
+                 save_to_cpu=True
+                 ):
         """
         :param fullpath: use cacheutil.dict2fname(dict) for human-readable
         names, or use 'cache.zpkl' if using an old cache file.
@@ -105,6 +108,8 @@ class Cache(object):
             self.fullpath_orig = fullpath
             self.fullpath = fullpath
         self.verbose = verbose
+        self.save_to_cpu = save_to_cpu
+
         self.dict = {}
         self.to_save = False
         if key is None:
@@ -164,7 +169,7 @@ class Cache(object):
         """
         pass
 
-    def get(self, key=None, subkeys=None):
+    def get(self, key=None, subkeys=None, load_gpu=True):
         """
         :param key: non-None object that converts into a string, e.g., locals()
         :param subkeys:if list, return a tuple of values for
@@ -183,13 +188,19 @@ class Cache(object):
                       % (self.fullpath, self.fullpath_orig))
         v = self.dict[self.format_key(key)]
 
+        def get_subitem(subkey):
+            v1 = v[subkey]  # type: torch.Tensor
+            if load_gpu and torch.is_tensor(v1) and torch.cuda.is_available():
+                v1 = v1.cuda()
+            return v1
+
         if subkeys is None:
             return v
         else:
             if type(subkeys) is str:
-                return v[subkeys]
+                return get_subitem(subkeys)
             else:
-                return [v[k] for k in subkeys]
+                return [get_subitem(k) for k in subkeys]
 
     def set(self, data, key=None):
         """
@@ -207,7 +218,7 @@ class Cache(object):
     def ____DICT_INTERFACE____(self):
         pass
 
-    def getdict(self, subkeys: List = None, key=None):
+    def getdict(self, subkeys: List = None, key=None, load_gpu=True):
         """
         Return a tuple of values corresponding to subkeys from default key.
         Assumes that self.dict[key] is itself a dict.
@@ -215,7 +226,7 @@ class Cache(object):
         :param subkeys: list of keys to the cached dict (self.dict[key]).
         :return: a tuple of values corresponding to subkeys from default key.
         """
-        return self.get(key=key, subkeys=subkeys)
+        return self.get(key=key, subkeys=subkeys, load_gpu=load_gpu)
 
     def setdict(self, data_dict, key=None, update=True):
         """
@@ -243,7 +254,13 @@ class Cache(object):
             os.mkdir(pth)
 
         self.dict['_fullpath_orig'] = self.fullpath_orig
-        zipPickle.save(self.dict, self.fullpath)
+
+        if self.save_to_cpu:
+            d = dict2device(self.dict, 'cpu')
+        else:
+            d = self.dict
+
+        zipPickle.save(d, self.fullpath)
         self.to_save = False
         if self.verbose:
             if self.fullpath_orig == self.fullpath:
@@ -286,11 +303,22 @@ class Cache(object):
         if self.to_save:
             self.save()
 
+
+def dict2device(d: dict, to_device='cpu') -> dict:
+    return {
+        k: (v.to(to_device) if torch.is_tensor(v)
+            else dict2device(v) if isinstance(v, dict)
+            else v)
+        for k, v in d.items()
+    }
+
+
 def kw2fname(kw, kw_def=None, dir='Data/cache', sort_kw=True):
     sort_kw = True
     name_cache = dict2fname(kwdef(kw, kw_def, sort_merged=sort_kw))
     fullpath = os.path.join(dir, name_cache + '.zpkl')
     return fullpath, name_cache
+
 
 class CacheDict(object):
     """Defaults to directly addressing dict"""
