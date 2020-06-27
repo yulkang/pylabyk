@@ -10,6 +10,7 @@ Created on Mon Mar 12 10:28:15 2018
 import numpy as np
 import torch
 import scipy
+from scipy import interpolate
 from scipy import stats
 import numpy_groupies as npg
 import pandas as pd
@@ -17,6 +18,8 @@ from copy import deepcopy, copy
 from . import numpytorch
 from pprint import pprint
 from typing import Union, Sequence, Iterable
+
+from .numpytorch import npy, npys
 
 npt = numpytorch.npt_torch # choose between torch and np
 
@@ -124,8 +127,10 @@ def dict_shapes(d, verbose=True):
     return sh
 
 
-def filt_dict(d, incl):
+def filt_dict(d: dict, incl: np.ndarray) -> dict:
     """
+    Copy d[k][incl] if d[k] is np.ndarray and d[k].shape[1] == incl.shape[0];
+    otherwise copy the whole value.
     @type d: dict
     @type incl: np.ndarray
     @rtype: dict
@@ -138,14 +143,23 @@ def filt_dict(d, incl):
     }
 
 
-def listdict2dictlist(listdict):
+def listdict2dictlist(listdict: list, to_array=False) -> dict:
     """
     @type listdict: list
     @param listdict: list of dicts with the same keys
     @return: dictlist: dict of lists of the same lengths
     @rtype: dict
     """
-    return {k: [d[k] for d in listdict] for k in listdict[0].keys()}
+    d = {k: [d[k] for d in listdict] for k in listdict[0].keys()}
+    if to_array:
+        for k in d.keys():
+            v = d[k]
+            if torch.is_tensor(v[0]):
+                v = np.array([npy(v1) for v1 in v])
+            else:
+                v = np.array(v)
+            d[k] = v
+    return d
 
 
 def dictkeys(d, keys):
@@ -484,7 +498,7 @@ def sumto1(v, axis=None, ignore_nan=True):
     else:
         if type(v) is np.ndarray:
             return v / v.sum(axis=axis, keepdims=True)
-        else: # v is torch.Tensor
+        else:  # v is torch.Tensor
             return v / v.sum(axis, keepdim=True)
 
 def nansem(v, axis=None, **kwargs):
@@ -492,16 +506,16 @@ def nansem(v, axis=None, **kwargs):
     n = np.sum(~np.isnan(v), axis=axis, **kwargs)
     return s / np.sqrt(n)
 
-def wpercentile(w, prct, axis=None):
+
+def wpercentile(w: np.ndarray, prct, axis=None):
     """
-    :type v: np.ndarray
     """
     if axis is not None:
         raise NotImplementedError()
     cw = np.concatenate([np.zeros(1), np.cumsum(w)])
     cw /= cw[-1]
-    f = scipy.interpolate.interp1d(cw, np.arange(len(cw)) - .5)
-    return f(prct/100.)
+    f = interpolate.interp1d(cw, np.arange(len(cw)) - .5)
+    return f(prct / 100.)
 
     # if axis is None:
     #     axis = 0
@@ -513,6 +527,7 @@ def wpercentile(w, prct, axis=None):
     # cw = np.cumsum(w, axis)
     # cw = np.concatenate
     # f = stats.interpolate.interp1d(w, cv)
+
 
 def wmedian(w, axis=None):
     return wpercentile(w, prct=50, axis=axis)
@@ -802,6 +817,11 @@ def timeit(fun, *args, repeat=1, return_out=False, **kwargs):
         return t_el, out
     else:
         return t_el
+
+
+def nowstr():
+    import datetime
+    return '{date:%Y%m%dT%H%M%S}'.format(date=datetime.datetime.now())
 
 
 def ____STRING____():

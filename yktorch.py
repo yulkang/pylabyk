@@ -35,6 +35,7 @@ from torch.utils.tensorboard import SummaryWriter
 from lib.pylabyk import np2, plt2, numpytorch as npt
 from lib.pylabyk.numpytorch import npy, npys
 
+default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 #%% Bounded parameters (under construction)
 # this is for better autocompletion, etc.
@@ -603,13 +604,15 @@ class BoundedModule(nn.Module):
         return names, v, grad, lb, ub, requires_grad
 
 
-def enforce_float_tensor(v):
+def enforce_float_tensor(v: Union[torch.Tensor, np.ndarray], device=None
+                         ) -> torch.Tensor:
     """
-    :type v: torch.Tensor, np.ndarray
     :rtype: torch.DoubleTensor, torch.FloatTensor
     """
+    if device is None:
+        device = default_device
     if not torch.is_tensor(v):
-        return torch.tensor(v, dtype=torch.get_default_dtype())
+        return torch.tensor(v, dtype=torch.get_default_dtype(), device=device)
     elif not torch.is_floating_point(v):
         return v.float()
     else:

@@ -419,7 +419,7 @@ def beautify_psychometric(ax=None,
                     linestyle='-', zorder=-1,
                     linewidth=0.5)
 
-def detach_axis(xy='xy', amin=0, amax=None, ax=None, spine=None):
+def detach_axis(xy='xy', amin=0., amax=None, ax=None, spine=None):
     if xy == 'xy':
         for xy1 in ['x', 'y']:
             detach_axis(xy1, amin, amax, ax)
@@ -461,6 +461,7 @@ def hide_ticklabels(xy='xy', ax=None):
         plt.setp(ax.get_yticklabels(), visible=False)
 
 def box_off(remove_spines=('right', 'top'),
+            remove_ticklabels=True,
             ax=None):
     """
     :param remove_spines: 'all': remove all spines and ticks; or a list
@@ -478,8 +479,12 @@ def box_off(remove_spines=('right', 'top'),
 
     if 'left' in remove_spines:
         ax.tick_params(axis='y', length=0)
+        if remove_ticklabels:
+            ax.set_yticklabels([])
     if 'bottom' in remove_spines:
         ax.tick_params(axis='x', length=0)
+        if remove_ticklabels:
+            ax.set_xticklabels([])
 
     for r in remove_spines:
         ax.spines[r].set_visible(False)
@@ -557,7 +562,9 @@ def ____Heatmaps____():
 
 
 def cmap_alpha(cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
-               n: int = None
+               n: int = None,
+               alpha_max=1.,
+               alpha_min=0.,
                ) -> ListedColormap:
     """
     Add linear alphas to a colormap
@@ -580,7 +587,7 @@ def cmap_alpha(cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
             np.array(mpl.colors.to_rgba(cmap))[None, :],
             repeats=n, axis=0
         )
-    cmap0[:, -1] = np.linspace(0., 1., cmap0.shape[0])
+    cmap0[:, -1] = np.linspace(alpha_min, alpha_max, cmap0.shape[0])
     cmap1 = ListedColormap(cmap0)
     return cmap1
 
@@ -950,6 +957,8 @@ def bar_group(y: np.ndarray, yerr: np.ndarray = None,
     :param y: [x, series]
     :param yerr: [x, series]
     :param width: distance between centers of the 1st & last bars in a group
+    :param width_indiv: individual bar's width in proportion to the distance
+    between the left edge of neighboring bars within a group
     :param gap: proportion of the gap between bars within a group
     :param cmap: cmap or list of colors
     :param kw_color: tuple of keyword(s) to use the series color
