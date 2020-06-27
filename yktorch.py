@@ -587,19 +587,19 @@ class BoundedModule(nn.Module):
             u0 = npt.tensor(param.ub).expand_as(param.v).flatten()
 
             for i, (v1, g1, l1, u1) in enumerate(zip(v0, g0, l0, u0)):
-                v.append(v1)
-                grad.append(g1)
-                lb.append(l1)
-                ub.append(u1)
-                requires_grad.append(param._param.requires_grad)
+                v.append(npy(v1))
+                grad.append(npy(g1))
+                lb.append(npy(l1))
+                ub.append(npy(u1))
+                requires_grad.append(npy(param._param.requires_grad))
                 if v0.numel() > 1:
                     names.append(name + '%d' % i)
                 else:
                     names.append(name)
-        v = npy(torch.stack(v))
+        v = np.stack(v)
         lb = np.stack(lb)
         ub = np.stack(ub)
-        grad = -npy(torch.stack(grad))  # minimizing; so take negative
+        grad = -np.stack(grad)  # minimizing; so take negative
         requires_grad = np.stack(requires_grad)
         return names, v, grad, lb, ub, requires_grad
 
