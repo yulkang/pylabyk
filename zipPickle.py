@@ -21,8 +21,8 @@ def save(object, filename, protocol = -1):
        Works well with huge objects.
     """
     file = gzip.GzipFile(filename, 'wb')
-    # pickle.dump(object, file, protocol)
-    torch.save(object, file, pickle_protocol=protocol)
+    pickle.dump(object, file, protocol)
+    # torch.save(object, file, pickle_protocol=protocol)
     file.close()
 
 def load(filename, map_location='cpu'):
