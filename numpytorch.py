@@ -1258,7 +1258,7 @@ def prod_sumto1(
         a: torch.Tensor, b: torch.Tensor, dim=None, keepdim=True
 ) -> torch.Tensor:
     """
-    Prevents over/underflow
+    Prevents over/underflow computing sumto1(a * b)
     """
     c_log = torch.log(a) + torch.log(b)
     if dim is None:
@@ -1557,7 +1557,7 @@ def vmpdf(x, mu, scale=None, normalize=True):
         # mu[scale[:,0] == 0, :] = 0.
 
     vm = vmf.VonMisesFisher(mu, scale + torch.zeros([1,1], device=device0))
-    p = torch.exp(vm.log_prob(x))
+    p = torch.exp(vm.log_prob(x)).clamp_min(0.)
     # if scale == 0.:
     #     p = torch.ones_like(p) / p.shape[0]
     if normalize:
