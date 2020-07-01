@@ -1513,6 +1513,10 @@ def pconc2conc(pconc):
     return 1. / (1. - pconc) - 1.
 
 
+def conc2pconc(conc):
+    return conc / (1. + conc)
+
+
 def vmpdf_prad_pconc(prad, ploc, pconc, normalize=True):
     """
     :param prad: 0 to 1 maps to 0 to 2*pi radians
