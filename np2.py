@@ -443,11 +443,8 @@ def uniquetol(v, tol=1e-6, return_inverse=False, **kwargs):
 def ecdf(x0):
     """
     Empirical distribution.
-    INPUT:
-    x0: a vector or a list
-    OUTPUT: 
-    p[i] = Pr(x0 <= x[i])
-    x: sorted x0
+    :param x0: a vector or a list of samples
+    :return: p[i] = Pr(x0 <= x[i]), x: sorted x0
     """
     
     n = len(x0)
