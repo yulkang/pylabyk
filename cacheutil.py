@@ -48,6 +48,16 @@ ignore_cache = False
 ignored_once = []
 
 
+def mkdir(pth):
+    if not os.path.exists(pth) and pth != '':
+        os.mkdir(pth)
+
+
+def mkdir4file(file):
+    pth = os.path.dirname(file)
+    mkdir(pth)
+
+
 def is_keyboard_interrupt(exception):
     # The second condition is necessary for it to work with the stop button
     # in PyCharm Python console.

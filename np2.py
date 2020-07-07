@@ -162,6 +162,12 @@ def listdict2dictlist(listdict: list, to_array=False) -> dict:
     return d
 
 
+def dictlist2listdict(dictlist: dict) -> list:
+    keys = list(dictlist.keys())
+    return [{k: dictlist[k][i] for k in keys}
+            for i in range(len(dictlist[keys[0]]))]
+
+
 def dictkeys(d, keys):
     return [d[k] for k in keys]
 
