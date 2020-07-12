@@ -173,6 +173,10 @@ class GridAxes:
             self.supxy(xprop=xprop)[0], yprop, txt,
             ha=ha, va=va, fontsize=fontsize, **kwargs)
 
+    @property
+    def shape(self):
+        return self.axs.shape
+
 
 def subplotRC(nrow, ncol, row, col, **kwargs):
     iplot = (row - 1) * ncol + col
