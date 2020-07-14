@@ -453,16 +453,10 @@ def detach_axis(xy='xy', amin=0., amax=None, ax=None, spine=None):
     else:
         raise ValueError("xy must be 'x', 'y', or 'xy'!")
 
+
 def detach_yaxis(ymin=0, ymax=None, ax=None):
     detach_axis('y', ymin, ymax, ax)
 
-def hide_ticklabels(xy='xy', ax=None):
-    if ax is None:
-        ax = plt.gca()
-    if 'x' in xy:
-        plt.setp(ax.get_xticklabels(), visible=False)
-    if 'y' in xy:        
-        plt.setp(ax.get_yticklabels(), visible=False)
 
 def box_off(remove_spines=('right', 'top'),
             remove_ticklabels=True,
@@ -502,6 +496,63 @@ def axis_off(xy, ax=None):
     if 'y' in xy:        
         ax.spines['left'].set_visible(False)
         ax.get_yaxis().set_visible(False)
+
+
+def ____Ticks____():
+    pass
+
+
+def ticks(ax=None, xy='y',
+          major=True,
+          interval=None, format=None, length=None, **kwargs):
+
+    from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
+                                   AutoMinorLocator, NullFormatter)
+
+    if ax is None:
+        ax = plt.gca()
+
+    if xy == 'x':
+        axis = ax.xaxis
+    elif xy == 'y':
+        axis = ax.yaxis
+    else:
+        raise ValueError()
+
+    if interval is not None:
+        if major:
+            axis.set_major_locator(MultipleLocator(interval))
+        else:
+            axis.set_minor_locator(MultipleLocator(interval))
+
+    if format is None:
+        format = '%g' if major else 'None'
+
+    if format is not None:
+        if format == 'None' and major:
+            if xy == 'x':
+                ax.set_xticklabels([])
+            else:
+                ax.set_yticklabels([])
+        if major:
+            axis.set_major_formatter(FormatStrFormatter(format))
+        else:
+            axis.set_minor_formatter(FormatStrFormatter(format))
+
+    if length is not None:
+        kwargs = {**kwargs, 'length': length}
+    if len(kwargs) > 0:
+        axis.tick_params(which='major' if major else 'minor', **kwargs)
+
+
+def hide_ticklabels(xy='xy', ax=None):
+    if ax is None:
+        ax = plt.gca()
+    if 'x' in xy:
+        plt.setp(ax.get_xticklabels(), visible=False)
+    if 'y' in xy:
+        plt.setp(ax.get_yticklabels(), visible=False)
+
 
 def tick_color(xy, ticks, labels, colors):
     def set_tick_colors(ticks):
