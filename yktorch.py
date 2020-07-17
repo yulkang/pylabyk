@@ -25,6 +25,7 @@ from collections import OrderedDict as odict, namedtuple
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import time
+from copy import deepcopy
 
 import torch
 from torch import nn, Tensor
@@ -798,6 +799,7 @@ def optimize(
         show_progress_every=5, # number of epochs
         to_print_grad=True,
         n_fold_valid=1,
+        epoch_to_check=None, # CHECKING
         comment='',
         **kwargs  # to ignore unnecessary kwargs
 ) -> (float, dict, dict, List[float], List[float]):
@@ -846,6 +848,13 @@ def optimize(
     best_loss_valid = np.inf
     best_state = model.state_dict()
     best_losses = []
+
+    # CHECKING storing and loading states
+    state0 = None
+    loss0 = None
+    data0 = None
+    target0 = None
+    out0 = None
 
     # losses_train[epoch] = average cross-validated loss for the epoch
     losses_train = []
@@ -898,8 +907,8 @@ def optimize(
                     loss_valid1 = fun_loss(out_valid, target_valid)
                 losses_fold_valid.append(loss_valid1)
 
-            loss_train = torch.mean(torch.tensor(losses_fold_train))
-            loss_valid = torch.mean(torch.tensor(losses_fold_valid))
+            loss_train = torch.mean(npt.tensor(losses_fold_train))
+            loss_valid = torch.mean(npt.tensor(losses_fold_valid))
             losses_train.append(loss_train.clone())
             losses_valid.append(loss_valid.clone())
 
@@ -916,9 +925,18 @@ def optimize(
             # Store best loss
             if loss_valid < best_loss_valid:
                 # is_best = True
-                best_loss_epoch = epoch
+                best_loss_epoch = deepcopy(epoch)
                 best_loss_valid = loss_valid.clone()
                 best_state = model.state_dict()
+
+            # CHECKING storing and loading state
+            if epoch == epoch_to_check:
+                loss0 = loss_valid.clone()
+                state0 = model.state_dict()
+                data0 = deepcopy(data_valid)
+                target0 = deepcopy(target_valid)
+                out0 = out_valid.clone()
+
             # else:
                 # is_best = False
             best_losses.append(best_loss_valid)
@@ -1002,10 +1020,56 @@ def optimize(
     if to_plot_progress:
         writer.close()
 
+    if epoch_to_check is not None:
+        model.load_state_dict(state0)
+        state1 = model.state_dict()
+        for (key0, param0), (key1, param1) in zip(
+                state0.items(), state1.items()
+        ):  # type: ((str, torch.Tensor), (str, torch.Tensor))
+            if (param0 != param1).any():
+                with torch.no_grad():
+                    print('Strange! loaded %s = %s\n'
+                          '!= stored %s = %s\n'
+                          'loaded - stored = %s'
+                          % (key1, param1, key0, param0, param1 - param0))
+        data, target = fun_data('valid', 0, epoch_to_check)
+
+        if not torch.is_tensor(data):
+            p_unequal = torch.tensor([
+                (v1 != v0).double().mean() for v1, v0
+                in zip(data, data0)
+            ])
+            if (p_unequal > 0).any():
+                print('Strange! loaded data != stored data0\n'
+                      'Proportion: %s' % p_unequal)
+        elif (data != data0).any():
+            print('Strange! loaded data != stored data0')
+        if (target != target0).any():
+            print('Strange! loaded target != stored target0')
+
+        # with torch.no_grad():
+        #     out01 = model(data0)
+        #     loss01 = fun_loss(out01, target0)
+        with torch.no_grad():
+            out = model(data)
+            loss1 = fun_loss(out, target)
+
+            if (out0 != out).any():
+                print('Strange!  out from loaded params\n'
+                      '!= stored out\n'
+                      'Max abs(loaded - stored): %g' %
+                      (out - out0).abs().max())
+
+            if loss0 != loss1:
+                print('Strange!  loss1 = %g from loaded params\n'
+                      '!= stored loss0 = %g\n'
+                      'loaded - stored:  %g' %
+                      (loss1, loss0, loss1 - loss0))
+
     model.load_state_dict(best_state)
 
     d = {}
-    for mode in ['train_valid', 'test', 'all']:
+    for mode in ['train_valid', 'valid', 'test', 'all']:
         data, target = fun_data(mode, 0, 0)
         out = model(data)
         loss = fun_loss(out, target)
@@ -1015,6 +1079,14 @@ def optimize(
             'out_' + mode: out,
             'loss_' + mode: loss
         })
+
+    if d['loss_valid'] != best_loss_valid:
+        print('d[loss_valid]      = %g from loaded best_state \n'
+              '!= best_loss_valid = %g\n'
+              'd[loss_valid] - best_loss_valid = %g' %
+              (d['loss_valid'], best_loss_valid,
+               d['loss_valid'] - best_loss_valid))
+        print('--')
 
     if isinstance(model, OverriddenParameter):
         print(model.__str__())
