@@ -855,6 +855,21 @@ def optimize(
     data0 = None
     target0 = None
     out0 = None
+    outs0 = None
+
+    def fun_outs(model, data):
+        p_bef_lapse0 = model.dtb(*data)[0].clone()
+        p_aft_lapse0 = model.lapse(p_bef_lapse0).clone()
+        return [
+            p_bef_lapse0, p_aft_lapse0
+        ]
+
+    def are_all_equal(outs, outs0):
+        for i, (out1, out0) in enumerate(zip(outs, outs0)):
+             if (out1 != out0).any():
+                 print('output %d different! max diff = %g' %
+                       (i, (out1 - out0).abs().max()))
+                 print('--')
 
     # losses_train[epoch] = average cross-validated loss for the epoch
     losses_train = []
@@ -887,12 +902,15 @@ def optimize(
                         optimizer.step(closure)
                     out_train = model(data_train)
                     loss_train1 = fun_loss(out_train, target_train)
+                    raise NotImplementedError(
+                        'Restoring best state is not implemented yet'
+                    )
                 else:
                     optimizer.zero_grad()
                     out_train = model(data_train)
                     loss_train1 = fun_loss(out_train, target_train)
-                    loss_train1.backward()
-                    if max_epoch > 0:
+
+                    if max_epoch > 0 and n_fold_valid > 1:
                         optimizer.step()
                 if to_print_grad and epoch == 0 and i_fold == 0:
                     print_grad(model)
@@ -907,8 +925,8 @@ def optimize(
                     loss_valid1 = fun_loss(out_valid, target_valid)
                 losses_fold_valid.append(loss_valid1)
 
-            loss_train = torch.mean(npt.tensor(losses_fold_train))
-            loss_valid = torch.mean(npt.tensor(losses_fold_valid))
+            loss_train = torch.mean(torch.stack(losses_fold_train))
+            loss_valid = torch.mean(torch.stack(losses_fold_valid))
             losses_train.append(loss_train.clone())
             losses_valid.append(loss_valid.clone())
 
@@ -922,12 +940,15 @@ def optimize(
                     global_step=epoch
                 )
 
-            # Store best loss
+            # --- Store best loss
+            # NOTE: storing losses/states must happen BEFORE taking a step!
             if loss_valid < best_loss_valid:
                 # is_best = True
                 best_loss_epoch = deepcopy(epoch)
                 best_loss_valid = loss_valid.clone()
                 best_state = model.state_dict()
+
+            best_losses.append(best_loss_valid)
 
             # CHECKING storing and loading state
             if epoch == epoch_to_check:
@@ -936,10 +957,16 @@ def optimize(
                 data0 = deepcopy(data_valid)
                 target0 = deepcopy(target_valid)
                 out0 = out_valid.clone()
+                outs0 = fun_outs(model, data0)
+                print('--')
 
-            # else:
-                # is_best = False
-            best_losses.append(best_loss_valid)
+            # --- Take a step
+            if optimizer_kind != 'LBFGS':
+                # steps are not taken above for n_fold_valid == 1, so take a
+                # step here, after storing the best state
+                loss_train.backward()
+                if max_epoch > 0:
+                    optimizer.step()
 
             # Learning rate reduction and patience
             # if epoch == reduced_lr_on_epoch + reset_lr_after
@@ -1051,20 +1078,26 @@ def optimize(
         #     out01 = model(data0)
         #     loss01 = fun_loss(out01, target0)
         with torch.no_grad():
-            out = model(data)
-            loss1 = fun_loss(out, target)
+            # CHECKING
+            outs1 = fun_outs(model, data)
+            are_all_equal(outs1, outs0)
 
-            if (out0 != out).any():
+            out1 = model(data)
+            if (out0 != out1).any():
                 print('Strange!  out from loaded params\n'
                       '!= stored out\n'
                       'Max abs(loaded - stored): %g' %
-                      (out - out0).abs().max())
+                      (out1 - out0).abs().max())
+                print('--')
 
+            loss1 = fun_loss(out1, target)
             if loss0 != loss1:
                 print('Strange!  loss1 = %g from loaded params\n'
                       '!= stored loss0 = %g\n'
                       'loaded - stored:  %g' %
                       (loss1, loss0, loss1 - loss0))
+                print('--')
+            print('--')
 
     model.load_state_dict(best_state)
 
