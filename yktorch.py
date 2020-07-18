@@ -1185,8 +1185,8 @@ def optimize(
         d.update({
             'data_' + mode: data,
             'target_' + mode: target,
-            'out_' + mode: out,
-            'loss_' + mode: loss
+            'out_' + mode: npt.tensor(npy(out)),
+            'loss_' + mode: npt.tensor(npy(loss))
         })
 
     if d['loss_valid'] != best_loss_valid:
