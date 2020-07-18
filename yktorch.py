@@ -872,8 +872,8 @@ def optimize(
         print('loss: ' + '%g' % loss0)
 
     def fun_outs(model, data):
-        p_bef_lapse0 = model.dtb(*data)[0].clone()
-        p_aft_lapse0 = model.lapse(p_bef_lapse0).clone()
+        p_bef_lapse0 = model.dtb(*data)[0].detach().clone()
+        p_aft_lapse0 = model.lapse(p_bef_lapse0).detach().clone()
         return [
             p_bef_lapse0, p_aft_lapse0
         ]
@@ -928,8 +928,8 @@ def optimize(
                 losses_fold_train.append(loss_train1)
 
                 if n_fold_valid == 1:
-                    out_valid = out_train.clone()
-                    loss_valid1 = loss_train1.clone()
+                    out_valid = npt.tensor(npy(out_train))
+                    loss_valid1 = npt.tensor(npy(loss_train1))
                     data_valid = data_train
                     target_valid = target_train
 
@@ -947,8 +947,8 @@ def optimize(
 
             loss_train = torch.mean(torch.stack(losses_fold_train))
             loss_valid = torch.mean(torch.stack(losses_fold_valid))
-            losses_train.append(loss_train.clone())
-            losses_valid.append(loss_valid.clone())
+            losses_train.append(npy(loss_train))
+            losses_valid.append(npy(loss_valid))
 
             if to_plot_progress:
                 writer.add_scalar(
@@ -965,18 +965,18 @@ def optimize(
             if loss_valid < best_loss_valid:
                 # is_best = True
                 best_loss_epoch = deepcopy(epoch)
-                best_loss_valid = loss_valid.clone()
+                best_loss_valid = npt.tensor(npy(loss_valid))
                 best_state = model.state_dict()
 
             best_losses.append(best_loss_valid)
 
             # CHECKED storing and loading state
             if epoch == epoch_to_check:
-                loss0 = loss_valid.clone()
+                loss0 = loss_valid.detach().clone()
                 state0 = model.state_dict()
                 data0 = deepcopy(data_valid)
                 target0 = deepcopy(target_valid)
-                out0 = out_valid.clone()
+                out0 = out_valid.detach().clone()
                 outs0 = fun_outs(model, data0)
 
                 loss001 = fun_loss(out0, target0)
@@ -1007,15 +1007,15 @@ def optimize(
                         'data_train': data_train,
                         'data_valid': data_valid,
                         'data_train_valid': data_train_valid,
-                        'out_train': out_train,
-                        'out_valid': out_valid,
-                        'out_train_valid': out_train_valid,
-                        'target_train': target_train,
-                        'target_valid': target_valid,
-                        'target_train_valid': target_train_valid,
-                        'loss_train': loss_train,
-                        'loss_valid': loss_valid,
-                        'loss_train_valid': loss_train_valid
+                        'out_train': out_train.detach(),
+                        'out_valid': out_valid.detach(),
+                        'out_train_valid': out_train_valid.detach(),
+                        'target_train': target_train.detach(),
+                        'target_valid': target_valid.detach(),
+                        'target_train_valid': target_train_valid.detach(),
+                        'loss_train': loss_train.detach(),
+                        'loss_valid': loss_valid.detach(),
+                        'loss_train_valid': loss_train_valid.detach()
                     }
 
                     for k, f in odict(plotfuns).items():
