@@ -800,10 +800,10 @@ def optimize(
         reduce_lr_after=50,
         reset_lr_after=100,
         to_plot_progress=True,
-        show_progress_every=5, # number of epochs
+        show_progress_every=5,  # number of epochs
         to_print_grad=True,
         n_fold_valid=1,
-        epoch_to_check=None, # CHECKING
+        epoch_to_check=None,  # CHECKED
         comment='',
         **kwargs  # to ignore unnecessary kwargs
 ) -> (float, dict, dict, List[float], List[float]):
@@ -853,7 +853,7 @@ def optimize(
     best_state = model.state_dict()
     best_losses = []
 
-    # CHECKING storing and loading states
+    # CHECKED storing and loading states
     state0 = None
     loss0 = None
     data0 = None
@@ -970,7 +970,7 @@ def optimize(
 
             best_losses.append(best_loss_valid)
 
-            # CHECKING storing and loading state
+            # CHECKED storing and loading state
             if epoch == epoch_to_check:
                 loss0 = loss_valid.clone()
                 state0 = model.state_dict()
@@ -980,43 +980,11 @@ def optimize(
                 outs0 = fun_outs(model, data0)
 
                 loss001 = fun_loss(out0, target0)
-                # CHECKING: loss001 - loss0 != 0 already!
+                # CHECKED: loss001 must equal loss0
                 print('loss001 - loss0: %g' % (loss001 - loss0))
 
                 print_targ_out(target0, out0, outs0, loss0)
                 print('--')
-
-            # --- Take a step
-            if optimizer_kind != 'LBFGS':
-                # steps are not taken above for n_fold_valid == 1, so take a
-                # step here, after storing the best state
-                loss_train.backward()
-                if to_print_grad and epoch == 0:
-                    print_grad(model)
-                if max_epoch > 0:
-                    optimizer.step()
-
-            # Learning rate reduction and patience
-            # if epoch == reduced_lr_on_epoch + reset_lr_after
-            # if epoch == reduced_lr_on_epoch + reduce_lr_after and (
-            #         best_loss_valid
-            #         > best_losses[-reduce_lr_after] - thres_patience
-            # ):
-            if epoch > 0 and epoch % reset_lr_after == 0:
-                learning_rate = learning_rate0
-            elif epoch > 0 and epoch % reduce_lr_after == 0:
-                learning_rate *= reduce_lr_by
-                optimizer = get_optimizer(model, learning_rate)
-                reduced_lr_on_epoch = epoch
-
-            if epoch >= patience and (
-                    best_loss_valid
-                    > best_losses[-patience] - thres_patience
-            ):
-                print('Ran out of patience!')
-                if to_print_grad:
-                    print_grad(model)
-                break
 
             def print_loss():
                 t_el = time.time() - t_st
@@ -1054,6 +1022,39 @@ def optimize(
                         fig, d = f(model, d)
                         if fig is not None:
                             writer.add_figure(k, fig, global_step=epoch)
+
+            # --- Learning rate reduction and patience
+            # if epoch == reduced_lr_on_epoch + reset_lr_after
+            # if epoch == reduced_lr_on_epoch + reduce_lr_after and (
+            #         best_loss_valid
+            #         > best_losses[-reduce_lr_after] - thres_patience
+            # ):
+            if epoch > 0 and epoch % reset_lr_after == 0:
+                learning_rate = learning_rate0
+            elif epoch > 0 and epoch % reduce_lr_after == 0:
+                learning_rate *= reduce_lr_by
+                optimizer = get_optimizer(model, learning_rate)
+                reduced_lr_on_epoch = epoch
+
+            if epoch >= patience and (
+                    best_loss_valid
+                    > best_losses[-patience] - thres_patience
+            ):
+                print('Ran out of patience!')
+                if to_print_grad:
+                    print_grad(model)
+                break
+
+            # --- Take a step
+            if optimizer_kind != 'LBFGS':
+                # steps are not taken above for n_fold_valid == 1, so take a
+                # step here, after storing the best state
+                loss_train.backward()
+                if to_print_grad and epoch == 0:
+                    print_grad(model)
+                if max_epoch > 0:
+                    optimizer.step()
+
     except Exception as ex:
         from lib.pylabyk.cacheutil import is_keyboard_interrupt
         if not is_keyboard_interrupt(ex):
@@ -1121,7 +1122,7 @@ def optimize(
         #     loss01 = fun_loss(out01, target0)
         model.train()
         # with torch.no_grad():
-        # CHECKING
+        # CHECKED
         # outs1 = fun_outs(model, data)
         # are_all_equal(outs1, outs0)
 
