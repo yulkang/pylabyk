@@ -185,9 +185,9 @@ def numpy(v: Union[torch.Tensor, np.ndarray]):
         return v
     else:
         try:
-            return v.clone().detach().numpy()
+            return v.detach().clone().numpy()
         except TypeError:
-            return v.clone().detach().cpu().numpy()
+            return v.detach().clone().cpu().numpy()
 
 
 npy = numpy
@@ -195,6 +195,14 @@ npy = numpy
 
 def npys(*args):
     return tuple([npy(v) for v in args])
+
+
+def dclone(v: torch.Tensor):
+    return v.detach().clone()
+
+
+def dclones(*args):
+    return tuple([dclone(v) for v in args])
 
 
 #%% Constants
