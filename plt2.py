@@ -126,6 +126,7 @@ class GridAxes:
                 axs[row, col] = plt.subplot(gs[row * 2 + 1, col * 2 + 1])
 
         self.axs = axs
+        self.gs = gs
 
     def __getitem__(self, key) -> AxesSlice:
         return self.axs[key]
