@@ -316,7 +316,8 @@ def break_axis(amin, amax=None, xy='x', ax=None, fun_draw=None):
     return axs
 
 
-def sameaxes(ax, ax0=None, xy='xy'):
+def sameaxes(ax: Union[AxesArray, GridAxes],
+             ax0: plt.Axes = None, xy='xy'):
     """
     Match the chosen limits of axes in ax to ax0's (if given) or the max range.
     Also consider: ax1.get_shared_x_axes().join(ax1, ax2)
@@ -328,10 +329,12 @@ def sameaxes(ax, ax0=None, xy='xy'):
     :param xy: 'x'|'y'|'xy'(default)
     :return: [[min, max]] of limits. If xy='xy', contains two pairs.
     """
-    if type(ax) is np.ndarray:
-        ax = ax.reshape(-1)
+    if type(ax) is np.ndarray or type(ax) is GridAxes:
+        ax = ax.flatten()
+
     def cat_lims(lims):
         return np.concatenate([np.array(v1).reshape(1,2) for v1 in lims])
+
     lims_res = []
     for xy1 in xy:
         if ax0 is None:
