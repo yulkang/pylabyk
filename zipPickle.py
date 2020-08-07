@@ -14,7 +14,6 @@ Created on Sun Oct 16 12:38:07 2016
 
 import pickle
 import gzip
-import torch
 
 def save(object, filename, protocol = -1):
     """Save an object to a compressed disk file.
@@ -32,6 +31,7 @@ def load(filename, map_location='cpu'):
         with gzip.GzipFile(filename, 'rb') as file:
             object = pickle.load(file)
     except RuntimeError:
+        import torch
         with gzip.GzipFile(filename, 'rb') as file:
             object = torch.load(file, map_location=map_location)
     return object
