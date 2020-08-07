@@ -37,7 +37,8 @@ from torch.utils.tensorboard import SummaryWriter
 from lib.pylabyk import np2, plt2, numpytorch as npt
 from lib.pylabyk.numpytorch import npy, npys
 
-default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+default_device = torch.device('cpu')  # CHECKING
+# default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 #%% Bounded parameters (under construction)
 # this is for better autocompletion, etc.

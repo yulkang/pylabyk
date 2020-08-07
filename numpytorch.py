@@ -11,7 +11,8 @@ from typing import Union, Iterable, Tuple, Dict
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
     Categorical, OneHotCategorical
 
-device0 = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device0 = torch.device('cpu')  # CHECKING
+# device0 = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 #%% Wrapper that allows numpy-style syntax for torch
