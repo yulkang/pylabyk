@@ -813,6 +813,7 @@ def colorbar(
         kw_cbar=(),
 ) -> mpl.colorbar.Colorbar:
     """
+    Add a colorbar aligned to the mappable (e.g., image)
 
     :param ax:
     :param mappable: defaults to image in the axes
