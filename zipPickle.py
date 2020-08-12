@@ -21,12 +21,17 @@ def save(object, filename, protocol = -1):
     """
     file = gzip.GzipFile(filename, 'wb')
     pickle.dump(object, file, protocol)
+    # torch.save(object, file, pickle_protocol=protocol)
     file.close()
 
-def load(filename):
+def load(filename, map_location='cpu'):
     """Loads a compressed object from disk
     """
-    file = gzip.GzipFile(filename, 'rb')
-    object = pickle.load(file)
-    file.close()
+    try:
+        with gzip.GzipFile(filename, 'rb') as file:
+            object = pickle.load(file)
+    except RuntimeError:
+        import torch
+        with gzip.GzipFile(filename, 'rb') as file:
+            object = torch.load(file, map_location=map_location)
     return object

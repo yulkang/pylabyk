@@ -25,6 +25,8 @@ from collections import OrderedDict as odict, namedtuple
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import time
+from copy import deepcopy
+import warnings
 
 import torch
 from torch import nn, Tensor
@@ -35,7 +37,8 @@ from torch.utils.tensorboard import SummaryWriter
 from lib.pylabyk import np2, plt2, numpytorch as npt
 from lib.pylabyk.numpytorch import npy, npys
 
-default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+default_device = torch.device('cpu')  # CHECKING
+# default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 #%% Bounded parameters (under construction)
 # this is for better autocompletion, etc.
@@ -192,6 +195,12 @@ class BoundedParameter(OverriddenParameter):
 
 class ProbabilityParameter(OverriddenParameter):
     def __init__(self, prob, probdim=0, **kwargs):
+        """
+
+        :param prob:
+        :param probdim:
+        :param kwargs:
+        """
         super().__init__(**kwargs)
         self.probdim = probdim
         self._param = nn.Parameter(self.data2param(prob))
@@ -257,8 +266,8 @@ class BoundedModule(nn.Module):
 
     # Bounded parameters whose elements are individually bounded
     def register_bounded_parameter(self, name, data, lb=0., ub=1.):
-        lb = npt.tensor(lb)
-        ub = npt.tensor(ub)
+        lb = npt.tensor(lb, min_ndim=0)
+        ub = npt.tensor(ub, min_ndim=0)
         data = enforce_float_tensor(data)
         self._params_bounded[name] = {'lb':lb, 'ub':ub}
         param = self._bounded_data2param(data, lb, ub)
@@ -268,25 +277,35 @@ class BoundedModule(nn.Module):
 
     def _bounded_data2param(self, data, lb=0., ub=1.):
         data = enforce_float_tensor(data)
-        lb = npt.tensor(lb)
-        ub = npt.tensor(ub)
+        lb = npt.tensor(lb, min_ndim=0)
+        ub = npt.tensor(ub, min_ndim=0)
         if lb is None and ub is None:  # Unbounded
             return data
-        elif lb is None:
-            data[data > ub - self.epsilon] = ub - self.epsilon
-            return torch.log(ub - data)
-        elif ub is None:
-            data[data < lb + self.epsilon] = lb + self.epsilon
-            return torch.log(data - lb)
         else:
-            data[data < lb + self.epsilon] = lb + self.epsilon
-            data[data > ub - self.epsilon] = ub - self.epsilon
-            p = (data - lb) / (ub - lb)
-            return torch.log(p) - torch.log(1. - p)
+            if lb is None:
+                lb = -np.inf
+            if ub is None:
+                ub = np.inf
+            data = torch.clamp(
+                data, min=float(lb + self.epsilon),
+                max=float(ub - self.epsilon)
+            )
+
+            if lb == -np.inf:
+                # data[data > ub - self.epsilon] = ub - self.epsilon
+                return torch.log(ub - data)
+            elif ub == np.inf:
+                # data[data < lb + self.epsilon] = lb + self.epsilon
+                return torch.log(data - lb)
+            else:
+                # data[data < lb + self.epsilon] = lb + self.epsilon
+                # data[data > ub - self.epsilon] = ub - self.epsilon
+                p = (data - lb) / (ub - lb)
+                return torch.log(p) - torch.log(1. - p)
 
     def _bounded_param2data(self, param, lb=0., ub=1.):
-        lb = npt.tensor(lb)
-        ub = npt.tensor(ub)
+        lb = npt.tensor(lb, min_ndim=0)
+        ub = npt.tensor(ub, min_ndim=0)
         param = enforce_float_tensor(param)
         if lb is None and ub is None:  # Unbounded
             return param
@@ -587,19 +606,19 @@ class BoundedModule(nn.Module):
             u0 = npt.tensor(param.ub).expand_as(param.v).flatten()
 
             for i, (v1, g1, l1, u1) in enumerate(zip(v0, g0, l0, u0)):
-                v.append(v1)
-                grad.append(g1)
-                lb.append(l1)
-                ub.append(u1)
-                requires_grad.append(param._param.requires_grad)
+                v.append(npy(v1))
+                grad.append(npy(g1))
+                lb.append(npy(l1))
+                ub.append(npy(u1))
+                requires_grad.append(npy(param._param.requires_grad))
                 if v0.numel() > 1:
                     names.append(name + '%d' % i)
                 else:
                     names.append(name)
-        v = npy(torch.stack(v))
+        v = np.stack(v)
         lb = np.stack(lb)
         ub = np.stack(ub)
-        grad = -npy(torch.stack(grad))  # minimizing; so take negative
+        grad = -np.stack(grad)  # minimizing; so take negative
         requires_grad = np.stack(requires_grad)
         return names, v, grad, lb, ub, requires_grad
 
@@ -765,12 +784,15 @@ def print_grad(model):
 
 ModelType = Union[OverriddenParameter, BoundedModule, nn.Module]
 FunDataType = Callable[
-    [str, int, int],
+    [str, int, int, int],
     Tuple[Union[torch.Tensor, Tuple[torch.Tensor, ...]],
           Union[torch.Tensor, Tuple[torch.Tensor, ...]]]
-    # (mode='all'|'train'|'valid'|'train_valid'|'test', fold_valid=0, epoch=0)
+    # (mode='all'|'train'|'valid'|'train_valid'|'test', fold_valid=0, epoch=0,
+    #  n_fold_valid=1)
     # -> (data, target)
     # Multiple data and target outputs can be accommodated using tuples.
+    # NOTE: added n_fold_valid to avoid mistakes having fun_data conditioned
+    #  to n_fold_valid different from that of optimize()
 ]
 FunLossType = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 PlotFunType = Callable[
@@ -795,9 +817,10 @@ def optimize(
         reduce_lr_after=50,
         reset_lr_after=100,
         to_plot_progress=True,
-        show_progress_every=5, # number of epochs
+        show_progress_every=5,  # number of epochs
         to_print_grad=True,
         n_fold_valid=1,
+        epoch_to_check=None,  # CHECKED
         comment='',
         **kwargs  # to ignore unnecessary kwargs
 ) -> (float, dict, dict, List[float], List[float]):
@@ -805,7 +828,7 @@ def optimize(
 
     :param model:
     :param fun_data: (mode='all'|'train'|'valid'|'train_valid'|'test',
-    fold_valid=0, epoch=0) -> (data, target)
+    fold_valid=0, epoch=0, n_fold_valid=1) -> (data, target)
     :param fun_loss: (out, target) -> loss
     :param plotfuns: [(str, fun)] where fun takes dict d with keys
     'data_*', 'target_*', 'out_*', 'loss_*', where * = 'train', 'valid', etc.
@@ -847,6 +870,39 @@ def optimize(
     best_state = model.state_dict()
     best_losses = []
 
+    # CHECKED storing and loading states
+    state0 = None
+    loss0 = None
+    data0 = None
+    target0 = None
+    out0 = None
+    outs0 = None
+
+    def array2str(v):
+        return ', '.join(['%1.2g' % v1 for v1 in v.flatten()[:10]])
+
+    def print_targ_out(target0, out0, outs0, loss0):
+        print('target:\n' + array2str(target0))
+        print('outs:\n' + '\n'.join(
+            ['[%s]' % array2str(v) for v in outs0]))
+        print('out:\n' + array2str(out0))
+        print('loss: ' + '%g' % loss0)
+
+    def fun_outs(model, data):
+        p_bef_lapse0 = model.dtb(*data)[0].detach().clone()
+        p_aft_lapse0 = model.lapse(p_bef_lapse0).detach().clone()
+        return [
+            p_bef_lapse0, p_aft_lapse0
+        ]
+
+    def are_all_equal(outs, outs0):
+        for i, (out1, out0) in enumerate(zip(outs, outs0)):
+             if (out1 != out0).any():
+                 warnings.warn(
+                     'output %d different! max diff = %g' %
+                     (i, (out1 - out0).abs().max()))
+                 print('--')
+
     # losses_train[epoch] = average cross-validated loss for the epoch
     losses_train = []
     losses_valid = []
@@ -862,11 +918,9 @@ def optimize(
             losses_fold_valid = []
             for i_fold in range(n_fold_valid):
                 # NOTE: Core part
-                data_train, target_train = fun_data('train', i_fold, epoch)
-                data_valid, target_valid = fun_data('valid', i_fold, epoch)
-
+                data_train, target_train = fun_data('train', i_fold, epoch,
+                                                    n_fold_valid)
                 model.train()
-
                 if optimizer_kind == 'LBFGS':
                     def closure():
                         optimizer.zero_grad()
@@ -878,30 +932,40 @@ def optimize(
                         optimizer.step(closure)
                     out_train = model(data_train)
                     loss_train1 = fun_loss(out_train, target_train)
+                    raise NotImplementedError(
+                        'Restoring best state is not implemented yet'
+                    )
                 else:
                     optimizer.zero_grad()
                     out_train = model(data_train)
                     loss_train1 = fun_loss(out_train, target_train)
-                    loss_train1.backward()
-                    if max_epoch > 0:
-                        optimizer.step()
-                if to_print_grad and epoch == 0 and i_fold == 0:
-                    print_grad(model)
+                    # DEBUGGED: optimizer.step() must not be taken before
+                    #  storing best_loss or best_state
+
                 losses_fold_train.append(loss_train1)
 
                 if n_fold_valid == 1:
-                    out_valid = out_train.clone()
-                    loss_valid1 = loss_train1.clone()
+                    out_valid = npt.tensor(npy(out_train))
+                    loss_valid1 = npt.tensor(npy(loss_train1))
+                    data_valid = data_train
+                    target_valid = target_train
+
+                    # DEBUGGED: Unless directly assigned, target_valid !=
+                    #  target_train when n_fold_valid = 1, which doesn't make
+                    #  sense. Suggests a bug in fun_data when n_fold = 1
                 else:
                     model.eval()
+                    data_valid, target_valid = fun_data('valid', i_fold, epoch,
+                                                        n_fold_valid)
                     out_valid = model(data_valid)
                     loss_valid1 = fun_loss(out_valid, target_valid)
+                    model.train()
                 losses_fold_valid.append(loss_valid1)
 
-            loss_train = torch.mean(torch.tensor(losses_fold_train))
-            loss_valid = torch.mean(torch.tensor(losses_fold_valid))
-            losses_train.append(loss_train.clone())
-            losses_valid.append(loss_valid.clone())
+            loss_train = torch.mean(torch.stack(losses_fold_train))
+            loss_valid = torch.mean(torch.stack(losses_fold_valid))
+            losses_train.append(npy(loss_train))
+            losses_valid.append(npy(loss_valid))
 
             if to_plot_progress:
                 writer.add_scalar(
@@ -913,17 +977,70 @@ def optimize(
                     global_step=epoch
                 )
 
-            # Store best loss
+            # --- Store best loss
+            # NOTE: storing losses/states must happen BEFORE taking a step!
             if loss_valid < best_loss_valid:
                 # is_best = True
-                best_loss_epoch = epoch
-                best_loss_valid = loss_valid.clone()
+                best_loss_epoch = deepcopy(epoch)
+                best_loss_valid = npt.tensor(npy(loss_valid))
                 best_state = model.state_dict()
-            # else:
-                # is_best = False
+
             best_losses.append(best_loss_valid)
 
-            # Learning rate reduction and patience
+            # CHECKED storing and loading state
+            if epoch == epoch_to_check:
+                loss0 = loss_valid.detach().clone()
+                state0 = model.state_dict()
+                data0 = deepcopy(data_valid)
+                target0 = deepcopy(target_valid)
+                out0 = out_valid.detach().clone()
+                outs0 = fun_outs(model, data0)
+
+                loss001 = fun_loss(out0, target0)
+                # CHECKED: loss001 must equal loss0
+                print('loss001 - loss0: %g' % (loss001 - loss0))
+
+                print_targ_out(target0, out0, outs0, loss0)
+                print('--')
+
+            def print_loss():
+                t_el = time.time() - t_st
+                print('%1.0f sec/%d epochs = %1.1f sec/epoch, Ltrain: %f, '
+                      'Lvalid: %f, LR: %g, best: %f, epochB: %d'
+                      % (t_el, epoch + 1, t_el / (epoch + 1),
+                         loss_train, loss_valid, learning_rate,
+                         best_loss_valid, best_loss_epoch))
+
+            if epoch % show_progress_every == 0:
+                model.train()
+                data_train_valid, target_train_valid = fun_data(
+                    'train_valid', i_fold, epoch, n_fold_valid
+                )
+                out_train_valid = model(data_train_valid)
+                loss_train_valid = fun_loss(out_train_valid, target_train_valid)
+                print_loss()
+                if to_plot_progress:
+                    d = {
+                        'data_train': data_train,
+                        'data_valid': data_valid,
+                        'data_train_valid': data_train_valid,
+                        'out_train': out_train.detach(),
+                        'out_valid': out_valid.detach(),
+                        'out_train_valid': out_train_valid.detach(),
+                        'target_train': target_train.detach(),
+                        'target_valid': target_valid.detach(),
+                        'target_train_valid': target_train_valid.detach(),
+                        'loss_train': loss_train.detach(),
+                        'loss_valid': loss_valid.detach(),
+                        'loss_train_valid': loss_train_valid.detach()
+                    }
+
+                    for k, f in odict(plotfuns).items():
+                        fig, d = f(model, d)
+                        if fig is not None:
+                            writer.add_figure(k, fig, global_step=epoch)
+
+            # --- Learning rate reduction and patience
             # if epoch == reduced_lr_on_epoch + reset_lr_after
             # if epoch == reduced_lr_on_epoch + reduce_lr_after and (
             #         best_loss_valid
@@ -945,42 +1062,16 @@ def optimize(
                     print_grad(model)
                 break
 
-            def print_loss():
-                t_el = time.time() - t_st
-                print('%1.0f sec/%d epochs = %1.1f sec/epoch, Ltrain: %f, '
-                      'Lvalid: %f, LR: %g, best: %f, epochB: %d'
-                      % (t_el, epoch + 1, t_el / (epoch + 1),
-                         loss_train, loss_valid, learning_rate,
-                         best_loss_valid, best_loss_epoch))
+            # --- Take a step
+            if optimizer_kind != 'LBFGS':
+                # steps are not taken above for n_fold_valid == 1, so take a
+                # step here, after storing the best state
+                loss_train.backward()
+                if to_print_grad and epoch == 0:
+                    print_grad(model)
+                if max_epoch > 0:
+                    optimizer.step()
 
-            if epoch % show_progress_every == 0:
-                model.train()
-                data_train_valid, target_train_valid = fun_data(
-                    'train_valid', i_fold, epoch
-                )
-                out_train_valid = model(data_train_valid)
-                loss_train_valid = fun_loss(out_train_valid, target_train_valid)
-                print_loss()
-                if to_plot_progress:
-                    d = {
-                        'data_train': data_train,
-                        'data_valid': data_valid,
-                        'data_train_valid': data_train_valid,
-                        'out_train': out_train,
-                        'out_valid': out_valid,
-                        'out_train_valid': out_train_valid,
-                        'target_train': target_train,
-                        'target_valid': target_valid,
-                        'target_train_valid': target_train_valid,
-                        'loss_train': loss_train,
-                        'loss_valid': loss_valid,
-                        'loss_train_valid': loss_train_valid
-                    }
-
-                    for k, f in odict(plotfuns).items():
-                        fig, d = f(model, d)
-                        if fig is not None:
-                            writer.add_figure(k, fig, global_step=epoch)
     except Exception as ex:
         from lib.pylabyk.cacheutil import is_keyboard_interrupt
         if not is_keyboard_interrupt(ex):
@@ -990,7 +1081,8 @@ def optimize(
         from lib.pylabyk.localfile import LocalFile, datetime4filename
         localfile = LocalFile()
         cache = localfile.get_cache('model_data_target')
-        data_train_valid, target_train_valid = fun_data('all', 0, 0)
+        data_train_valid, target_train_valid = fun_data(
+            'all', 0, 0, n_fold_valid)
         cache.set({
             'model': model,
             'data_train_valid': data_train_valid,
@@ -1002,19 +1094,125 @@ def optimize(
     if to_plot_progress:
         writer.close()
 
+    if epoch_to_check is not None:
+        # Must print the same output as previous call to print_targ_out
+        print_targ_out(target0, out0, outs0, loss0)
+
+        model.load_state_dict(state0)
+        state1 = model.state_dict()
+        for (key0, param0), (key1, param1) in zip(
+                state0.items(), state1.items()
+        ):  # type: ((str, torch.Tensor), (str, torch.Tensor))
+            if (param0 != param1).any():
+                with torch.no_grad():
+                    warnings.warn(
+                        'Strange! loaded %s = %s\n'
+                        '!= stored %s = %s\n'
+                        'loaded - stored = %s'
+                        % (key1, param1, key0, param0, param1 - param0))
+        data, target = fun_data('valid', 0, epoch_to_check, n_fold_valid)
+
+        if not torch.is_tensor(data):
+            p_unequal = torch.tensor([
+                (v1 != v0).double().mean() for v1, v0
+                in zip(data, data0)
+            ])
+            if (p_unequal > 0).any():
+                print('Strange! loaded data != stored data0\n'
+                      'Proportion: %s' % p_unequal)
+            else:
+                print('All loaded data == stored data')
+        elif (data != data0).any():
+            print('Strange! loaded data != stored data0')
+        else:
+            print('All loaded data == stored data')
+
+        if (target != target0).any():
+            print('Strange! loaded target != stored target0')
+        else:
+            print('All loaded target == stored target')
+
+        print_targ_out(target0, out0, outs0, loss0)
+
+        # with torch.no_grad():
+        #     out01 = model(data0)
+        #     loss01 = fun_loss(out01, target0)
+        model.train()
+        # with torch.no_grad():
+        # CHECKED
+        # outs1 = fun_outs(model, data)
+        # are_all_equal(outs1, outs0)
+
+        out1 = model(data)
+        if (out0 != out1).any():
+            warnings.warn(
+                'Strange! out from loaded params != stored out\n'
+                'Max abs(loaded - stored): %g' %
+                (out1 - out0).abs().max())
+            print('--')
+        else:
+            print('out from loaded params = stored out')
+
+        loss01 = fun_loss(out0, target0)
+        print_targ_out(target0, out0, outs0, loss01)
+
+        if loss0 != loss01:
+            warnings.warn(
+                'Strange!  loss1 = %g simply computed again with out0, '
+                'target0\n'
+                '!= stored loss0 = %g\n'
+                'loaded - stored:  %g\n'
+                'Therefore, fun_loss, out0, or target0 has changed!' %
+                (loss01, loss0, loss01 - loss0))
+            print('--')
+        else:
+            print('loss0 == loss01, simply computed again with out0, target0')
+
+        loss1 = fun_loss(out1, target)
+        if loss0 != loss1:
+            warnings.warn(
+                'Strange!  loss1 = %g from loaded params\n'
+                '!= stored loss0 = %g\n'
+                'loaded - stored:  %g' %
+                (loss1, loss0, loss1 - loss0))
+            print('--')
+        else:
+            print('loss1 = %g = loss0 = %g' % (loss1, loss0))
+
+        loss10 = fun_loss(out1, target0)
+        if loss0 != loss1:
+            warnings.warn(
+                'Strange!  loss10 = %g from loaded params and stored '
+                'target0\n'
+                '!= stored loss0 = %g\n'
+                'loaded - stored:  %g' %
+                (loss10, loss0, loss10 - loss0))
+            print('--')
+        else:
+            print('loss10 = %g = loss10 = %g' % (loss1, loss0))
+        print('--')
+
     model.load_state_dict(best_state)
 
     d = {}
-    for mode in ['train_valid', 'test', 'all']:
-        data, target = fun_data(mode, 0, 0)
+    for mode in ['train_valid', 'valid', 'test', 'all']:
+        data, target = fun_data(mode, 0, 0, n_fold_valid)
         out = model(data)
         loss = fun_loss(out, target)
         d.update({
             'data_' + mode: data,
             'target_' + mode: target,
-            'out_' + mode: out,
-            'loss_' + mode: loss
+            'out_' + mode: npt.tensor(npy(out)),
+            'loss_' + mode: npt.tensor(npy(loss))
         })
+
+    if d['loss_valid'] != best_loss_valid:
+        print('d[loss_valid]      = %g from loaded best_state \n'
+              '!= best_loss_valid = %g\n'
+              'd[loss_valid] - best_loss_valid = %g' %
+              (d['loss_valid'], best_loss_valid,
+               d['loss_valid'] - best_loss_valid))
+        print('--')
 
     if isinstance(model, OverriddenParameter):
         print(model.__str__())

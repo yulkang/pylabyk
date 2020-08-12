@@ -12,6 +12,7 @@ from typing import Union, List, Iterable, Callable, Sequence, Mapping, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from matplotlib import patches
 from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
 
@@ -40,7 +41,7 @@ def supxy(axs: AxesArray, xprop=0.5, yprop=0.5) -> Tuple[float, float]:
     return (x1 - x0) * xprop + x0, (y1 - y0) * yprop + y0
 
 
-AxesSlice = Union[plt.Axes, Sequence[plt.Axes], np.ndarray]
+AxesSlice = Union[plt.Axes, Sequence[plt.Axes], np.ndarray, AxesArray]
 
 
 class GridAxes:
@@ -125,6 +126,7 @@ class GridAxes:
                 axs[row, col] = plt.subplot(gs[row * 2 + 1, col * 2 + 1])
 
         self.axs = axs
+        self.gs = gs
 
     def __getitem__(self, key) -> AxesSlice:
         return self.axs[key]
@@ -171,6 +173,10 @@ class GridAxes:
         return plt.figtext(
             self.supxy(xprop=xprop)[0], yprop, txt,
             ha=ha, va=va, fontsize=fontsize, **kwargs)
+
+    @property
+    def shape(self):
+        return self.axs.shape
 
 
 def subplotRC(nrow, ncol, row, col, **kwargs):
@@ -310,7 +316,8 @@ def break_axis(amin, amax=None, xy='x', ax=None, fun_draw=None):
     return axs
 
 
-def sameaxes(ax, ax0=None, xy='xy'):
+def sameaxes(ax: Union[AxesArray, GridAxes],
+             ax0: plt.Axes = None, xy='xy'):
     """
     Match the chosen limits of axes in ax to ax0's (if given) or the max range.
     Also consider: ax1.get_shared_x_axes().join(ax1, ax2)
@@ -322,10 +329,12 @@ def sameaxes(ax, ax0=None, xy='xy'):
     :param xy: 'x'|'y'|'xy'(default)
     :return: [[min, max]] of limits. If xy='xy', contains two pairs.
     """
-    if type(ax) is np.ndarray:
-        ax = ax.reshape(-1)
+    if type(ax) is np.ndarray or type(ax) is GridAxes:
+        ax = ax.flatten()
+
     def cat_lims(lims):
         return np.concatenate([np.array(v1).reshape(1,2) for v1 in lims])
+
     lims_res = []
     for xy1 in xy:
         if ax0 is None:
@@ -448,16 +457,10 @@ def detach_axis(xy='xy', amin=0., amax=None, ax=None, spine=None):
     else:
         raise ValueError("xy must be 'x', 'y', or 'xy'!")
 
+
 def detach_yaxis(ymin=0, ymax=None, ax=None):
     detach_axis('y', ymin, ymax, ax)
 
-def hide_ticklabels(xy='xy', ax=None):
-    if ax is None:
-        ax = plt.gca()
-    if 'x' in xy:
-        plt.setp(ax.get_xticklabels(), visible=False)
-    if 'y' in xy:        
-        plt.setp(ax.get_yticklabels(), visible=False)
 
 def box_off(remove_spines=('right', 'top'),
             remove_ticklabels=True,
@@ -497,6 +500,63 @@ def axis_off(xy, ax=None):
     if 'y' in xy:        
         ax.spines['left'].set_visible(False)
         ax.get_yaxis().set_visible(False)
+
+
+def ____Ticks____():
+    pass
+
+
+def ticks(ax=None, xy='y',
+          major=True,
+          interval=None, format=None, length=None, **kwargs):
+
+    from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
+                                   AutoMinorLocator, NullFormatter)
+
+    if ax is None:
+        ax = plt.gca()
+
+    if xy == 'x':
+        axis = ax.xaxis
+    elif xy == 'y':
+        axis = ax.yaxis
+    else:
+        raise ValueError()
+
+    if interval is not None:
+        if major:
+            axis.set_major_locator(MultipleLocator(interval))
+        else:
+            axis.set_minor_locator(MultipleLocator(interval))
+
+    if format is None:
+        format = '%g' if major else 'None'
+
+    if format is not None:
+        if format == 'None' and major:
+            if xy == 'x':
+                ax.set_xticklabels([])
+            else:
+                ax.set_yticklabels([])
+        if major:
+            axis.set_major_formatter(FormatStrFormatter(format))
+        else:
+            axis.set_minor_formatter(FormatStrFormatter(format))
+
+    if length is not None:
+        kwargs = {**kwargs, 'length': length}
+    if len(kwargs) > 0:
+        axis.tick_params(which='major' if major else 'minor', **kwargs)
+
+
+def hide_ticklabels(xy='xy', ax=None):
+    if ax is None:
+        ax = plt.gca()
+    if 'x' in xy:
+        plt.setp(ax.get_xticklabels(), visible=False)
+    if 'y' in xy:
+        plt.setp(ax.get_yticklabels(), visible=False)
+
 
 def tick_color(xy, ticks, labels, colors):
     def set_tick_colors(ticks):
@@ -848,6 +908,54 @@ def colorbar(
 
 def ____Errorbar____():
     pass
+
+
+def patch_wave(y_wave0, x_lim,
+               wave_margin=0.05,
+               wave_amplitude=0.05,
+               width_wave=0.82,
+               color='w',
+               axis_wave='x',
+               ax: plt.Axes = None) -> patches.Polygon:
+    """
+    Add a wavy occluding polygon to a bar graph to indicate out-of-limit values
+    :param y_wave0:
+    :param x_lim:
+    :param wave_margin: relative to x_lim
+    :param wave_amplitude: relative to x_lim
+    :param width_wave: data unit, along y_wave0
+    :param color:
+    :param axis_wave: 'x' for barh; 'y' for bar (vertical)
+    :param ax:
+    :return:
+    """
+
+    wave_margin = x_lim * wave_margin
+    wave_amplitude = -np.abs(x_lim) * wave_amplitude
+    nxy_wave = 50
+    x_wave = np.concatenate([
+        np.array([x_lim]),
+        x_lim - wave_margin - wave_amplitude
+        + wave_amplitude * np.sin(np.linspace(0, 2 * np.pi, nxy_wave)),
+        np.array([x_lim])
+    ])
+    y_wave = np.concatenate([
+        np.array([y_wave0 - width_wave / 2]),
+        y_wave0 + np.linspace(-1, 1, nxy_wave) * width_wave / 2,
+        np.array([y_wave0 + width_wave / 2])
+    ])
+    xy_wave = np.stack([x_wave, y_wave], -1)
+    if axis_wave == 'y':
+        xy_wave = np.flip(xy_wave, -1)
+
+    patch = patches.Polygon(
+        xy_wave,
+        edgecolor='None', facecolor=color)
+
+    if ax is not None:
+        ax.add_patch(patch)
+
+    return patch
 
 
 def patch_chance_level(
