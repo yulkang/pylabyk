@@ -127,12 +127,10 @@ class LocalFile(object):
             ), subdir=subdir), **kwargs
         )
 
-    def get_file_fig(self, fig_kind, d=None, ext='.png', subdir=None):
+    def get_file_fig(self, fig_kind,
+                     d: Union[Iterable[tuple], dict, odict, None] = None,
+                     ext='.png', subdir=None) -> str:
         """
-        :type fig_kind: str
-        :type d: Union[Iterable[tuple], dict, odict, None]
-        :type ext: str
-        :rtype: str
         """
         return self.get_file('plt', fig_kind, d=d, ext=ext, subdir=subdir)
 
