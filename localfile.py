@@ -135,11 +135,9 @@ class LocalFile(object):
         return self.get_file('plt', fig_kind, d=d, ext=ext, subdir=subdir)
 
 
-    def get_file_csv(self, kind, d=None, ext='.csv', subdir=None):
+    def get_file_csv(self, kind,
+                     d: Union[Iterable[tuple], dict, odict, None] = None,
+                     ext='.csv', subdir=None) -> str:
         """
-        :type kind: str
-        :type d: Union[Iterable[tuple], dict, odict, None]
-        :type ext: str
-        :rtype: str
         """
         return self.get_file('tab', kind, d, ext='.csv', subdir=subdir)
