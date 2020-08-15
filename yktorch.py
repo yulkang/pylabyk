@@ -37,7 +37,8 @@ from torch.utils.tensorboard import SummaryWriter
 from lib.pylabyk import np2, plt2, numpytorch as npt
 from lib.pylabyk.numpytorch import npy, npys
 
-default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+default_device = torch.device('cpu')  # CHECKING
+# default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 #%% Bounded parameters (under construction)
 # this is for better autocompletion, etc.
@@ -194,6 +195,12 @@ class BoundedParameter(OverriddenParameter):
 
 class ProbabilityParameter(OverriddenParameter):
     def __init__(self, prob, probdim=0, **kwargs):
+        """
+
+        :param prob:
+        :param probdim:
+        :param kwargs:
+        """
         super().__init__(**kwargs)
         self.probdim = probdim
         self._param = nn.Parameter(self.data2param(prob))
@@ -259,8 +266,8 @@ class BoundedModule(nn.Module):
 
     # Bounded parameters whose elements are individually bounded
     def register_bounded_parameter(self, name, data, lb=0., ub=1.):
-        lb = npt.tensor(lb)
-        ub = npt.tensor(ub)
+        lb = npt.tensor(lb, min_ndim=0)
+        ub = npt.tensor(ub, min_ndim=0)
         data = enforce_float_tensor(data)
         self._params_bounded[name] = {'lb':lb, 'ub':ub}
         param = self._bounded_data2param(data, lb, ub)
@@ -270,25 +277,35 @@ class BoundedModule(nn.Module):
 
     def _bounded_data2param(self, data, lb=0., ub=1.):
         data = enforce_float_tensor(data)
-        lb = npt.tensor(lb)
-        ub = npt.tensor(ub)
+        lb = npt.tensor(lb, min_ndim=0)
+        ub = npt.tensor(ub, min_ndim=0)
         if lb is None and ub is None:  # Unbounded
             return data
-        elif lb is None:
-            data[data > ub - self.epsilon] = ub - self.epsilon
-            return torch.log(ub - data)
-        elif ub is None:
-            data[data < lb + self.epsilon] = lb + self.epsilon
-            return torch.log(data - lb)
         else:
-            data[data < lb + self.epsilon] = lb + self.epsilon
-            data[data > ub - self.epsilon] = ub - self.epsilon
-            p = (data - lb) / (ub - lb)
-            return torch.log(p) - torch.log(1. - p)
+            if lb is None:
+                lb = -np.inf
+            if ub is None:
+                ub = np.inf
+            data = torch.clamp(
+                data, min=float(lb + self.epsilon),
+                max=float(ub - self.epsilon)
+            )
+
+            if lb == -np.inf:
+                # data[data > ub - self.epsilon] = ub - self.epsilon
+                return torch.log(ub - data)
+            elif ub == np.inf:
+                # data[data < lb + self.epsilon] = lb + self.epsilon
+                return torch.log(data - lb)
+            else:
+                # data[data < lb + self.epsilon] = lb + self.epsilon
+                # data[data > ub - self.epsilon] = ub - self.epsilon
+                p = (data - lb) / (ub - lb)
+                return torch.log(p) - torch.log(1. - p)
 
     def _bounded_param2data(self, param, lb=0., ub=1.):
-        lb = npt.tensor(lb)
-        ub = npt.tensor(ub)
+        lb = npt.tensor(lb, min_ndim=0)
+        ub = npt.tensor(ub, min_ndim=0)
         param = enforce_float_tensor(param)
         if lb is None and ub is None:  # Unbounded
             return param

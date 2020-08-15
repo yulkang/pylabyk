@@ -38,24 +38,25 @@ val1, val2 = cache.getvalue([subkey1, subkey2])
 # TODO: pickle dict_filename
 
 import os
-from . import zipPickle, argsutil
+from . import zipPickle
 from collections import OrderedDict as odict
-from .argsutil import dict2fname, kwdef, fullpath2hash, rmkeys
+from .argsutil import dict2fname, kwdef, fullpath2hash
 from typing import List
-import torch
 
 ignore_cache = False
 ignored_once = []
 
 
+def mkdir4file(file):
+    pth = os.path.dirname(file)
+    if not os.path.exists(pth):
+        mkdir4file(pth)
+    mkdir(pth)
+
+
 def mkdir(pth):
     if not os.path.exists(pth) and pth != '':
         os.mkdir(pth)
-
-
-def mkdir4file(file):
-    pth = os.path.dirname(file)
-    mkdir(pth)
 
 
 def is_keyboard_interrupt(exception):
@@ -199,6 +200,8 @@ class Cache(object):
         v = self.dict[self.format_key(key)]
 
         def get_subitem(subkey):
+            import torch
+
             v1 = v[subkey]  # type: torch.Tensor
             if load_gpu and torch.is_tensor(v1) and torch.cuda.is_available():
                 v1 = v1.cuda()
@@ -315,6 +318,8 @@ class Cache(object):
 
 
 def dict2device(d: dict, to_device='cpu') -> dict:
+    import torch
+
     return {
         k: (v.to(to_device) if torch.is_tensor(v)
             else dict2device(v) if isinstance(v, dict)

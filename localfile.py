@@ -1,11 +1,10 @@
 #  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
-
 from lib.pylabyk import cacheutil
 from lib.pylabyk import argsutil
 import os, shutil
 from collections import OrderedDict as odict
 from typing import Union, Iterable
-from lib.pylabyk.cacheutil import datetime4filename
+from lib.pylabyk.cacheutil import datetime4filename, mkdir4file
 
 
 def replace_ext(fullpath, ext_new):
@@ -64,8 +63,6 @@ class LocalFile(object):
         if isinstance(subdir, dict):
             subdir = argsutil.dict2fname(subdir)
         pth_out = os.path.join(self.pth_root, subdir)
-        if not os.path.exists(pth_out):
-            os.mkdir(pth_out)
         return pth_out
 
     def get_pth_cache(self, subdir=None, cache_dir=None):

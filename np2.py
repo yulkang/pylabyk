@@ -17,7 +17,7 @@ import pandas as pd
 from copy import deepcopy, copy
 from . import numpytorch
 from pprint import pprint
-from typing import Union, Sequence, Iterable
+from typing import Union, Sequence, Iterable, Tuple
 
 from .numpytorch import npy, npys
 
@@ -240,10 +240,17 @@ def ____BATCH____():
     pass
 
 
-def arrayfun(fun, array):
-    shape = array.shape
-    array = [fun(v) for v in array.flatten()]
-    return np.array(array, dtype=np.object).reshape(shape)
+def arrayfun(fun, *args: np.ndarray):
+    """
+
+    :param fun:
+    :param args: arrays
+    :return: res[...] = fun(arrays[0][...], arrays[1][...], ...)
+    """
+    shape = args[0].shape
+    args_flatten = [v.flatten() for v in args]
+    res = [fun(*v) for v in zip(*args_flatten)]
+    return np.array(res, dtype=np.object).reshape(shape)
 
 
 def meshfun(fun, list_args, n_out=1, dtype=None, outshape_first=False):
@@ -449,11 +456,8 @@ def uniquetol(v, tol=1e-6, return_inverse=False, **kwargs):
 def ecdf(x0):
     """
     Empirical distribution.
-    INPUT:
-    x0: a vector or a list
-    OUTPUT: 
-    p[i] = Pr(x0 <= x[i])
-    x: sorted x0
+    :param x0: a vector or a list of samples
+    :return: p[i] = Pr(x0 <= x[i]), x: sorted x0
     """
     
     n = len(x0)
@@ -566,6 +570,24 @@ def pearsonr_ci(x,y,alpha=0.05):
     lo_z, hi_z = r_z-z*se, r_z+z*se
     lo, hi = np.tanh((lo_z, hi_z))
     return r, p, lo, hi
+
+
+def info_criterion(nll, n_trial, n_param, kind='BIC'):
+    """
+
+    :param nll: negative log likelihood of the data given parameters
+    :param n_trial:
+    :param n_param:
+    :param kind: 'BIC'|'NLL'
+    :return: the chosen information criterion
+    """
+    if kind == 'BIC':
+        return n_param * np.log(n_trial) + 2 * nll
+    elif kind == 'NLL':
+        return nll
+    else:
+        raise ValueError()
+
 
 #%% Distribution
 def ____DISTRIBUTION____():

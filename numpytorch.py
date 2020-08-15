@@ -6,12 +6,13 @@ import torch
 from torch.nn import functional as F
 import numpy_groupies as npg
 from matplotlib import pyplot as plt
-from typing import Union, Iterable, Tuple, Dict
+from typing import Union, Iterable, Tuple, Dict, Sequence
 
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
     Categorical, OneHotCategorical
 
-device0 = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device0 = torch.device('cpu')  # CHECKING
+# device0 = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 #%% Wrapper that allows numpy-style syntax for torch
@@ -101,7 +102,7 @@ def float(v):
 def tensor(v: Union[float, np.ndarray, torch.Tensor],
            min_ndim=1,
            device=None,
-           **kwargs):
+           **kwargs) -> torch.Tensor:
     """
     Construct a tensor if the input is not; otherwise return the input as is,
     but return None as is for convenience when input is not passed.
@@ -124,6 +125,10 @@ def tensor(v: Union[float, np.ndarray, torch.Tensor],
             v = v.expand(v.shape
                          + torch.Size([1] * (min_ndim - v.ndimension())))
     return v
+
+
+def longtensor(v, **kwargs) -> torch.LongTensor:
+    return tensor(v, dtype=torch.long, **kwargs)  # noqa
 
 
 enforce_tensor = tensor
@@ -174,7 +179,7 @@ def float(v):
     return v.type(torch.get_default_dtype())
 
 
-def numpy(v: Union[torch.Tensor, np.ndarray]):
+def numpy(v: Union[torch.Tensor, np.ndarray, Iterable]):
     """
     Construct a np.ndarray from tensor; otherwise return the input as is
     :type v: torch.Tensor
@@ -184,10 +189,13 @@ def numpy(v: Union[torch.Tensor, np.ndarray]):
     if isinstance(v, np.ndarray) or sparse.isspmatrix(v) or np.isscalar(v):
         return v
     else:
-        try:
-            return v.detach().clone().numpy()
-        except TypeError:
-            return v.detach().clone().cpu().numpy()
+        if torch.is_tensor(v):
+            try:
+                return v.detach().clone().numpy()
+            except TypeError:
+                return v.detach().clone().cpu().numpy()
+        else:
+            return np.array(v)
 
 
 npy = numpy
@@ -516,9 +524,9 @@ def permute2en(v, ndim_st=1):
 p2en = permute2en
 
 
-#%% Indices
 def ____INDICES____():
     pass
+
 
 def unravel_index(v, shape, **kwargs):
     """
@@ -530,17 +538,40 @@ def unravel_index(v, shape, **kwargs):
     """
     return tensor(np.unravel_index(v, shape, **kwargs))
 
-def ravel_multi_index(v, shape, **kwargs):
+
+def ravel_multi_index(v: Iterable[torch.LongTensor],
+                      shape: Iterable[int], **kwargs) -> torch.LongTensor:
     """
     For now, just use np.ravel_multi_index()
-    :type v: torch.LongTensor
-    :type shape: torch.Size, tuple, list
-    :type kwargs: dict
-    :return: torch.LongTensor
     """
-    return tensor(np.ravel_multi_index(v, shape, **kwargs))
+    return longtensor(np.ravel_multi_index(v, shape, **kwargs))
 
-#%% Algebra
+
+def discretize(a, vmin, vmax=None, nv=None) -> torch.LongTensor:
+    """
+    Discretize a float tensor into the closest index
+    :param a: float-valued tensor
+    :param vmin: either minimum value or an evenly spaced vector.
+    :param vmax: if given, the maximum value
+    :param nv: number of bins.
+    :return: index between 0 and nv - 1 inclusive.
+    """
+    if not torch.is_tensor(a):
+        a = tensor(a)
+    if vmax is None:
+        vmax = vmin[-1]
+        nv = len(vmin)
+        vmin = vmin[0]
+
+    return torch.round(
+        ((a - vmin) / (vmax - vmin)) * (nv - 1)
+    ).long().clamp(0, nv - 1)  # noqa
+
+
+def ____Algebra____():
+    pass
+
+
 def sumto1(v, dim=None, axis=None, keepdim=True):
     """
     Make v sum to 1 across dim, i.e., make dim conditioned on the rest.
@@ -940,6 +971,38 @@ def ____DISTRIBUTIONS_SAMPLING____():
     pass
 
 
+def brownian_bridge(n_step, sample_shape=()) -> torch.Tensor:
+    """
+    :param n_step: first and last steps are 0 and 1
+    :param sample_shape:
+    :return: b[step, sample_shape]
+    """
+    assert n_step >= 2
+
+    if not isinstance(sample_shape, Iterable):
+        sample_shape = (sample_shape,)
+        to_squeeze = True
+    else:
+        sample_shape = tuple(sample_shape)
+        to_squeeze = len(sample_shape) == 0
+    t = torch.linspace(0., 1., n_step)
+
+    # DEF: r[step, sample_shape]
+    r = normrnd(0., 1.,
+                sample_shape=(n_step - 1,) + sample_shape
+                ) / (n_step - 1) ** (1/2)
+    r = torch.cat([
+        zeros((1,) + sample_shape + (1,)),
+        r
+    ], 0)
+    c = r.cumsum(0)
+    c = c - c[[-1], :] * append_dim(t, c.ndim - t.ndim)
+
+    if to_squeeze:
+        c = c.squeeze(-1)
+    return c
+
+
 def lognormal_params2mean_stdev(loc, scale):
     return torch.exp(loc + scale ** 2 / 2.), \
            (torch.exp(scale ** 2) - 1.) * torch.exp(2 * loc + scale ** 2)
@@ -1194,9 +1257,29 @@ def bootstrap(fun, samp, n_boot=100):
         res.append(fun(samp1))
     return res, ix
 
+
 #%% Linear algebra
 def ____LINEAR_ALGEBRA____():
     pass
+
+
+def prod_sumto1(
+        a: torch.Tensor, b: torch.Tensor, dim=None, keepdim=True
+) -> torch.Tensor:
+    """
+    Prevents over/underflow computing sumto1(a * b)
+    """
+    c_log = torch.log(a) + torch.log(b)
+    if dim is None:
+        c_log = c_log - torch.max(c_log)
+    else:
+        c_log = c_log - torch.max(c_log, dim=dim, keepdim=keepdim)[0]
+    c = torch.exp(c_log)
+    if dim is None:
+        c = c / torch.sum(c)
+    else:
+        c = c / torch.sum(c, dim=dim, keepdim=keepdim)
+    return c
 
 
 def vec2mat0(vec):
@@ -1402,8 +1485,10 @@ def crossvalincl(n_tr, i_fold, n_fold=10, mode='consec'):
     else:
         raise NotImplementedError('mode=%s is not implemented!' % mode)
 
+
 def ____CIRCULAR_STATS____():
     pass
+
 
 def circdiff(angle1, angle2, maxangle=pi2):
     """
@@ -1437,9 +1522,14 @@ def pconc2conc(pconc):
     return 1. / (1. - pconc) - 1.
 
 
+def conc2pconc(conc):
+    return conc / (1. + conc)
+
+
 def vmpdf_prad_pconc(prad, ploc, pconc, normalize=True):
     """
     :param prad: 0 to 1 maps to 0 to 2*pi radians
+    :param ploc: 0 to 1 maps to 0 to 2*pi radians
     :param pconc: 0 to 1 maps to 0 to inf concentration
     :rtype: torch.Tensor
     """
@@ -1480,7 +1570,7 @@ def vmpdf(x, mu, scale=None, normalize=True):
         # mu[scale[:,0] == 0, :] = 0.
 
     vm = vmf.VonMisesFisher(mu, scale + torch.zeros([1,1], device=device0))
-    p = torch.exp(vm.log_prob(x))
+    p = torch.exp(vm.log_prob(x)).clamp_min(0.)
     # if scale == 0.:
     #     p = torch.ones_like(p) / p.shape[0]
     if normalize:
