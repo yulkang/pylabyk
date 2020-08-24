@@ -15,6 +15,7 @@ import matplotlib as mpl
 from matplotlib import patches
 from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
+from copy import deepcopy, copy
 
 import numpy_groupies as npg
 
@@ -96,17 +97,7 @@ class GridAxes:
         h[-1] = bottom
         h[0] = top
 
-        self.w = w
-        self.h = h
-        self.top = top
-        self.bottom = bottom
-        self.left = left
-        self.right = right
-        self.widths = widths
-        self.heights = heights
-        self.wspace = wspace
-        self.hspace = hspace
-        self.close_on_del = close_on_del
+        self._close_on_del = close_on_del
 
         fig = plt.figure(**{
             **dict(kw_fig),
@@ -124,12 +115,75 @@ class GridAxes:
         for row in range(nrows):
             for col in range(ncols):
                 axs[row, col] = plt.subplot(gs[row * 2 + 1, col * 2 + 1])
+                axs[row, col].i_row = row
+                axs[row, col].i_col = col
 
         self.axs = axs
-        self.gs = gs
 
-    def __getitem__(self, key) -> AxesSlice:
-        return self.axs[key]
+    @property
+    def w(self) -> np.array:
+        w = []
+        for ax in self.axs[0, :]:
+            bounds = ax.get_position().bounds
+            w += [bounds[0], bounds[0] + bounds[2]]
+        w.append(1. - sum(w))
+        return np.array(w)
+
+    @property
+    def h(self) -> np.array:
+        h = []
+        for ax in self.axs[:, 0]:
+            bounds = ax.get_position().bounds
+            h += [bounds[1], bounds[1] + bounds[3]]
+        h.append(1. - sum(h))
+        return 1. - np.array(h)  # coord from the top
+
+    def copy(self):
+        gridaxes = copy(self)
+        gridaxes._close_on_del = self._close_on_del
+        return gridaxes
+
+    @property
+    def top(self):
+        return self.h[0]
+
+    @property
+    def bottom(self):
+        return self.h[-1]
+
+    @property
+    def left(self):
+        return self.w[0]
+
+    @property
+    def right(self):
+        return self.h[-1]
+
+    @property
+    def hspace(self):
+        return self.h[2:-2:2]
+
+    @property
+    def wspace(self):
+        return self.w[2:-2:2]
+
+    @property
+    def widths(self):
+        return self.w[1::2]
+
+    @property
+    def heights(self):
+        return self.h[1::2]
+
+    def __getitem__(self, key):
+        axs = self.axs[key]
+
+        if isinstance(axs, np.ndarray) and axs.ndim == 2:
+            gridaxes = self.copy()
+            gridaxes.axs = axs
+            return gridaxes
+        else:
+            return axs
 
     def __setitem__(self, key, data: AxesSlice):
         self.axs[key] = data
@@ -143,12 +197,12 @@ class GridAxes:
 
     def __del__(self):
         """Close figure to prevent memory leak"""
-        if self.close_on_del:
+        if self._close_on_del:
             fig = self.axs[0, 0].figure
-            # import sys
-            # if sys.getrefcount(fig) == 0:
-            plt.close(fig)
-            # print('Closed figure %d!' % id(fig))  # CHECKED
+            import sys
+            if sys.getrefcount(fig) == 0:
+                plt.close(fig)
+                print('Closed figure %d!' % id(fig))  # CHECKING
 
     def supxy(self, xprop=0.5, yprop=0.5):
         return supxy(self.axs[:], xprop=xprop, yprop=yprop)
@@ -163,7 +217,8 @@ class GridAxes:
 
     def suptitle(self, txt: str,
                  xprop=0.5, pad=0.05, fontsize=12, yprop=None,
-                 va='top', ha='center', **kwargs):
+                 va='top', ha='center',
+                 **kwargs):
         if yprop is None:
             if va == 'top' or va == 'center':
                 yprop = (np.sum(self.h) - pad) / np.sum(self.h)
