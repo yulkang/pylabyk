@@ -115,8 +115,6 @@ class GridAxes:
         for row in range(nrows):
             for col in range(ncols):
                 axs[row, col] = plt.subplot(gs[row * 2 + 1, col * 2 + 1])
-                axs[row, col].i_row = row
-                axs[row, col].i_col = col
 
         self.axs = axs
 
