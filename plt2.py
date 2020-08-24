@@ -260,7 +260,7 @@ def coltitle(col_titles, axes):
     return np.array(h)
 
 
-def rowtitle(row_titles, axes, pad=5, ha='right'):
+def rowtitle(row_titles, axes, pad=5, ha='right', **kwargs):
     """
     :param row_titles: list of string row title
     :type row_titles: Iterable[str]
@@ -279,7 +279,7 @@ def rowtitle(row_titles, axes, pad=5, ha='right'):
             row,
             xy=(0, 0.5), xytext=(-ax.yaxis.labelpad - pad, 0),
             xycoords=ax.yaxis.label, textcoords='offset points',
-            size='large', ha=ha, va='center')
+            size='large', ha=ha, va='center', **kwargs)
         labels.append(label)
 
     fig = axes[0,0].get_figure()
