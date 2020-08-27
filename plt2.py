@@ -215,16 +215,13 @@ class GridAxes:
 
     def suptitle(self, txt: str,
                  xprop=0.5, pad=0.05, fontsize=12, yprop=None,
-                 va='top', ha='center',
+                 va='bottom', ha='center',
                  **kwargs):
         if yprop is None:
-            if va == 'top' or va == 'center':
-                yprop = (np.sum(self.h) - pad) / np.sum(self.h)
-            elif va == 'bottom':
-                yprop = (np.sum(self.h[1:]) + pad) / np.sum(self.h)
+            yprop = 1. + pad
 
         return plt.figtext(
-            self.supxy(xprop=xprop)[0], yprop, txt,
+            *self.supxy(xprop=xprop, yprop=yprop), txt,
             ha=ha, va=va, fontsize=fontsize, **kwargs)
 
     @property
