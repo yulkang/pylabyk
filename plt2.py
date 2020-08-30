@@ -37,7 +37,7 @@ def supxy(axs: AxesArray, xprop=0.5, yprop=0.5) -> Tuple[float, float]:
     x0 = rect_nw[0]
     y0 = rect_sw[1]
     x1 = rect_ne[0] + rect_ne[2]
-    y1 = rect_sw[1] + rect_sw[3]
+    y1 = rect_ne[1] + rect_ne [3]
 
     return (x1 - x0) * xprop + x0, (y1 - y0) * yprop + y0
 
