@@ -173,6 +173,14 @@ class GridAxes:
     def heights(self):
         return self.h[1::2]
 
+    @property
+    def nrows(self):
+        return self.axs.shape[0]
+
+    @property
+    def ncols(self):
+        return self.axs.shape[1]
+
     def __getitem__(self, key):
         axs = self.axs[key]
 
