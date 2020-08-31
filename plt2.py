@@ -110,6 +110,8 @@ class GridAxes:
             width_ratios=w, height_ratios=h,
             figure=fig
         )
+        self.gs = gs  # for backward compatibility
+
         axs = np.empty([nrows, ncols], dtype=np.object)
 
         for row in range(nrows):
