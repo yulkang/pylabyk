@@ -8,7 +8,7 @@ setup(
     classifiers=[
         'Development Status :: 4 - Beta',
         'License :: OSI Approved :: Apache Software License 2.0',
-        'Programming Language :: Python :: 2',
+        # 'Programming Language :: Python :: 2', # deprecated
         'Programming Language :: Python :: 3'
     ],
     install_requires=['torch>=1.0.0'],

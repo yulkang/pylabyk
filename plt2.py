@@ -60,8 +60,19 @@ class GridAxes:
         """
         Give all size arguments in inches. top and right are top and right
         margins, rather than top and right coordinates.
-        Figure is deleted when the GridAxes object is garbage-collected,
-        so the object needs to be returned for the figure to be saved.
+
+        Figure is deleted when the GridAxes object is garbage-collected to
+        prevent memory leak from opening too many figures.
+        So the object needs to be returned for the figure to be saved,
+        unless close_on_del=False.
+
+        2D slices of a GridAxes object is itself a GridAxes within the same
+        figure. This allows, e.g., column title across multiple columns with
+        axs[:, 2:4].suptitle('Titles for columns 2-3')
+
+        TODO: create GridAxes without creating a new figure by anchoring to
+          a specified point in the provided figure. This will allow multiple
+          grids to coexist in the same figure. (e.g., 2- and 3-column grids.)
 
         :param nrows:
         :param ncols:
