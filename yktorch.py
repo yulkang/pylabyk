@@ -15,7 +15,7 @@ Cons
 : cannot assign to slice without using setslice()
 """
 
-#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
+#  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
 import numpy as np
 from pprint import pprint

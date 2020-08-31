@@ -13,10 +13,10 @@ setup(
     ],
     install_requires=['torch>=1.0.0'],
     url='https://github.com/yulkang/pylabyk',
-    license='MIT',
-    author='Yul Kang',
-    author_email='yul.kang@eng.cam.ac.uk',
-    description='Pylab-style utilities; this library is meant for the author's personal use, but everyone is welcome to use it and contribute to it.',
+    license='Apache Software License 2.0',
+    author='Yul HR Kang',
+    author_email='hk2699@caa.columbia.edu',
+    description="Pylab-style utilities; this library is meant for the author's personal use, but everyone is welcome to use it and contribute to it.",
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown'
 )

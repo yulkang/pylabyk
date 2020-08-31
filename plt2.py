@@ -6,7 +6,7 @@ Created on Tue Feb 13 10:42:06 2018
 @author: yulkang
 """
 
-#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
+#  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
 from typing import Union, List, Iterable, Callable, Sequence, Mapping, Tuple
 import numpy as np
