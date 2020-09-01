@@ -71,13 +71,14 @@ class LocalFile(object):
         pth_cache = os.path.join(
             self.get_pth_out(subdir), cache_dir)
         if not os.path.exists(pth_cache):
-            os.mkdir(pth_cache)
+            mkdir4file(pth_cache)
         return pth_cache
 
-    def get_file_cache(self, d, subdir=None, cache_dir=None):
+    def get_file_cache(
+            self,
+            d: [Iterable[tuple], dict, odict, None],
+            subdir=None, cache_dir=None) -> str:
         """
-        :type d: Union[Iterable[tuple], dict, odict, None]
-        :rtype: str
         """
         return os.path.join(
             self.get_pth_cache(subdir, cache_dir=cache_dir),
@@ -106,7 +107,11 @@ class LocalFile(object):
             ) + ext
         )
 
-    def get_cache(self, cache_kind, d=None, subdir=None, **kwargs):
+    def get_cache(
+            self, cache_kind: str,
+            d: Union[str, dict] = None,
+            subdir: Union[str, dict] = None,
+            **kwargs):
         """
         :type cache_kind: str
         :type d: Union[Iterable[tuple], dict, odict, None]
