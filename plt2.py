@@ -6,7 +6,7 @@ Created on Tue Feb 13 10:42:06 2018
 @author: yulkang
 """
 
-#  Copyright (c) 2020. Yul HR Kang. hk2699 at caa dot columbia dot edu.
+#  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
 from typing import Union, List, Iterable, Callable, Sequence, Mapping, Tuple
 import numpy as np
@@ -37,7 +37,7 @@ def supxy(axs: AxesArray, xprop=0.5, yprop=0.5) -> Tuple[float, float]:
     x0 = rect_nw[0]
     y0 = rect_sw[1]
     x1 = rect_ne[0] + rect_ne[2]
-    y1 = rect_sw[1] + rect_sw[3]
+    y1 = rect_ne[1] + rect_ne [3]
 
     return (x1 - x0) * xprop + x0, (y1 - y0) * yprop + y0
 
@@ -60,8 +60,19 @@ class GridAxes:
         """
         Give all size arguments in inches. top and right are top and right
         margins, rather than top and right coordinates.
-        Figure is deleted when the GridAxes object is garbage-collected,
-        so the object needs to be returned for the figure to be saved.
+
+        Figure is deleted when the GridAxes object is garbage-collected to
+        prevent memory leak from opening too many figures.
+        So the object needs to be returned for the figure to be saved,
+        unless close_on_del=False.
+
+        2D slices of a GridAxes object is itself a GridAxes within the same
+        figure. This allows, e.g., column title across multiple columns with
+        axs[:, 2:4].suptitle('Titles for columns 2-3')
+
+        TODO: create GridAxes without creating a new figure by anchoring to
+          a specified point in the provided figure. This will allow multiple
+          grids to coexist in the same figure. (e.g., 2- and 3-column grids.)
 
         :param nrows:
         :param ncols:
@@ -110,6 +121,8 @@ class GridAxes:
             width_ratios=w, height_ratios=h,
             figure=fig
         )
+        self.gs = gs  # for backward compatibility
+
         axs = np.empty([nrows, ncols], dtype=np.object)
 
         for row in range(nrows):
@@ -173,6 +186,14 @@ class GridAxes:
     def heights(self):
         return self.h[1::2]
 
+    @property
+    def nrows(self):
+        return self.axs.shape[0]
+
+    @property
+    def ncols(self):
+        return self.axs.shape[1]
+
     def __getitem__(self, key):
         axs = self.axs[key]
 
@@ -215,16 +236,13 @@ class GridAxes:
 
     def suptitle(self, txt: str,
                  xprop=0.5, pad=0.05, fontsize=12, yprop=None,
-                 va='top', ha='center',
+                 va='bottom', ha='center',
                  **kwargs):
         if yprop is None:
-            if va == 'top' or va == 'center':
-                yprop = (np.sum(self.h) - pad) / np.sum(self.h)
-            elif va == 'bottom':
-                yprop = (np.sum(self.h[1:]) + pad) / np.sum(self.h)
+            yprop = 1. + pad
 
         return plt.figtext(
-            self.supxy(xprop=xprop)[0], yprop, txt,
+            *self.supxy(xprop=xprop, yprop=yprop), txt,
             ha=ha, va=va, fontsize=fontsize, **kwargs)
 
     @property
