@@ -784,7 +784,7 @@ def var_distrib(p, v, axis=None):
 
 
 def std_distrib(p, v, axis=None):
-    return var_distrib(p, v, axis=axis).sqrt()
+    return torch.sqrt(var_distrib(p, v, axis=axis))
 
 
 def sem_distrib(p, v, axis=None, n=None):

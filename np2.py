@@ -383,6 +383,25 @@ def nan2v(v0, v=0):
 def ____STAT____():
     pass
 
+
+def mean_distrib(p, v, axis=None):
+    if axis is None:
+        kw = {}
+    else:
+        kw = {'axis': axis}
+    return (p * v).sum(**kw) / p.sum(**kw)
+
+
+def var_distrib(p, v, axis=None):
+    return (
+            mean_distrib(p, v ** 2, axis=axis)
+            - mean_distrib(p, v, axis=axis) ** 2
+    )
+
+def std_distrib(p, v, axis=None):
+    return np.sqrt(var_distrib(p, v, axis=axis))
+
+
 def sem(v, axis=0):
     v = np.array(v)
     if v.ndim == 1:
