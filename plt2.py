@@ -533,7 +533,7 @@ def detach_yaxis(ymin=0, ymax=None, ax=None):
     detach_axis('y', ymin, ymax, ax)
 
 
-def box_off(remove_spines=('right', 'top'),
+def box_off(remove_spines: Union[str, Iterable[str]] = ('right', 'top'),
             remove_ticklabels=True,
             ax=None):
     """
