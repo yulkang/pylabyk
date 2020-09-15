@@ -429,7 +429,8 @@ def sameaxes(ax: Union[AxesArray, GridAxes],
     return lims_res
 
 
-def same_clim(images, img0=None):
+def same_clim(images: Iterable[Union[mpl.image.AxesImage, plt.Axes]],
+              img0: Union[mpl.image.AxesImage, plt.Axes] = None):
     if type(images) is np.ndarray:
         images = images.reshape(-1)
     if isinstance(images[0], plt.Axes):
@@ -443,6 +444,8 @@ def same_clim(images, img0=None):
         clims = np.array([im.get_clim() for im in images])
         clim = [np.amin(clims[:,0]), np.amax(clims[:,1])]
     else:
+        if isinstance(img0, plt.Axes):
+            img0 = img0.findobj(mpl.image.AxesImage)
         clim = img0.get_clim()
     for img in images:
         img.set_clim(clim)
