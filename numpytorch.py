@@ -784,7 +784,7 @@ def var_distrib(p, v, axis=None):
 
 
 def std_distrib(p, v, axis=None):
-    return var_distrib(p, v, axis=axis).sqrt()
+    return torch.sqrt(var_distrib(p, v, axis=axis))
 
 
 def sem_distrib(p, v, axis=None, n=None):
@@ -894,6 +894,29 @@ def max_distrib(p: torch.Tensor) -> (torch.Tensor, torch.Tensor):
     """
     p_min, p_1st = min_distrib(p.flip(1))
     return p_min.flip(0), p_1st.flip(1)
+
+
+def wmean(values, weights, axis=None, keepdim=False):
+    return (
+            (values * weights).sum(axis=axis, keepdim=keepdim)
+            / weights.sum(axis=axis, keepdim=keepdim)
+    )
+
+
+def wstd(values, weights, axis=None, keepdim=False):
+    """
+    Return the weighted average and standard deviation.
+
+    from: https://stackoverflow.com/a/2415343/2565317
+
+    values, weights -- Numpy ndarrays with the same shape.
+    """
+    sum_wt = weights.sum(axis=axis, keepdim=True)
+    avg = (values * weights).sum(axis=axis, keepdim=True) / sum_wt
+    var = ((values - avg) ** 2 * weights).sum(axis=axis, keepdim=True) / sum_wt
+    if not keepdim:
+        var = var.squeeze(axis)
+    return var.sqrt()
 
 
 def sem(v, dim=0):
