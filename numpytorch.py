@@ -1540,7 +1540,7 @@ def prad2unitvec(prad, dim=-1):
     return torch.stack([torch.cos(rad), torch.sin(rad)], dim=dim)
 
 
-def pconc2conc(pconc):
+def pconc2conc(pconc: torch.Tensor) -> torch.Tensor:
     pconc = torch.clamp(pconc, min=1e-6, max=1-1e-6)
     return 1. / (1. - pconc) - 1.
 

@@ -652,6 +652,11 @@ def circdiff(angle1, angle2, maxangle=None):
              - (angle2 / maxangle) + .5) % 1. - .5) * maxangle
 
 
+def pconc2conc(pconc: np.ndarray) -> np.ndarray:
+    pconc = np.clip(pconc, a_min=1e-6, a_max=1-1e-6)
+    return 1. / (1. - pconc) - 1.
+
+
 def rotation_matrix(rad, dim=(-2, -1)):
     cat = np.concatenate
     return cat((
