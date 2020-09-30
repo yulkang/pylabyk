@@ -203,6 +203,8 @@ class ProbabilityParameter(OverriddenParameter):
         """
         super().__init__(**kwargs)
         self.probdim = probdim
+        self.lb = torch.zeros(1)
+        self.ub = torch.ones(1)
         self._param = nn.Parameter(self.data2param(prob))
         if self._param.ndim == 0:
             raise Warning('Use ndim>0 to allow consistent use of [:]. '
@@ -564,8 +566,10 @@ class BoundedModule(nn.Module):
         ax.set_xlim(-0.025, 1)
         ax.set_xticks([])
         ax.set_yticks(np.arange(n))
+
+        names = [v.replace('_', '-') for v in names]
         ax.set_yticklabels(names)
-        ax.yaxis.set_inverted(True)
+        ax.set_ylim(n - 0.5, -0.5)
         plt2.box_off(['top', 'right', 'bottom'])
         plt2.detach_axis('x', amin=0, amax=1)
         plt2.detach_axis('y', amin=0, amax=n - 1)
@@ -586,7 +590,8 @@ class BoundedModule(nn.Module):
         """
         if named_bounded_params is None:
             d = odict([(k, v) for k, v in self.named_modules()
-                       if (isinstance(v, BoundedParameter)
+                       if (isinstance(v, OverriddenParameter) #
+                           # BoundedParameter)
                            and k not in exclude)])
         else:
             d = named_bounded_params

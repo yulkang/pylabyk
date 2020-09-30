@@ -54,6 +54,13 @@ def vec_on(arr, dim, n_dim=None):
     return np.reshape(arr, sh)
 
 
+def cell2mat(c: np.ndarray, dtype=np.float) -> np.ndarray:
+    # convert from object to numeric
+    shape0 = c.shape
+    vs = np.stack([v.astype(dtype) for v in c.flatten()])
+    return np.reshape(vs, shape0 + vs[0].shape)
+
+
 def cell2mat2(l, max_len=None):
     """
     INPUT: a list containing vectors

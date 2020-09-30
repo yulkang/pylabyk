@@ -31,7 +31,7 @@ val1, val2 = cache.getvalue([subkey1, subkey2])
 (not implemented)
 """
 
-#  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
+#  Copyright (c) 2020  Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
 # TODO: add rename_files() and rename_cache() that works with hash (using .csv)
 
@@ -51,12 +51,12 @@ def mkdir4file(file):
     pth = os.path.dirname(file)
     if not os.path.exists(pth):
         mkdir4file(pth)
-    mkdir(pth)
+        os.mkdir(pth)
 
 
 def mkdir(pth):
     if not os.path.exists(pth) and pth != '':
-        os.mkdir(pth)
+        mkdir4file(os.path.join(pth, 'file'))
 
 
 def is_keyboard_interrupt(exception):
