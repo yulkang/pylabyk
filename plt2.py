@@ -1139,9 +1139,10 @@ def errorbar_shade(x, y, yerr=None, **kw):
             yerr = np.concatenate([-yerr[np.newaxis,:],
                                    yerr[np.newaxis,:]], axis=0)
         elif yerr.ndim == 2:
+            yerr = np.concatenate([-yerr[[0], :],
+                                   yerr[[1], :]], axis=0)
             # assume yerr[0,:] = err_low, yerr[1,:] = err_high
             # (both positive), as in plt.errorbar
-            raise NotImplementedError()
 
         else:
             raise ValueError()
