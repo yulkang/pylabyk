@@ -133,21 +133,22 @@ class GridAxes:
 
     @property
     def w(self) -> np.array:
-        w = []
+        w = [0.]
         for ax in self.axs[0, :]:
             bounds = ax.get_position().bounds
             w += [bounds[0], bounds[0] + bounds[2]]
-        w.append(1. - sum(w))
-        return np.array(w)
+        w.append(1.)
+        return np.diff(w)
 
     @property
     def h(self) -> np.array:
-        h = []
+        h = [0.]
         for ax in self.axs[:, 0]:
             bounds = ax.get_position().bounds
             h += [bounds[1], bounds[1] + bounds[3]]
-        h.append(1. - sum(h))
-        return 1. - np.array(h)  # coord from the top
+        h.append(1.)
+        # coord from the top
+        return np.flip(np.diff(h))
 
     def copy(self):
         gridaxes = copy(self)
@@ -156,35 +157,35 @@ class GridAxes:
 
     @property
     def top(self):
-        return self.h[0]
+        return self.h[0] * self.figure.get_size_inches()[1]
 
     @property
     def bottom(self):
-        return self.h[-1]
+        return self.h[-1] * self.figure.get_size_inches()[1]
 
     @property
     def left(self):
-        return self.w[0]
+        return self.w[0] * self.figure.get_size_inches()[0]
 
     @property
     def right(self):
-        return self.h[-1]
+        return self.w[-1] * self.figure.get_size_inches()[0]
 
     @property
     def hspace(self):
-        return self.h[2:-2:2]
+        return self.h[2:-2:2] * self.figure.get_size_inches()[1]
 
     @property
     def wspace(self):
-        return self.w[2:-2:2]
+        return self.w[2:-2:2] * self.figure.get_size_inches()[0]
 
     @property
     def widths(self):
-        return self.w[1::2]
+        return self.w[1::2] * self.figure.get_size_inches()[0]
 
     @property
     def heights(self):
-        return self.h[1::2]
+        return self.h[1::2] * self.figure.get_size_inches()[1]
 
     @property
     def nrows(self):
