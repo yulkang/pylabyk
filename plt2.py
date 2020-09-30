@@ -430,7 +430,9 @@ def sameaxes(ax: Union[AxesArray, GridAxes],
     return lims_res
 
 
-def same_clim(images, img0=None):
+def same_clim(images: Iterable[Union[mpl.image.AxesImage, plt.Axes]],
+              img0: Union[mpl.image.AxesImage, plt.Axes] = None,
+              clim=None):
     if type(images) is np.ndarray:
         images = images.reshape(-1)
     if isinstance(images[0], plt.Axes):
@@ -440,11 +442,14 @@ def same_clim(images, img0=None):
             im = ax.findobj(mpl.image.AxesImage)
             images += im
 
-    if img0 is None:
-        clims = np.array([im.get_clim() for im in images])
-        clim = [np.amin(clims[:,0]), np.amax(clims[:,1])]
-    else:
-        clim = img0.get_clim()
+    if clim is None:
+        if img0 is None:
+            clims = np.array([im.get_clim() for im in images])
+            clim = [np.amin(clims[:,0]), np.amax(clims[:,1])]
+        else:
+            if isinstance(img0, plt.Axes):
+                img0 = img0.findobj(mpl.image.AxesImage)
+            clim = img0.get_clim()
     for img in images:
         img.set_clim(clim)
 
@@ -534,7 +539,7 @@ def detach_yaxis(ymin=0, ymax=None, ax=None):
     detach_axis('y', ymin, ymax, ax)
 
 
-def box_off(remove_spines=('right', 'top'),
+def box_off(remove_spines: Union[str, Iterable[str]] = ('right', 'top'),
             remove_ticklabels=True,
             ax=None):
     """
