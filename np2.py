@@ -778,18 +778,20 @@ def ____IMAGE____():
 def nancrosscorr(
         fr1: np.ndarray,
         fr2: np.ndarray = None,
-        thres_n=1,
-        fillvalue = np.nan,
+        thres_n=2,
+        fillvalue=np.nan,
 ) -> np.ndarray:
     """
+    Normalized cross-correlation ignoring NaNs.
     As in Barry et al. 2007
     :param fr1: [x, y]
     :param fr2: [x, y]
     :param fillvalue:
-    :param thres_n: minimum number of elements to compute correlation.
+    :param thres_n: Minimum number of non-NaN entries to compute crosscorr with.
     :return: cc[i_dx, i_dy]
     """
     assert fr1.ndim == 2
+    assert thres_n >= 2, 'to compute correlation thres_n needs to be >= 2'
     if fr2 is None:
         fr2 = fr1
     else:
@@ -804,8 +806,8 @@ def nancrosscorr(
     max_sh = np.amax(np.stack([fsh1, fsh2], axis=0), axis=0)
     pad1 = max_sh - fsh1
     pad2 = max_sh - fsh2
-    fr1 = np.pad(fr1, [(0, pad1[0]), (0, pad1[1])])
-    fr2 = np.pad(fr2, [(0, pad2[0]), (0, pad2[1])])
+    fr1 = np.pad(fr1, [(0, pad1[0]), (0, pad1[1])], constant_values=np.nan)
+    fr2 = np.pad(fr2, [(0, pad2[0]), (0, pad2[1])], constant_values=np.nan)
 
     cc = np.zeros(csh) + fillvalue
     for i in range(-fsh[0], fsh[0]):
@@ -840,15 +842,17 @@ def nancrosscorr(
     return cc
 
 
-def nanautocorr(firing_rate: np.ndarray, thres_n=1) -> np.ndarray:
+def nanautocorr(firing_rate: np.ndarray, thres_n=2) -> np.ndarray:
     """
+    Normalized autocorrelation ignoring NaNs.
     As in Krupic et al. 2015, which corrected typos in Hafting et al. 2005.
     :param firing_rate: [x, y]
-    :param thres_n_pixel:
+    :param thres_n: Minimum number of non-NaN entries to compute autocorr with.
     :return: ac[i_dx, i_dy]
     """
     f = firing_rate
     assert f.ndim == 2
+    assert thres_n >= 2, 'to compute correlation thres_n needs to be >= 2'
 
     fsh = np.array(f.shape)
     ash = fsh * 2
