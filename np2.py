@@ -775,6 +775,66 @@ def ____IMAGE____():
     pass
 
 
+def nancrosscorr(
+        fr1: np.ndarray,
+        fr2: np.ndarray=None,
+        thres_n=1,
+        fillvalue = np.nan,
+) -> np.ndarray:
+    """
+    As in Krupic et al. 2015, which corrected typos in Hafting et al. 2005.
+    :param fr1: [x, y]
+    :param fr2: [x, y]
+    :param fillvalue:
+    :param thres_n: minimum number of elements to compute correlation.
+    :return: cc[i_dx, i_dy]
+    """
+    assert fr1.ndim == 2
+    if fr2 is None:
+        fr2 = fr1
+    else:
+        assert fr2.ndim == 2
+
+    fsh1 = np.array(fr1.shape)
+    fsh2 = np.array(fr2.shape)
+    fsh = np.amin(np.stack([fsh1, fsh2], axis=0))
+    csh = fsh1 + fsh2
+    # DEBUGGED: csh = fsh * 2 - 1 is too small: index needs to be fsh * 2 - 1,
+    #  which needs ash to be at least fsh * 2.
+
+    cc = np.zeros(csh) + fillvalue
+    for i in range(-fsh[0], fsh[0]):
+        if i == 0:
+            f1 = fr1
+            f2 = fr2
+        elif i > 0:
+            f1 = fr1[i:]
+            f2 = fr2[:-i]
+        else:
+            f1 = fr1[:i]
+            f2 = fr2[-i:]
+
+        for j in range(-fsh[1], fsh[1]):
+            if j == 0:
+                g1 = f1
+                g2 = f2
+            elif j > 0:
+                g1 = f1[:, j:]
+                g2 = f2[:, :-j]
+            else:
+                g1 = f1[:, :j]
+                g2 = f2[:, -j:]
+
+            g1 = g1.flatten()
+            g2 = g2.flatten()
+
+            incl = ~np.isnan(g1) & ~np.isnan(g2)
+            if np.sum(incl) >= thres_n:
+                cc[i + fsh[0], j + fsh[1]] = stats.pearsonr(
+                    g1[incl], g2[incl])[0]
+    return cc
+
+
 def nansmooth(u, sigma=1.):
     from scipy import ndimage
 
