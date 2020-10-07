@@ -435,11 +435,13 @@ def sameaxes(ax: Union[AxesArray, GridAxes],
     return lims_res
 
 
-def same_clim(images: Iterable[Union[mpl.image.AxesImage, plt.Axes]],
+def same_clim(images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
               img0: Union[mpl.image.AxesImage, plt.Axes] = None,
               clim=None):
-    if type(images) is np.ndarray:
-        images = images.reshape(-1)
+    try:
+        images = images.flatten()
+    except:
+        pass
     if isinstance(images[0], plt.Axes):
         axes = images
         images = []
