@@ -799,17 +799,32 @@ def nancrosscorr(
 
     fsh1 = np.array(fr1.shape)
     fsh2 = np.array(fr2.shape)
-    fsh = np.amin(np.stack([fsh1, fsh2], axis=0), axis=0)
-    csh = fsh1 + fsh2
+    # csh = fsh1 + fsh2
 
     # pad smaller of the two
     max_sh = np.amax(np.stack([fsh1, fsh2], axis=0), axis=0)
     pad1 = max_sh - fsh1
+    # pad1 = np.stack([
+    #     int(np.floor(pad1 / 2))])
     pad2 = max_sh - fsh2
-    fr1 = np.pad(fr1, [(0, pad1[0]), (0, pad1[1])], constant_values=np.nan)
-    fr2 = np.pad(fr2, [(0, pad2[0]), (0, pad2[1])], constant_values=np.nan)
+    fr1 = np.pad(fr1, [
+        (int(np.floor(pad1[0] / 2)),
+         int(np.ceil(pad1[0] / 2))),
+        (int(np.floor(pad1[1] / 2)),
+         int(np.ceil(pad1[1] / 2)))
+    ], constant_values=np.nan)
+    fr2 = np.pad(fr2, [
+        (int(np.floor(pad2[0] / 2)),
+         int(np.ceil(pad2[0] / 2))),
+        (int(np.floor(pad2[1] / 2)),
+         int(np.ceil(pad2[1] / 2)))
+    ], constant_values=np.nan)
 
+    csh = max_sh * 2
     cc = np.zeros(csh) + fillvalue
+    # fsh = np.amin(np.stack([fsh1, fsh2], axis=0), axis=0)
+    # fsh = np.ceil(max_sh / 2).astype(int)
+    fsh = max_sh
     for i in range(-fsh[0], fsh[0]):
         if i == 0:
             f1 = fr1
