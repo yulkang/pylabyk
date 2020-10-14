@@ -111,11 +111,10 @@ class LocalFile(object):
             self, cache_kind: str,
             d: Union[str, dict] = None,
             subdir: Union[str, dict] = None,
-            **kwargs):
+            **kwargs) -> cacheutil.Cache:
         """
         :type cache_kind: str
         :type d: Union[Iterable[tuple], dict, odict, None]
-        :rtype: cacheutil.Cache
         """
         if d is None:
             d = [{}]
