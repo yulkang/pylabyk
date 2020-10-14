@@ -18,6 +18,9 @@ from copy import deepcopy, copy
 from . import numpytorch
 from pprint import pprint
 from typing import Union, Sequence, Iterable, Tuple
+import multiprocessing
+from multiprocessing.pool import Pool as Pool0
+# from multiprocessing import Pool
 
 from .numpytorch import npy, npys
 
@@ -780,6 +783,7 @@ def nancrosscorr(
         fr2: np.ndarray = None,
         thres_n=2,
         fillvalue=np.nan,
+        processes=0,
 ) -> np.ndarray:
     """
     Normalized cross-correlation ignoring NaNs.
@@ -788,6 +792,7 @@ def nancrosscorr(
     :param fr2: [x, y]
     :param fillvalue:
     :param thres_n: Minimum number of non-NaN entries to compute crosscorr with.
+    :param processes: >0 to run in parallel
     :return: cc[i_dx, i_dy]
     """
     assert fr1.ndim == 2
@@ -825,36 +830,98 @@ def nancrosscorr(
     # fsh = np.amin(np.stack([fsh1, fsh2], axis=0), axis=0)
     # fsh = np.ceil(max_sh / 2).astype(int)
     fsh = max_sh
-    for i in range(-fsh[0], fsh[0]):
-        if i == 0:
-            f1 = fr1
-            f2 = fr2
-        elif i > 0:
-            f1 = fr1[i:]
-            f2 = fr2[:-i]
-        else:
-            f1 = fr1[:i]
-            f2 = fr2[-i:]
 
-        for j in range(-fsh[1], fsh[1]):
-            if j == 0:
-                g1 = f1
-                g2 = f2
-            elif j > 0:
-                g1 = f1[:, j:]
-                g2 = f2[:, :-j]
-            else:
-                g1 = f1[:, :j]
-                g2 = f2[:, -j:]
+    pool = Pool(processes=processes)
+    # if processes > 0:
+    #     pool = Pool(processes=processes)
+    #     f_map = pool.map
+    # else:
+    #     def f_map(*args, **kwargs):
+    #         return list(map(*args, **kwargs))
 
-            g1 = g1.flatten()
-            g2 = g2.flatten()
+    # def ccorrs(dx: int):
+    # cc0 = _ccorrs_given_dx(dx, csh, fillvalue, fr1, fr2, fsh, thres_n)
 
-            incl = ~np.isnan(g1) & ~np.isnan(g2)
-            if np.sum(incl) >= thres_n:
-                cc[i + fsh[0], j + fsh[1]] = stats.pearsonr(
-                    g1[incl], g2[incl])[0]
+    dxs = np.arange(-fsh[0], fsh[0])
+    cc[fsh[0] + dxs] = np.array(pool.map(
+        _ccorrs_given_dx,
+        ((dx, csh, fillvalue, fr1, fr2, fsh, thres_n) for dx in dxs)
+    ))
+    # cc[fsh[0] + dxs] = np.array(pool.map(ccorrs, dxs))
+
+    # if processes > 0:
+    #     pool.close()
+
     return cc
+
+
+def _ccorrs_given_dx(inp):
+    dx, csh, fillvalue, fr1, fr2, fsh, thres_n = inp
+    cc0 = np.zeros(csh[1]) + fillvalue
+    if dx == 0:
+        f1 = fr1
+        f2 = fr2
+    elif dx > 0:
+        f1 = fr1[dx:]
+        f2 = fr2[:-dx]
+    else:
+        f1 = fr1[:dx]
+        f2 = fr2[-dx:]
+    for dy in range(-fsh[1], fsh[1]):
+        if dy == 0:
+            g1 = f1
+            g2 = f2
+        elif dy > 0:
+            g1 = f1[:, dy:]
+            g2 = f2[:, :-dy]
+        else:
+            g1 = f1[:, :dy]
+            g2 = f2[:, -dy:]
+
+        g1 = g1.flatten()
+        g2 = g2.flatten()
+
+        incl = ~np.isnan(g1) & ~np.isnan(g2)
+        if np.sum(incl) >= thres_n:
+            cc0[dy + fsh[1]] = stats.pearsonr(g1[incl], g2[incl])[0]
+
+        # return cc0
+    return cc0
+
+class PoolParallel(Pool0):
+    def __del__(self):
+        self.close()
+        # print('Closed!')  # CHECKED
+
+
+class PoolSim:
+    def map(self, *args, **kwargs):
+        return list(map(*args, **kwargs))
+
+
+def Pool(processes=0, *args, **kwargs):
+    if processes == 0:
+        return PoolSim()
+    else:
+        return PoolParallel(processes=processes, *args, **kwargs)
+
+
+# class PoolWrapper:
+#     def __init__(self, processes=0, *args, **kwargs):
+#         if processes == 0:
+#             self._processes = processes
+#         else:
+#             super().__init__(processes, *args, **kwargs)
+#
+#     def map(self, *args, **kwargs):
+#         if self._processes == 0:
+#             return list(map(*args, **kwargs))
+#         else:
+#             super().map(*args, **kwargs)
+#
+#     def __del__(self):
+#         if self._processes > 0:
+#             self.close()
 
 
 def nanautocorr(firing_rate: np.ndarray, thres_n=2) -> np.ndarray:
