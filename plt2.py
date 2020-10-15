@@ -389,7 +389,7 @@ def break_axis(amin, amax=None, xy='x', ax=None, fun_draw=None):
 
 
 def sameaxes(ax: Union[AxesArray, GridAxes],
-             ax0: plt.Axes = None, xy='xy'):
+             ax0: plt.Axes = None, xy='xy', lim=None):
     """
     Match the chosen limits of axes in ax to ax0's (if given) or the max range.
     Also consider: ax1.get_shared_x_axes().join(ax1, ax2)
@@ -409,22 +409,25 @@ def sameaxes(ax: Union[AxesArray, GridAxes],
 
     lims_res = []
     for xy1 in xy:
-        if ax0 is None:
-            if xy1 == 'x':
-                lims = cat_lims([ax1.get_xlim() for ax1 in ax])
-                is_inverted = ax[0].get_xaxis().get_inverted()
+        if lim is None:
+            if ax0 is None:
+                if xy1 == 'x':
+                    lims = cat_lims([ax1.get_xlim() for ax1 in ax])
+                    is_inverted = ax[0].get_xaxis().get_inverted()
+                else:
+                    lims = cat_lims([ax1.get_ylim() for ax1 in ax])
+                    is_inverted = ax[0].get_yaxis().get_inverted()
+                if is_inverted:
+                    lims0 = [np.max(lims[:,0]), np.min(lims[:,1])]
+                else:
+                    lims0 = [np.min(lims[:,0]), np.max(lims[:,1])]
             else:
-                lims = cat_lims([ax1.get_ylim() for ax1 in ax])
-                is_inverted = ax[0].get_yaxis().get_inverted()
-            if is_inverted:
-                lims0 = [np.max(lims[:,0]), np.min(lims[:,1])]
-            else:
-                lims0 = [np.min(lims[:,0]), np.max(lims[:,1])]
+                if xy1 == 'x':
+                    lims0 = ax0.get_xlim()
+                else:
+                    lims0 = ax0.get_ylim()
         else:
-            if xy1 == 'x':
-                lims0 = ax0.get_xlim()
-            else:
-                lims0 = ax0.get_ylim()
+            lims0 = lim
         if xy1 == 'x':
             for ax1 in ax:
                 ax1.set_xlim(lims0)
