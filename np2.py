@@ -668,6 +668,11 @@ def pconc2conc(pconc: np.ndarray) -> np.ndarray:
 
 
 def rotation_matrix(rad, dim=(-2, -1)):
+    if np.ndim(rad) < 2:
+        if not isinstance(rad, np.ndarray):
+            rad = np.array(rad)
+        rad = np.expand_dims(np.array(rad),
+                             list(-(np.arange(2 - np.ndim(rad)) + 1)))
     cat = np.concatenate
     return cat((
         cat((np.cos(rad), -np.sin(rad)), dim[1]),
@@ -683,6 +688,19 @@ def rotate(v, rad: np.ndarray) -> np.ndarray:
     """
     rotmat = rotation_matrix(np.expand_dims(rad, (-1, -2)))
     return np.squeeze(rotmat @ np.expand_dims(v, -1), -1)
+
+
+def ellipse2cov(th, long_axis, short_axis) -> np.array:
+    """
+
+    :param th: radian
+    :param long_axis:
+    :param short_axis:
+    :return: covariance matrix
+    """
+    rot = rotation_matrix(th)
+    cov = rot @ np.diag([long_axis, short_axis]) ** 2 @ rot.T
+    return cov
 
 
 def ____TRANSFORM____():
