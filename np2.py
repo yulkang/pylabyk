@@ -916,6 +916,9 @@ class PoolSim:
     def map(self, *args, **kwargs):
         return list(map(*args, **kwargs))
 
+    def close(self):
+        pass
+
 
 def Pool(processes=0, *args, **kwargs):
     if processes == 0:
