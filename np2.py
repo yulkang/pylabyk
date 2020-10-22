@@ -824,8 +824,10 @@ def nancrosscorr(
     fsh2 = np.array(fr2.shape)
     # csh = fsh1 + fsh2
 
-    # pad smaller of the two
-    max_sh = np.amax(np.stack([fsh1, fsh2], axis=0), axis=0)
+    # NOTE: pad smaller of the two to match max_shape + 2,
+    #   + 2 to ensure both are padded on both sides to remove smoothing artifact
+    max_sh = np.amax(np.stack([fsh1, fsh2], axis=0), axis=0) + 2
+    # max_sh = (max_sh // 2) * 2 + 1  # enforce odd numbers so it has a center
     pad1 = max_sh - fsh1
     # pad1 = np.stack([
     #     int(np.floor(pad1 / 2))])
