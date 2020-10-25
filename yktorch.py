@@ -86,6 +86,13 @@ class OverriddenParameter(nn.Module):
             return TW(**kwargs).fill(s)
         return str((self.param2data(self._param), type(self).__name__))
 
+    def get_n_free(self) -> int:
+        """Number of free parameters"""
+        if self._param.requires_grad:
+            return torch.numel(self._param)
+        else:
+            return 0
+
 
 class BoundedParameter(OverriddenParameter):
     def __init__(self, data, lb=0., ub=1., skip_loading_lbub=False,
@@ -155,6 +162,10 @@ class BoundedParameter(OverriddenParameter):
         })
         return state_dict
 
+    def get_n_free(self) -> int:
+        """Number of free parameters"""
+        return super().get_n_free() * (self.ub > self.lb).astype(torch.int)
+
     # NOTE: overriding load_state_dict() doesn't work because it doesn't know
     #  what prefix to use. Overriding _load_from_state_dict() as below worked.
     # def load_state_dict(
@@ -223,6 +234,11 @@ class ProbabilityParameter(OverriddenParameter):
 
     def param2data(self, conf):
         return F.softmax(enforce_float_tensor(conf), dim=self.probdim)
+
+    def get_n_free(self) -> int:
+        """Number of free parameters after considering that probdim sums to 1"""
+        len_probdim = self._param.shape[self.probdim]
+        return torch.numel(self._param) / len_probdim * (len_probdim - 1)
 
 
 class CircularParameter(OverriddenParameter):
