@@ -413,10 +413,17 @@ def sameaxes(ax: Union[AxesArray, GridAxes],
             if ax0 is None:
                 if xy1 == 'x':
                     lims = cat_lims([ax1.get_xlim() for ax1 in ax])
-                    is_inverted = ax[0].get_xaxis().get_inverted()
+                    lim0 = ax[0].get_xlim()
+                    try:
+                        is_inverted = ax[0].get_xaxis().get_inverted()
+                    except AttributeError:
+                        is_inverted = ax[0].xaxis_inverted()
                 else:
                     lims = cat_lims([ax1.get_ylim() for ax1 in ax])
-                    is_inverted = ax[0].get_yaxis().get_inverted()
+                    try:
+                        is_inverted = ax[0].get_yaxis().get_inverted()
+                    except AttributeError:
+                        is_inverted = ax[0].yaxis_inverted()
                 if is_inverted:
                     lims0 = [np.max(lims[:,0]), np.min(lims[:,1])]
                 else:
