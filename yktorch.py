@@ -86,7 +86,7 @@ class OverriddenParameter(nn.Module):
             return TW(**kwargs).fill(s)
         return str((self.param2data(self._param), type(self).__name__))
 
-    def get_n_free(self) -> int:
+    def get_n_free_param(self) -> int:
         """Number of free parameters"""
         if self._param.requires_grad:
             return torch.numel(self._param)
@@ -162,9 +162,20 @@ class BoundedParameter(OverriddenParameter):
         })
         return state_dict
 
-    def get_n_free(self) -> int:
+    def get_n_free_param(self) -> int:
         """Number of free parameters"""
-        return super().get_n_free() * (self.ub > self.lb).astype(torch.int)
+        if not self._param.requires_grad:
+            return 0
+        else:
+            lb = npt.tensor(-np.inf) if self.lb is None else self.lb
+            ub = npt.tensor(np.inf) if self.ub is None else self.ub
+            if (self.ub.numel() == 1) and (self.lb.numel() == 1):
+                return self._param.numel()
+            else:
+                return np.sum(npy(
+                    ub.expand(self._param.shape)
+                    > lb.expand(self._param.shape)
+                ).astype(int))
 
     # NOTE: overriding load_state_dict() doesn't work because it doesn't know
     #  what prefix to use. Overriding _load_from_state_dict() as below worked.
@@ -235,10 +246,10 @@ class ProbabilityParameter(OverriddenParameter):
     def param2data(self, conf):
         return F.softmax(enforce_float_tensor(conf), dim=self.probdim)
 
-    def get_n_free(self) -> int:
+    def get_n_free_param(self) -> int:
         """Number of free parameters after considering that probdim sums to 1"""
         len_probdim = self._param.shape[self.probdim]
-        return torch.numel(self._param) / len_probdim * (len_probdim - 1)
+        return int(self._param.numel()) // len_probdim * (len_probdim - 1)
 
 
 class CircularParameter(OverriddenParameter):
@@ -643,6 +654,16 @@ class BoundedModule(nn.Module):
         requires_grad = np.stack(requires_grad)
         return names, v, grad, lb, ub, requires_grad
 
+    def get_n_free_param(self) -> int:
+        """Number of free parameters."""
+        n_free = 0
+        for name, module in self.named_modules():
+            if module is not self and (
+                    isinstance(module, OverriddenParameter)
+                    or isinstance(module, BoundedModule)
+            ):
+                n_free += module.get_n_free_param()
+        return n_free
 
 def enforce_float_tensor(v: Union[torch.Tensor, np.ndarray], device=None
                          ) -> torch.Tensor:
