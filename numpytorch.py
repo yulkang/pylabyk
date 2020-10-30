@@ -373,7 +373,7 @@ def repeat_dim(tensor, repeat, dim):
     :type dim: int
     """
     rep = torch.ones(tensor.dim(), dtype=torch.long)
-    rep[dim] = tensor(repeat)
+    rep[dim] = repeat
     return tensor.repeat(torch.Size(rep))
 
 def repeat_batch(*args,
