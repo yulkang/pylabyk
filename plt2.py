@@ -47,7 +47,7 @@ AxesSlice = Union[plt.Axes, Sequence[plt.Axes], np.ndarray, AxesArray]
 
 class GridAxes:
     def __init__(self,
-                 nrows: int, ncols: int,
+                 nrows=1, ncols=1,
                  left=0.5, right=0.1,
                  bottom=0.5, top=0.5,
                  wspace: Union[float, Iterable[float]] = 0.25,
