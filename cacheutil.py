@@ -293,7 +293,7 @@ class Cache(object):
                 name_orig = os.path.basename(self.fullpath_orig)
                 fieldnames = ['name_short', 'name_orig']
 
-                txt_file = os.path.splitext(self.fullpath) + '.txt'
+                txt_file = os.path.splitext(self.fullpath)[0] + '.txt'
                 with open(txt_file, 'w') as file:
                     file.write(name_orig)
                 print('Original long name saved to %s' % txt_file)
