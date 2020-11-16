@@ -47,7 +47,7 @@ AxesSlice = Union[plt.Axes, Sequence[plt.Axes], np.ndarray, AxesArray]
 
 class GridAxes:
     def __init__(self,
-                 nrows: int, ncols: int,
+                 nrows=1, ncols=1,
                  left=0.5, right=0.1,
                  bottom=0.5, top=0.5,
                  wspace: Union[float, Iterable[float]] = 0.25,
@@ -697,23 +697,6 @@ def winter2_rev(n_lev: int) -> CMapType:
     return cmap1
 
 
-def ____Heatmaps____():
-    pass
-
-
-# # 'BuRd': use plt.get_cmap('RdBu_rev')
-# def cmap(name, **kw):
-#     import matplotlib as mpl
-#     from matplotlib.colors import ListedColormap
-#
-#     if name == 'BuRd':
-#         cmap = ListedColormap(np.flip(mpl.cm.RdBu(range(256)), axis=0))
-#     else:
-#         cmap = plt.cmap(name, **kw)
-#
-#     return cmap
-
-
 def cmap_alpha(cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
                n: int = None,
                alpha_max=1.,
@@ -783,6 +766,23 @@ def colormap2arr(arr,cmap):
     values = values.reshape(arr.shape[0],arr.shape[1])
     values = values[::-1]
     return values
+
+
+def ____Heatmaps____():
+    pass
+
+
+# # 'BuRd': use plt.get_cmap('RdBu_rev')
+# def cmap(name, **kw):
+#     import matplotlib as mpl
+#     from matplotlib.colors import ListedColormap
+#
+#     if name == 'BuRd':
+#         cmap = ListedColormap(np.flip(mpl.cm.RdBu(range(256)), axis=0))
+#     else:
+#         cmap = plt.cmap(name, **kw)
+#
+#     return cmap
 
 
 def imshow_discrete(x, shade=None,
