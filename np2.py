@@ -182,6 +182,12 @@ def dictkeys(d, keys):
     return [d[k] for k in keys]
 
 
+def rmkeys(d: dict, keys: Union[str, Iterable[str]]):
+    if type(keys) is str:
+        keys = [keys]
+    return {k: v for k, v in d.items() if k not in keys}
+
+
 def DataFrame(dat):
     """
     Converts dict with 1- or 2-D np.ndarrays into DataFrame
