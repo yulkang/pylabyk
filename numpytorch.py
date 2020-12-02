@@ -282,6 +282,16 @@ def softmax_mask(w: torch.Tensor,
 def ____SHAPE____():
     pass
 
+def indexshape(v: torch.Tensor, index: torch.Tensor) -> torch.Tensor:
+    """
+    index the first dimension of v in the shape of the index tensor.
+    That is, indexshape(v, index).shape == index.shape + v.shape[1:]
+    :param v:
+    :param index:
+    :return: v[index.flatten()].reshape(index.shape + v.shape[1:])
+    """
+    return v[index.flatten()].reshape(index.shape + v.shape[1:])
+
 def attach_dim(v, n_dim_to_prepend=0, n_dim_to_append=0):
     return v.reshape(
         torch.Size([1] * n_dim_to_prepend)
