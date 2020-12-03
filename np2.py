@@ -251,9 +251,28 @@ def copy_via_pickle(obj):
     return pickle.load(buf)
 
 
-#%%
 def ____BATCH____():
     pass
+
+
+def static_vars(**kwargs):
+    """
+    Add kwargs as static variables.
+    Example:
+        @static_vars(counter=0)
+        def foo():
+            foo.counter += 1
+            print "Counter is %d" % foo.counter
+
+    From https://stackoverflow.com/a/279586/2565317
+    :param kwargs: static variables to add to the decorated function
+    :return: decorated function
+    """
+    def decorate(func):
+        for k in kwargs:
+            setattr(func, k, kwargs[k])
+        return func
+    return decorate
 
 
 def arrayfun(fun, *args: np.ndarray):
