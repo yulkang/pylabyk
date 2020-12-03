@@ -1359,6 +1359,15 @@ class Animator:
 
     def export(self, file, ext=('.gif', '.mp4'), duration=100, loop=0,
                kw_gif=()) -> Iterable[str]:
+        """
+
+        :param file:
+        :param ext:
+        :param duration:
+        :param loop:
+        :param kw_gif:
+        :return:
+        """
         if type(ext) is str:
             ext = [ext]
 
