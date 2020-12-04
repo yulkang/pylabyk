@@ -1,10 +1,10 @@
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
-from lib.pylabyk import cacheutil
-from lib.pylabyk import argsutil
+from . import cacheutil
+from . import argsutil
 import os, shutil
 from collections import OrderedDict as odict
 from typing import Union, Iterable
-from lib.pylabyk.cacheutil import datetime4filename, mkdir4file
+from .cacheutil import datetime4filename, mkdir4file
 
 
 def replace_ext(fullpath, ext_new):

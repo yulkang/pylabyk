@@ -280,34 +280,39 @@ class Cache(object):
                 print('Saved cache to %s'
                       % self.fullpath)
             else:
-                import csv
-                csv_in = os.path.join(
-                    os.path.dirname(self.fullpath),
-                    'cache_list.csv'
-                )
-                csv_out = os.path.join(
-                    os.path.dirname(self.fullpath),
-                    'cache_list_temp.csv'
-                )
+                # import csv
+                # csv_in = os.path.join(
+                #     os.path.dirname(self.fullpath),
+                #     'cache_list.csv'
+                # )
+                # csv_out = os.path.join(
+                #     os.path.dirname(self.fullpath),
+                #     'cache_list_temp.csv'
+                # )
                 name_short = os.path.basename(self.fullpath)
                 name_orig = os.path.basename(self.fullpath_orig)
                 fieldnames = ['name_short', 'name_orig']
 
-                if not os.path.exists(csv_in):
-                    with open(csv_in, 'w') as infile:
-                        writer = csv.DictWriter(infile, delimiter=':',
-                                                fieldnames=fieldnames)
-                        writer.writeheader()
+                txt_file = os.path.splitext(self.fullpath)[0] + '.txt'
+                with open(txt_file, 'w') as file:
+                    file.write(name_orig)
+                print('Original long name saved to %s' % txt_file)
 
-                with open(csv_in, 'a') as infile:
-                    writer = csv.DictWriter(infile, delimiter=':',
-                                            fieldnames=fieldnames)
-                    row = {
-                        'name_short': name_short,
-                        'name_orig': name_orig
-                    }
-                    writer.writerow(row)
-                    print('Appended to %s' % csv_in)
+                # if not os.path.exists(csv_in):
+                #     with open(csv_in, 'w') as infile:
+                #         writer = csv.DictWriter(infile, delimiter=':',
+                #                                 fieldnames=fieldnames)
+                #         writer.writeheader()
+
+                # with open(csv_in, 'a') as infile:
+                #     writer = csv.DictWriter(infile, delimiter=':',
+                #                             fieldnames=fieldnames)
+                #     row = {
+                #         'name_short': name_short,
+                #         'name_orig': name_orig
+                #     }
+                #     writer.writerow(row)
+                #     print('Appended to %s' % csv_in)
 
                 print('Saved cache to\n%s\n= %s'
                       % (self.fullpath, self.fullpath_orig))
