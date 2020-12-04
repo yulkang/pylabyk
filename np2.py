@@ -967,15 +967,38 @@ def Pool(processes=None, *args, **kwargs):
         return PoolParallel(processes=processes, *args, **kwargs)
 
 
+def fun_deal(f, inp):
+    return f(*inp)
+
+
+def arrayobj1d(inp: Iterable):
+    """
+    Return a 1D np.ndarray of dtype=np.object.
+    Different from np.array(inp, dtype=np.object) because the latter may
+    return a multidimensional array, which gets flattened when fed to
+    np.meshgrid, unlike the output from this function.
+    """
+    return np.array([None] + list(inp), dtype=np.object)[1:]
+
+
 def vectorize_par(f: Callable, inputs: Iterable,
                   pool: Pool = None, processes=None, chunksize=1,
-                  nout=None, otypes: Union[Sequence[Type], Type] = None
+                  nout=None, otypes: Union[Sequence[Type], Type] = None,
+                  use_starmap=True,
                   ) -> Sequence[np.ndarray]:
     """
     Run f in parallel with meshgrid of inputs along each input's first dimension
     and return the expanded outputs.
     See demo_vectorize_par() for examples.
-    :param f: function.
+    If you get an error like __THE_PROCESS_HAS_FORKED_AND_YOU_CANNOT_USE_THIS_COREFOUNDATION_FUNCTIONALITY___YOU_MUST_EXEC__()
+    then you may have to force using the 'spawn' method in your main script:
+        if __name__ == '__main__':
+            import multiprocessing
+            multiprocessing.set_start_method('spawn')
+    See https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
+
+    :param f: function. This function should be on the top level of the
+        module (e.g., cannot be a lambda or a nested function).
     :param inputs: Iterable of arguments. Each can be iterable or not.
         e.g., vectorize_par(np.ones, [np.arange(5), 2, np.arange(2], nout=1)
         will give an output of
@@ -988,21 +1011,29 @@ def vectorize_par(f: Callable, inputs: Iterable,
         pool.starmap(). Give nout=1 to suppress this behavior when using
         functions that return iterables, e.g., np.ones
     :param otypes: output type(s) of f.
+    :param use_starmap: if True (default), the inputs are given as multiple
+        arguments to f.
+        If False, an iterable containing all inputs is given as one argument
+        to f.
     :return: (iterable of) outputs from f.
     """
     inputs = [inp if (isinstance(inp, np.ndarray) and type(inp[0]) is np.object)
-              else (np.array(list(inp), dtype=np.object) if is_iter(inp)
-                    else np.array([inp], dtype=np.object))
+              else (arrayobj1d(inp) if is_iter(inp)
+                    else arrayobj1d([inp]))
               for inp in inputs]
     lengths = [len(inp) for inp in inputs]
     mesh_inputs = np.meshgrid(*inputs, indexing='ij')  # type: Iterable[np.ndarray]
     mesh_inputs = [m.flatten() for m in mesh_inputs]
-    mesh_inputs = zip(*mesh_inputs)
+    m = zip(*mesh_inputs)
+    m = [m1 for m1 in m]
 
     if pool is None:
-        pool = Pool(processes=processes)
+        pool = Pool(processes=processes)  # type: PoolParallel
 
-    outs = pool.starmap(f, mesh_inputs, chunksize=chunksize)
+    if use_starmap:
+        outs = pool.starmap(f, m, chunksize=chunksize)
+    else:
+        outs = pool.map(f, m, chunksize=chunksize)
 
     if nout is None:
         nout = len(outs[0]) if is_iter(outs[0]) else 1
