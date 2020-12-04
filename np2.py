@@ -17,7 +17,7 @@ import pandas as pd
 from copy import deepcopy, copy
 from . import numpytorch
 from pprint import pprint
-from typing import Union, Sequence, Iterable, Tuple
+from typing import Union, Sequence, Iterable, Tuple, Type, Callable
 import multiprocessing
 from multiprocessing.pool import Pool as Pool0
 # from multiprocessing import Pool
@@ -84,7 +84,7 @@ def cell2mat2(l, max_len=None):
         else:
             m[ii,:] = l1
 
-    return m     
+    return m
 
 
 def mat2cell(m):
@@ -404,6 +404,10 @@ def is_None(v):
 
 def is_iter(v):
     return hasattr(v, '__iter__')
+
+
+def is_sequence(v):
+    return hasattr(v, '__len__')
 
 
 def ____NAN____():
@@ -933,6 +937,11 @@ def _ccorrs_given_dx(inp):
         # return cc0
     return cc0
 
+
+def ____MULTIPROCESSING____():
+    pass
+
+
 class PoolParallel(Pool0):
     def __del__(self):
         self.close()
@@ -947,29 +956,105 @@ class PoolSim:
         pass
 
 
-def Pool(processes=0, *args, **kwargs):
+def Pool(processes=None, *args, **kwargs):
+    if processes is None:
+        import multiprocessing
+        processes = multiprocessing.cpu_count()
+
     if processes == 0:
         return PoolSim()
     else:
         return PoolParallel(processes=processes, *args, **kwargs)
 
 
-# class PoolWrapper:
-#     def __init__(self, processes=0, *args, **kwargs):
-#         if processes == 0:
-#             self._processes = processes
-#         else:
-#             super().__init__(processes, *args, **kwargs)
-#
-#     def map(self, *args, **kwargs):
-#         if self._processes == 0:
-#             return list(map(*args, **kwargs))
-#         else:
-#             super().map(*args, **kwargs)
-#
-#     def __del__(self):
-#         if self._processes > 0:
-#             self.close()
+def vectorize_par(f: Callable, inputs: Iterable,
+                  pool: Pool = None, processes=None, chunksize=1,
+                  nout=None, otypes: Union[Sequence[Type], Type] = None
+                  ) -> Sequence[np.ndarray]:
+    """
+    Run f in parallel with meshgrid of inputs along each input's first dimension
+    and return the expanded outputs.
+    See demo_vectorize_par() for examples.
+    :param f: function.
+    :param inputs: Iterable of arguments. Each can be iterable or not.
+        e.g., vectorize_par(np.ones, [np.arange(5), 2, np.arange(2], nout=1)
+        will give an output of
+    :param pool: a Pool object. If None (default), one will be created.
+    :param processes: Number of parallel processes.
+        If None (default), set to the number of CPU cores.
+        Ignored if pool is given.
+    :param chunksize: Giving an integer larger than 1 may boost efficiency.
+    :param nout: If unspecified, set to the length of the first output from
+        pool.starmap(). Give nout=1 to suppress this behavior when using
+        functions that return iterables, e.g., np.ones
+    :param otypes: output type(s) of f.
+    :return: (iterable of) outputs from f.
+    """
+    inputs = [inp if (isinstance(inp, np.ndarray) and type(inp[0]) is np.object)
+              else (np.array(list(inp), dtype=np.object) if is_iter(inp)
+                    else np.array([inp], dtype=np.object))
+              for inp in inputs]
+    lengths = [len(inp) for inp in inputs]
+    mesh_inputs = np.meshgrid(*inputs, indexing='ij')  # type: Iterable[np.ndarray]
+    mesh_inputs = [m.flatten() for m in mesh_inputs]
+    mesh_inputs = zip(*mesh_inputs)
+
+    if pool is None:
+        pool = Pool(processes=processes)
+
+    outs = pool.starmap(f, mesh_inputs, chunksize=chunksize)
+
+    if nout is None:
+        nout = len(outs[0]) if is_iter(outs[0]) else 1
+
+    if otypes is None:
+        otypes = [np.object] * nout
+    elif not is_sequence(otypes):
+        otypes = [otypes]
+
+    # NOTE: deliberately keeping outs, outs1, and outs2 for debugging.
+    #  After confirming everything works well, rename all to "outs"
+    #  to save memory.
+    if nout > 1:
+        outs1 = zip(*outs)
+        outs2 = [np.array(out, dtype=otype).reshape(lengths) for out, otype in
+                 zip(outs1, otypes)]
+    else:
+        outs2 = np.array(outs, dtype=otypes[0]).reshape(lengths)
+    return outs2
+
+
+def demo_vectorize_par():
+    import torch
+
+    def f(a, b):
+        return a + b, a * b
+
+    out = vectorize_par(f, [(10, 20), (1, 2, 3)])
+    print(out[0])
+    print(out[1])
+    """
+    Output:
+    [[11 12 13]
+     [21 22 23]]
+    [[10 20 30]
+     [20 40 60]]
+    """
+
+    out = vectorize_par(torch.ones, [(2, 3), (4, 5, 6)], nout=1)
+    for row in range(out.shape[0]):
+        for col in range(out.shape[1]):
+            print(
+                'out[%d,%d].shape: (%d,%d)' % (row, col, *out[row, col].shape))
+    """
+    Output:
+    out[0,0].shape: (2,4)
+    out[0,1].shape: (2,5)
+    out[0,2].shape: (2,6)
+    out[1,0].shape: (3,4)
+    out[1,1].shape: (3,5)
+    out[1,2].shape: (3,6)
+    """
 
 
 def nanautocorr(firing_rate: np.ndarray, thres_n=2) -> np.ndarray:
