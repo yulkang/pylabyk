@@ -180,7 +180,7 @@ class Cache(object):
         """
         pass
 
-    def get(self, key=None, subkeys=None, load_gpu=True):
+    def get(self, key=None, subkeys=None, load_gpu=False):
         """
         :param key: non-None object that converts into a string, e.g., locals()
         :param subkeys:if list, return a tuple of values for
@@ -231,7 +231,7 @@ class Cache(object):
     def ____DICT_INTERFACE____(self):
         pass
 
-    def getdict(self, subkeys: List = None, key=None, load_gpu=True):
+    def getdict(self, subkeys: List = None, key=None, load_gpu=False):
         """
         Return a tuple of values corresponding to subkeys from default key.
         Assumes that self.dict[key] is itself a dict.
