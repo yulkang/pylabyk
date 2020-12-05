@@ -961,9 +961,16 @@ class PoolSim:
 
 
 def Pool(processes=None, *args, **kwargs):
+    import multiprocessing
+    n_processors = multiprocessing.cpu_count()
+
     if processes is None:
-        import multiprocessing
-        processes = multiprocessing.cpu_count()
+        processes = n_processors
+    elif processes < 0:
+        processes = n_processors + processes
+    elif (0 < processes) and (processes < 1):
+        processes = int(np.clip(n_processors * processes,
+                                a_min=1, a_max=n_processors))
 
     if processes == 0:
         return PoolSim()
@@ -1033,6 +1040,14 @@ def vectorize_par(f: Callable, inputs: Iterable,
 
     if pool is None:
         pool = Pool(processes=processes)  # type: PoolParallel
+
+    if chunksize is None:
+        # NOTE: this doesn't seem to work well, unlike chunksize=1.
+        #   Need further experiment.
+        chunksize = np.max([
+            int(np.floor(np.prod(lengths) / pool._processes)),
+            1
+        ])
 
     if use_starmap:
         outs = pool.starmap(f, m, chunksize=chunksize)
