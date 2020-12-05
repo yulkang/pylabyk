@@ -60,7 +60,11 @@ def vec_on(arr, dim, n_dim=None):
 def cell2mat(c: np.ndarray, dtype=np.float) -> np.ndarray:
     # convert from object to numeric
     shape0 = c.shape
-    vs = np.stack([v.astype(dtype) for v in c.flatten()])
+    vs = np.stack([
+        v.astype(dtype) if isinstance(v, np.ndarray)
+        else np.array(v).astype(dtype)
+        for v in c.flatten()
+    ])
     return np.reshape(vs, shape0 + vs[0].shape)
 
 
@@ -1048,8 +1052,10 @@ def vectorize_par(f: Callable, inputs: Iterable,
     #  to save memory.
     if nout > 1:
         outs1 = zip(*outs)
-        outs2 = [np.array(out, dtype=otype).reshape(lengths) for out, otype in
-                 zip(outs1, otypes)]
+        outs3 = [arrayobj1d(out).reshape(lengths) for out in outs1]
+        outs2 = [cell2mat(out, otype) if otype is not np.object
+                 else out
+                 for out, otype in zip(outs3, otypes)]
     else:
         outs2 = np.array(outs, dtype=otypes[0]).reshape(lengths)
     return outs2
