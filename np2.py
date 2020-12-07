@@ -953,8 +953,9 @@ class PoolParallel(Pool0):
 
 
 class PoolSim:
-    def map(self, *args, **kwargs):
-        return list(map(*args, **kwargs))
+    def map(self, fun, iter, chunksize=1, **kwargs):
+        # ignore chunksize
+        return list(map(fun, iter, **kwargs))
 
     def close(self):
         pass
@@ -1015,6 +1016,7 @@ def vectorize_par(f: Callable, inputs: Iterable,
         will give an output of
     :param pool: a Pool object. If None (default), one will be created.
     :param processes: Number of parallel processes.
+        If 0, use PoolSim, which does not use multiprocessing.
         If None (default), set to the number of CPU cores.
         Ignored if pool is given.
     :param chunksize: Giving an integer larger than 1 may boost efficiency.
@@ -1026,6 +1028,7 @@ def vectorize_par(f: Callable, inputs: Iterable,
         arguments to f.
         If False, an iterable containing all inputs is given as one argument
         to f.
+        Ignored if processes=0 and multiprocessing is not used.
     :return: (iterable of) outputs from f.
     """
     inputs = [inp if (isinstance(inp, np.ndarray) and type(inp[0]) is np.object)
@@ -1040,6 +1043,9 @@ def vectorize_par(f: Callable, inputs: Iterable,
 
     if pool is None:
         pool = Pool(processes=processes)  # type: PoolParallel
+
+    if processes == 0:
+        use_starmap = False
 
     if chunksize is None:
         # NOTE: this doesn't seem to work well, unlike chunksize=1.
@@ -1068,7 +1074,8 @@ def vectorize_par(f: Callable, inputs: Iterable,
     if nout > 1:
         outs1 = zip(*outs)
     else:
-        outs1 = [outs]
+        # Reverse the action of map() putting each output in a list
+        outs1 = [[out1[0] for out1 in outs]]
     outs2 = [arrayobj1d(out).reshape(lengths) for out in outs1]
     outs3 = [cell2mat(out, otype) if otype is not np.object
              else out
