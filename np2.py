@@ -1059,7 +1059,7 @@ def vectorize_par(f: Callable, inputs: Iterable,
 
     if otypes is None:
         otypes = [np.object] * nout
-    elif not is_sequence(otypes):
+    elif not is_sequence(type(otypes)):
         otypes = [otypes]
 
     # NOTE: deliberately keeping outs, outs1, and outs2 for debugging.
@@ -1067,13 +1067,13 @@ def vectorize_par(f: Callable, inputs: Iterable,
     #  to save memory.
     if nout > 1:
         outs1 = zip(*outs)
-        outs3 = [arrayobj1d(out).reshape(lengths) for out in outs1]
-        outs2 = [cell2mat(out, otype) if otype is not np.object
-                 else out
-                 for out, otype in zip(outs3, otypes)]
     else:
-        outs2 = np.array(outs, dtype=otypes[0]).reshape(lengths)
-    return outs2
+        outs1 = [outs]
+    outs2 = [arrayobj1d(out).reshape(lengths) for out in outs1]
+    outs3 = [cell2mat(out, otype) if otype is not np.object
+             else out
+             for out, otype in zip(outs2, otypes)]
+    return outs3
 
 
 def demo_vectorize_par():
