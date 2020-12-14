@@ -957,6 +957,11 @@ class PoolSim:
         # ignore chunksize
         return list(map(fun, iter, **kwargs))
 
+    def starmap(self, fun, iter, chunksize=1, **kwargs):
+        # ignore chunksize
+        from itertools import starmap
+        return list(starmap(fun, iter, **kwargs))
+
     def close(self):
         pass
 
@@ -1044,8 +1049,8 @@ def vectorize_par(f: Callable, inputs: Iterable,
     if pool is None:
         pool = Pool(processes=processes)  # type: PoolParallel
 
-    if processes == 0:
-        use_starmap = False
+    # if processes == 0:
+    #     use_starmap = False
 
     if chunksize is None:
         # NOTE: this doesn't seem to work well, unlike chunksize=1.
@@ -1071,12 +1076,22 @@ def vectorize_par(f: Callable, inputs: Iterable,
     # NOTE: deliberately keeping outs, outs1, and outs2 for debugging.
     #  After confirming everything works well, rename all to "outs"
     #  to save memory.
+    # DEF: outs1[argout][i_input_flattened]
     if nout > 1:
         outs1 = zip(*outs)
     else:
-        # Reverse the action of map() putting each output in a list
-        outs1 = [[out1[0] for out1 in outs]]
+        if use_starmap and isinstance(pool, PoolSim):
+            outs1 = [outs]
+        else:
+            # Reverse the action of map() putting each output in a list
+            outs1 = [[out1[0] for out1 in outs]]
+
+    # --- outs2: reshape to inputs' dimensions
+    # DEF: outs2[argout][i_input1, i_input2, ...]
     outs2 = [arrayobj1d(out).reshape(lengths) for out in outs1]
+
+    # --- outs3: set to a correct otype
+    # DEF: outs2[argout][i_input1, i_input2, ...]
     outs3 = [cell2mat(out, otype) if otype is not np.object
              else out
              for out, otype in zip(outs2, otypes)]
