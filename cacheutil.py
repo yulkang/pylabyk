@@ -41,7 +41,7 @@ import os
 from . import zipPickle
 from collections import OrderedDict as odict
 from .argsutil import dict2fname, kwdef, fullpath2hash
-from typing import List
+from typing import List, Union
 
 ignore_cache = False
 ignored_once = []
@@ -231,7 +231,8 @@ class Cache(object):
     def ____DICT_INTERFACE____(self):
         pass
 
-    def getdict(self, subkeys: List = None, key=None, load_gpu=False):
+    def getdict(self, subkeys: Union[str, List] = None,
+                key=None, load_gpu=False):
         """
         Return a tuple of values corresponding to subkeys from default key.
         Assumes that self.dict[key] is itself a dict.
