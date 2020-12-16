@@ -1080,7 +1080,7 @@ def vectorize_par(f: Callable, inputs: Iterable,
     if nout > 1:
         outs1 = zip(*outs)
     else:
-        if use_starmap and isinstance(pool, PoolSim):
+        if use_starmap:
             outs1 = [outs]
         else:
             # Reverse the action of map() putting each output in a list
@@ -1091,7 +1091,7 @@ def vectorize_par(f: Callable, inputs: Iterable,
     outs2 = [arrayobj1d(out).reshape(lengths) for out in outs1]
 
     # --- outs3: set to a correct otype
-    # DEF: outs2[argout][i_input1, i_input2, ...]
+    # DEF: outs3[argout][i_input1, i_input2, ...]
     outs3 = [cell2mat(out, otype) if otype is not np.object
              else out
              for out, otype in zip(outs2, otypes)]
