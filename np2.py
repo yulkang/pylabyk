@@ -1305,3 +1305,6 @@ def filt_str(s, filt_preset='alphanumeric', replace_with='_'):
     else:
         raise ValueError()
     return re.sub(f, replace_with, s)
+
+
+make_alphanumeric = filt_str
