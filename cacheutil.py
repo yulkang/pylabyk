@@ -102,8 +102,8 @@ class Cache(object):
     See example_cache_custom_file()
     """
     def __init__(self, fullpath='cache.zpkl', key=None, verbose=True,
-                 ignore_key=False, hash_fname=False,
-                 save_to_cpu=True
+                 ignore_key=False, hash_fname=None,
+                 save_to_cpu=True, max_len_fname=255
                  ):
         """
         :param fullpath: use cacheutil.dict2fname(dict) for human-readable
@@ -112,6 +112,9 @@ class Cache(object):
         :param verbose: bool.
         :param ignore_key: bool.
         """
+        if hash_fname is None:
+            _, fname = os.path.split(fullpath)
+            hash_fname = len(fname) > max_len_fname
         if hash_fname:
             self.fullpath_orig = fullpath
             self.fullpath = fullpath2hash(fullpath)
@@ -263,10 +266,7 @@ class Cache(object):
         pass
 
     def save(self):
-        pth = os.path.dirname(self.fullpath)
-        if not os.path.exists(pth) and pth != '':
-            os.mkdir(pth)
-
+        mkdir4file(self.fullpath)
         self.dict['_fullpath_orig'] = self.fullpath_orig
 
         if self.save_to_cpu:
