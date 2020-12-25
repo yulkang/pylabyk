@@ -137,6 +137,14 @@ class Cache(object):
             else:
                 self.dict = zipPickle.load(self.fullpath)
 
+    @property
+    def fname_orig(self):
+        return os.path.splitext(os.path.split(self.fullpath_orig)[1])[0]
+
+    @property
+    def fname(self):
+        return os.path.splitext(os.path.split(self.fullpath)[1])[0]
+
     def __enter__(self):
         return self
 

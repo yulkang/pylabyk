@@ -864,6 +864,7 @@ def optimize(
         n_fold_valid=1,
         epoch_to_check=None,  # CHECKED
         comment='',
+        best_grad_mode='train',
         **kwargs  # to ignore unnecessary kwargs
 ) -> (float, dict, dict, List[float], List[float]):
     """
@@ -872,8 +873,9 @@ def optimize(
     :param fun_data: (mode='all'|'train'|'valid'|'train_valid'|'test',
     fold_valid=0, epoch=0, n_fold_valid=1) -> (data, target)
     :param fun_loss: (out, target) -> loss
-    :param plotfuns: [(str, fun)] where fun takes dict d with keys
-    'data_*', 'target_*', 'out_*', 'loss_*', where * = 'train', 'valid', etc.
+    :param plotfuns: [(name_plotfun: str, plotfun: PlotFunType)]
+    where plotfun(model, d) -> (fgure, d)
+    and d is as returned by optimize() itself
     :param optimizer_kind:
     :param max_epoch:
     :param patience:
@@ -886,6 +888,8 @@ def optimize(
     :param show_progress_every:
     :param to_print_grad:
     :param n_fold_valid:
+    :param best_grad_mode: take gradient after fitting with this data mode;
+    'None' to skip
     :param kwargs:
     :return: loss_test, best_state, d, losses_train, losses_valid where d
     contains 'data_*', 'target_*', 'out_*', and 'loss_*', where * is
@@ -1053,7 +1057,7 @@ def optimize(
                          loss_train, loss_valid, learning_rate,
                          best_loss_valid, best_loss_epoch))
 
-            if epoch % show_progress_every == 0:
+            if show_progress_every != 0 and epoch % show_progress_every == 0:
                 model.train()
                 data_train_valid, target_train_valid = fun_data(
                     'train_valid', i_fold, epoch, n_fold_valid
@@ -1239,8 +1243,17 @@ def optimize(
     d = {}
     for mode in ['train_valid', 'valid', 'test', 'all']:
         data, target = fun_data(mode, 0, 0, n_fold_valid)
+
+        if mode == best_grad_mode:
+            model.train()
+            model.zero_grad()
+
         out = model(data)
         loss = fun_loss(out, target)
+
+        if mode == best_grad_mode:
+            loss.backward()
+
         d.update({
             'data_' + mode: data,
             'target_' + mode: target,
@@ -1291,7 +1304,8 @@ def save_optim_results(
     :param model:
     :param best_state: model.state_dict()
     :param d: as returned from optimize()
-    :param plotfuns:
+    :param plotfuns: [fun_plot(model, d), ...]
+        where fun_plot(model, d) -> (figure, _)
     :param fun_tab_file: (file_kind, extension) -> fullpath
     :param fun_fig_file: (file_kind, extension) -> fullpath
     :param plot_exts:
@@ -1332,25 +1346,32 @@ def save_optim_results(
         files.append(file)
 
     if d is not None:
-        file = fun_tab_file('best_loss', '.csv')
-        with open(file, 'w') as f:
-            f.write('name, value\n')
-            for k, v in d.items():
-                if k.startswith('loss'):
-                    f.write('%s, %s\n'
-                            % (k, tensor2str(v)))
-        print('Saved to %s' % file)
-        files.append(file)
+        files1 = fun_tab_file('best_loss', '.csv')
+        if isinstance(files1, str):
+            files1 = [files1]
+        for file in files1:
+            with open(file, 'w') as f:
+                f.write('name, value\n')
+                for k, v in d.items():
+                    if k.startswith('loss'):
+                        f.write('%s, %s\n'
+                                % (k, (tensor2str(v) if torch.is_tensor(v)
+                                       else '%g' % v)))
+            print('Saved to %s' % file)
+            files.append(file)
 
     if plotfuns is not None and model is not None and d is not None:
         plotfuns = odict(plotfuns)
         for k, fun_plot in plotfuns.items():
             for plot_ext in plot_exts:
-                file = fun_fig_file(k, plot_ext)
-                fig, _ = fun_plot(model, d)
-                fig.savefig(file, dpi=300)
-                print('Saved to %s' % file)
-                files.append(file)
+                files1 = fun_fig_file(k, plot_ext)
+                if isinstance(files1, str):
+                    files1 = [files1]
+                for file in files1:
+                    fig, _ = fun_plot(model, d)
+                    fig.savefig(file, dpi=300)
+                    print('Saved to %s' % file)
+                    files.append(file)
     return files
 
 

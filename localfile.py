@@ -85,7 +85,9 @@ class LocalFile(object):
             cacheutil.dict2fname(d) + '.zpkl'
         )
 
-    def get_file(self, filekind, kind, d=None, ext=None, subdir=None):
+    def get_file(self, filekind, kind: str,
+                 d: Union[Iterable[tuple], dict, odict, str, None] = None,
+                 ext=None, subdir=None):
         """
         :type filekind: str
         :type kind: str
@@ -97,14 +99,18 @@ class LocalFile(object):
             ext = '.' + filekind
         if d is None:
             d = {}
-        return os.path.join(
-            self.get_pth_out(subdir), cacheutil.dict2fname(
+        if isinstance(d, str):
+            fname = '%s=%s+%s' % (filekind, kind, d)
+        else:
+            fname = cacheutil.dict2fname(
                 argsutil.kwdef(
                     argsutil.merge_fileargs(d),
                     [(filekind, kind)],
                     sort_merged=False, sort_given=True, def_bef_given=True
                 )
-            ) + ext
+            )
+        return os.path.join(
+            self.get_pth_out(subdir), fname + ext
         )
 
     def get_cache(
