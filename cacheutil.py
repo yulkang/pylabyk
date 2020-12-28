@@ -124,18 +124,38 @@ class Cache(object):
         self.verbose = verbose
         self.save_to_cpu = save_to_cpu
 
-        self.dict = {}
+        self._dict = None
         self.to_save = False
         if key is None:
             self.key = None
         else:
             self.key = self.format_key(key)
         self.ignore_key = ignore_key
-        if os.path.exists(self.fullpath):
-            if ignore_cache and self.fullpath not in ignored_once:
-                ignored_once.append(self.fullpath)
+
+        # # UNUSED in favor of lazy loading
+        # self.dict = {}
+        # if os.path.exists(self.fullpath):
+        #     if ignore_cache and self.fullpath not in ignored_once:
+        #         ignored_once.append(self.fullpath)
+        #     else:
+        #         self.dict = zipPickle.load(self.fullpath)
+
+    @property
+    def dict(self):
+        if self._dict is None:
+            if os.path.exists(self.fullpath):
+                if ignore_cache and self.fullpath not in ignored_once:
+                    ignored_once.append(self.fullpath)
+                    self._dict = {}
+                else:
+                    self._dict = zipPickle.load(self.fullpath)
             else:
-                self.dict = zipPickle.load(self.fullpath)
+                self._dict = {}
+        return self._dict
+
+    @dict.setter
+    def dict(self, v):
+        self._dict = v
 
     @property
     def fname_orig(self):
@@ -199,7 +219,12 @@ class Cache(object):
         :rtype: Any
         """
         if self.ignore_key:
-            key = list(self.dict.keys())[0]
+            if len(self.dict) == 0:
+                key = None
+            else:
+                keys = [k for k in self.dict.keys() if not k.startswith('_')]
+                assert len(keys) == 1, 'multiple keys exist - cannot ignore!'
+                key = keys[0]
         elif key is None:
             key = self.key
         if self.verbose and self.exists(key):
