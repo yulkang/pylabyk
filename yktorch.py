@@ -953,7 +953,7 @@ def optimize(
     losses_train = []
     losses_valid = []
 
-    if to_plot_progress:
+    if to_plot_progress and max_epoch > 0:
         writer = SummaryWriter(comment=comment)
     t_st = time.time()
     epoch = 0
@@ -1013,7 +1013,7 @@ def optimize(
             losses_train.append(npy(loss_train))
             losses_valid.append(npy(loss_valid))
 
-            if to_plot_progress:
+            if to_plot_progress and max_epoch > 0:
                 writer.add_scalar(
                     'loss_train', loss_train,
                     global_step=epoch
@@ -1065,11 +1065,12 @@ def optimize(
                 out_train_valid = model(data_train_valid)
                 loss_train_valid = fun_loss(out_train_valid, target_train_valid)
                 print_loss()
-                if to_plot_progress:
+
+                if to_plot_progress and max_epoch > 0:
                     d = {
-                        'data_train': data_train,
-                        'data_valid': data_valid,
-                        'data_train_valid': data_train_valid,
+                        'data_train': data_train.detach(),
+                        'data_valid': data_valid.detach(),
+                        'data_train_valid': data_train_valid.detach(),
                         'out_train': out_train.detach(),
                         'out_valid': out_valid.detach(),
                         'out_train_valid': out_train_valid.detach(),
@@ -1080,7 +1081,6 @@ def optimize(
                         'loss_valid': loss_valid.detach(),
                         'loss_train_valid': loss_train_valid.detach()
                     }
-
                     for k, f in odict(plotfuns).items():
                         fig, d = f(model, d)
                         if fig is not None:
@@ -1137,7 +1137,7 @@ def optimize(
         cache.save()
 
     print_loss()
-    if to_plot_progress:
+    if to_plot_progress and max_epoch > 0:
         writer.close()
 
     if epoch_to_check is not None:
