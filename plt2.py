@@ -315,6 +315,31 @@ def ____Axes_Limits____():
     pass
 
 
+def lim_margin(v, xy='y', margin=0.05, ax=None):
+    try:
+        _ = margin[1]
+    except TypeError:
+        margin = [margin, margin]
+    try:
+        _ = margin[1]
+    except IndexError:
+        margin = list(margin) * 2
+    vmax = np.amax(v)
+    vmin = np.amin(v)
+    v_range = vmax - vmin
+    amin = vmin - v_range * margin[0]
+    amax = vmax + v_range * margin[0]
+    if ax is None:
+        ax = plt.gca()
+    if xy == 'x':
+        ax.set_xlim([amin, amax])
+    elif xy == 'y':
+        ax.set_ylim([amin, amax])
+    else:
+        raise ValueError()
+    return amin, amax
+
+
 def break_axis(amin, amax=None, xy='x', ax=None, fun_draw=None):
     """
     @param amin: data coordinate to start breaking from
