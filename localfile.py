@@ -99,16 +99,22 @@ class LocalFile(object):
             ext = '.' + filekind
         if d is None:
             d = {}
+        elif isinstance(d, str):
+            pass
+        elif not (type(d) is list):
+            d = [d]
+
         if isinstance(d, str):
-            fname = '%s=%s+%s' % (filekind, kind, d)
+            fname = d
         else:
-            fname = cacheutil.dict2fname(
-                argsutil.kwdef(
+            kw_fname = argsutil.kwdef(
                     argsutil.merge_fileargs(d),
-                    [(filekind, kind)],
+                    {},
                     sort_merged=False, sort_given=True, def_bef_given=True
                 )
-            )
+            fname = cacheutil.dict2fname(argsutil.merge_fileargs(kw_fname))
+
+        fname = '%s=%s+%s' % (filekind, kind, fname)
         return os.path.join(
             self.get_pth_out(subdir), fname + ext
         )
@@ -122,17 +128,11 @@ class LocalFile(object):
         :type cache_kind: str
         :type d: Union[Iterable[tuple], dict, odict, None]
         """
-        if d is None:
-            d = [{}]
-        elif not (type(d) is list):
-            d = [d]
-        return cacheutil.Cache(
-            self.get_file_cache(argsutil.kwdef(
-                argsutil.merge_fileargs(d),
-                [('cache', cache_kind)],
-                sort_merged=False, sort_given=True, def_bef_given=True
-            ), subdir=subdir), **kwargs
+        file = self.get_file(
+            filekind='cache', kind=cache_kind,
+            d=d, ext='.zpkl', subdir=subdir
         )
+        return cacheutil.Cache(file, **kwargs)
 
     def get_file_fig(self, fig_kind,
                      d: Union[Iterable[tuple], dict, odict, None] = None,
