@@ -4,12 +4,17 @@ import networkx as nx
 from matplotlib.patches import ArrowStyle
 
 
-def draw_bipartite(weights=None):
-    if weights is None:
-        weights = np.array([[1, 19], [10, 10]])
+def draw_bipartite(
+        weights=None,
+        weight_max=None,
+):
+    # if weights is None:
+    #     weights = np.array([[1, 19], [10, 10]])
 
-    weight_max = 20
     n_node = len(weights)
+    if weight_max is None:
+        weight_max = np.mean(np.sum(weights, 1)) * 2
+    # weight_max = 20
     node_sizes = np.concatenate([np.sum(weights, 1), np.sum(weights, 0)])
 
     G = nx.DiGraph()
@@ -30,7 +35,7 @@ def draw_bipartite(weights=None):
     nx.draw_networkx_nodes(
         G, pos, nodelist=np.arange(n_node ** 2),
         node_size=300 * node_sizes / weight_max,
-        node_color=(node_sizes / weight_max),
+        node_color=cmap(node_sizes / weight_max),
         cmap=cmap,
         alpha=0.5
     )
@@ -39,7 +44,7 @@ def draw_bipartite(weights=None):
         w = v['weight']
         nx.draw_networkx_edges(
             G, pos, edgelist=[edge],
-            edge_color=cmap(w / weight_max),
+            edge_color=cmap(w / weight_max * n_node),
             width=0,
             arrowstyle=ArrowStyle.Simple(
                 head_length=w / weight_max * 2.1,
@@ -54,7 +59,7 @@ def draw_bipartite(weights=None):
         G, pos, edge_labels=edge_weights,
         label_pos = 0.33
     )
-    node_labels = {k: v['count'] for k, v in G.nodes.items()}
+    node_labels = {k: '%g' % v['count'] for k, v in G.nodes.items()}
     nx.draw_networkx_labels(
         G, pos, labels=node_labels
     )
@@ -63,6 +68,8 @@ def draw_bipartite(weights=None):
     plt.box(False)
     # plt.show()
     # print('--')
+
+    return G, pos
 
 
 if __name__ == '__main__':
