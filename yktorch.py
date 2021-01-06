@@ -1286,7 +1286,9 @@ def tensor2str(v: Union[torch.Tensor], sep='; ') -> str:
     else:
         return '(%s) %s' % (
             sep.join(['%d' % s for s in v.shape]),
-            sep.join(['%g' % v1 for v1 in v.flatten()])
+            sep.join(
+                ['%g' % v1 for v1 in v.flatten()]
+            ) if v.ndimension() > 0 else '%g' % v
         )
 
 
