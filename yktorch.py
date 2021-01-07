@@ -1012,6 +1012,11 @@ def optimize(
             loss_valid = torch.mean(torch.stack(losses_fold_valid))
             losses_train.append(npy(loss_train))
             losses_valid.append(npy(loss_valid))
+            if optimizer_kind != 'LBFGS':
+                # steps are not taken here,
+                # since it's BEFORE storing the best state
+                # Still, take the gradient for plotting
+                loss_train.backward()
 
             if to_plot_progress and max_epoch > 0:
                 writer.add_scalar(
@@ -1068,23 +1073,27 @@ def optimize(
 
                 if to_plot_progress and max_epoch > 0:
                     d = {
-                        'data_train': data_train.detach(),
-                        'data_valid': data_valid.detach(),
-                        'data_train_valid': data_train_valid.detach(),
-                        'out_train': out_train.detach(),
-                        'out_valid': out_valid.detach(),
-                        'out_train_valid': out_train_valid.detach(),
-                        'target_train': target_train.detach(),
-                        'target_valid': target_valid.detach(),
-                        'target_train_valid': target_train_valid.detach(),
-                        'loss_train': loss_train.detach(),
-                        'loss_valid': loss_valid.detach(),
-                        'loss_train_valid': loss_train_valid.detach()
+                        'data_train': data_train,
+                        'data_valid': data_valid,
+                        'data_train_valid': data_train_valid,
+                        'out_train': out_train,
+                        'out_valid': out_valid,
+                        'out_train_valid': out_train_valid,
+                        'target_train': target_train,
+                        'target_valid': target_valid,
+                        'target_train_valid': target_train_valid,
+                        'loss_train': loss_train,
+                        'loss_valid': loss_valid,
+                        'loss_train_valid': loss_train_valid
                     }
                     for k, f in odict(plotfuns).items():
                         fig, d = f(model, d)
                         if fig is not None:
                             writer.add_figure(k, fig, global_step=epoch)
+                    d = {
+                        k: (v.detach() if torch.is_tensor(v) else v)
+                        for k, v in d.items()
+                    }
 
             # --- Learning rate reduction and patience
             # if epoch == reduced_lr_on_epoch + reset_lr_after
@@ -1108,11 +1117,10 @@ def optimize(
                     print_grad(model)
                 break
 
-            # --- Take a step
+            # --- Take a step (do after plotting)
             if optimizer_kind != 'LBFGS':
                 # steps are not taken above for n_fold_valid == 1, so take a
-                # step here, after storing the best state
-                loss_train.backward()
+                # step here, AFTER storing the best state
                 if to_print_grad and epoch == 0:
                     print_grad(model)
                 if max_epoch > 0:
