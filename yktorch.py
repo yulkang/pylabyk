@@ -97,6 +97,15 @@ class OverriddenParameter(nn.Module):
 class BoundedParameter(OverriddenParameter):
     def __init__(self, data, lb=0., ub=1., skip_loading_lbub=False,
                  requires_grad=True, **kwargs):
+        """
+
+        :param data:
+        :param lb:
+        :param ub:
+        :param skip_loading_lbub:
+        :param requires_grad:
+        :param kwargs:
+        """
         super().__init__(**kwargs)
         self.lb = npt.tensor(lb)
         self.ub = npt.tensor(ub)
@@ -664,6 +673,41 @@ class BoundedModule(nn.Module):
             ):
                 n_free += module.get_n_free_param()
         return n_free
+
+    def load_state_dict_data(
+            self, state_dict_data: Dict[str, torch.Tensor], strict=False
+    ) -> (List[str], List[str]):
+        """
+        EXAMPLE:
+        from pprint import pprint
+        import yktorch as ykt
+
+        class Objective(ykt.BoundedModule):
+            def __init__(self):
+                self.a = ykt.BoundedParameter([0.], lb=-1., ub=1.)
+        obj = Objective()
+        obj.load_state_dict_data({'a': torch.tensor([0.5])})
+        pprint(obj.named_bounded_param_value())
+        print(obj0.__str__())
+
+        :param state_dict_data: {param_name: value} where param_name omits
+            '._data' used by BoundedModule for convenience
+        :param strict: whether to strictly match the keys in state_dict()
+        :return: missing_keys (list) and unexpected keys (list)
+        """
+        state_dict1 = {
+            k + '._data': v for k, v in state_dict_data.items()
+        }
+        return self.load_state_dict(state_dict1, strict=strict)
+
+    def state_dict_data(self) -> Dict[str, torch.Tensor]:
+        """
+        An alias for named_bounded_param_value()
+            that rhymes with load_state_dict_data()
+        :return: parameter values (transformed to respect bounds).
+        """
+        return self.named_bounded_param_value()
+
 
 def enforce_float_tensor(v: Union[torch.Tensor, np.ndarray], device=None
                          ) -> torch.Tensor:
