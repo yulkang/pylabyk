@@ -1063,6 +1063,11 @@ def optimize(
             loss_valid = torch.mean(torch.stack(losses_fold_valid))
             losses_train.append(npy(loss_train))
             losses_valid.append(npy(loss_valid))
+            if optimizer_kind != 'LBFGS':
+                # steps are not taken here,
+                # since it's BEFORE storing the best state
+                # Still, take the gradient for plotting
+                loss_train.backward()
 
             if to_plot_progress and max_epoch > 0:
                 writer.add_scalar(
@@ -1143,6 +1148,10 @@ def optimize(
                         fig, d = f(model, d)
                         if fig is not None:
                             writer.add_figure(k, fig, global_step=epoch)
+                    d = {
+                        k: (v.detach() if torch.is_tensor(v) else v)
+                        for k, v in d.items()
+                    }
 
             # --- Learning rate reduction and patience
             # if epoch == reduced_lr_on_epoch + reset_lr_after
@@ -1166,11 +1175,10 @@ def optimize(
                     print_grad(model)
                 break
 
-            # --- Take a step
+            # --- Take a step (do after plotting)
             if optimizer_kind != 'LBFGS':
                 # steps are not taken above for n_fold_valid == 1, so take a
-                # step here, after storing the best state
-                loss_train.backward()
+                # step here, AFTER storing the best state
                 if to_print_grad and epoch == 0:
                     print_grad(model)
                 if max_epoch > 0:
@@ -1346,7 +1354,9 @@ def tensor2str(v: Union[torch.Tensor], sep='; ') -> str:
     else:
         return '(%s) %s' % (
             sep.join(['%d' % s for s in v.shape]),
-            sep.join(['%g' % v1 for v1 in v.flatten()])
+            sep.join(
+                ['%g' % v1 for v1 in v.flatten()]
+            ) if v.ndimension() > 0 else '%g' % v
         )
 
 
