@@ -871,8 +871,8 @@ def print_grad(model):
 ModelType = Union[OverriddenParameter, BoundedModule, nn.Module]
 FunDataType = Callable[
     [str, int, int, int],
-    Tuple[Union[torch.Tensor, Tuple[torch.Tensor, ...]],
-          Union[torch.Tensor, Tuple[torch.Tensor, ...]]]
+    Tuple[Union[None, torch.Tensor, Tuple[torch.Tensor, ...]],
+          Union[None, torch.Tensor, Tuple[torch.Tensor, ...]]]
     # (mode='all'|'train'|'valid'|'train_valid'|'test', fold_valid=0, epoch=0,
     #  n_fold_valid=1)
     # -> (data, target)
@@ -890,9 +890,9 @@ PlotFunsType = Iterable[Tuple[str, PlotFunType]]
 
 def optimize(
         model: ModelType,
-        fun_data: FunDataType,
-        fun_loss: FunLossType,
-        plotfuns: PlotFunsType,
+        fun_data: FunDataType = None,
+        fun_loss: FunLossType = None,
+        plotfuns: PlotFunsType = None,
         optimizer_kind='Adam',
         max_epoch=100,
         patience=20,  # How many epochs to wait before quitting
@@ -951,6 +951,13 @@ def optimize(
                                lr=lr)
         else:
             raise NotImplementedError()
+
+    if fun_data is None:
+        fun_data = lambda *args: (None, None)
+    if fun_loss is None:
+        fun_loss = lambda *args: model()
+    if plotfuns is None:
+        plotfuns = {}
 
     learning_rate0 = learning_rate
     optimizer = get_optimizer(model, learning_rate)
@@ -1074,6 +1081,11 @@ def optimize(
                 best_loss_epoch = deepcopy(epoch)
                 best_loss_valid = npt.tensor(npy(loss_valid))
                 best_state = model.state_dict()
+                # pprint(model.state_dict_data())  # CHECKED best state
+                # best_state_data = model.state_dict_data()
+                # if loss_valid < 436:
+                #     pprint(best_state_data)
+                #     print('--')
 
             best_losses.append(best_loss_valid)
 
@@ -1112,19 +1124,21 @@ def optimize(
 
                 if to_plot_progress and max_epoch > 0:
                     d = {
-                        'data_train': data_train.detach(),
-                        'data_valid': data_valid.detach(),
-                        'data_train_valid': data_train_valid.detach(),
-                        'out_train': out_train.detach(),
-                        'out_valid': out_valid.detach(),
-                        'out_train_valid': out_train_valid.detach(),
-                        'target_train': target_train.detach(),
-                        'target_valid': target_valid.detach(),
-                        'target_train_valid': target_train_valid.detach(),
-                        'loss_train': loss_train.detach(),
-                        'loss_valid': loss_valid.detach(),
-                        'loss_train_valid': loss_train_valid.detach()
+                        'data_train': data_train,
+                        'data_valid': data_valid,
+                        'data_train_valid': data_train_valid,
+                        'out_train': out_train,
+                        'out_valid': out_valid,
+                        'out_train_valid': out_train_valid,
+                        'target_train': target_train,
+                        'target_valid': target_valid,
+                        'target_train_valid': target_train_valid,
+                        'loss_train': loss_train,
+                        'loss_valid': loss_valid,
+                        'loss_train_valid': loss_train_valid
                     }
+                    d = {k: v.detach() if torch.is_tensor(v) else v
+                         for k, v in d.items()}
                     for k, f in odict(plotfuns).items():
                         fig, d = f(model, d)
                         if fig is not None:
@@ -1311,6 +1325,8 @@ def optimize(
               'd[loss_valid] - best_loss_valid = %g' %
               (d['loss_valid'], best_loss_valid,
                d['loss_valid'] - best_loss_valid))
+        # pprint(best_state_data)
+        # pprint(model.state_dict_data())
         print('--')
 
     if isinstance(model, OverriddenParameter):
