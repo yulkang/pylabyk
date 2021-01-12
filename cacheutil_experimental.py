@@ -2,8 +2,6 @@
 
 import os
 from . import zipPickle
-from collections import OrderedDict
-from .argsutil import dict2fname
 
 """
 Deprecated subkeys separate from keys. 

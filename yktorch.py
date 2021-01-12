@@ -34,8 +34,8 @@ from torch.nn import functional as F
 from torch import optim
 from torch.utils.tensorboard import SummaryWriter
 
-from lib.pylabyk import np2, plt2, numpytorch as npt
-from lib.pylabyk.numpytorch import npy, npys
+from pylabyk import np2, plt2, numpytorch as npt
+from pylabyk.numpytorch import npy, npys
 
 default_device = torch.device('cpu')  # CHECKING
 # default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -1185,12 +1185,12 @@ def optimize(
                     optimizer.step()
 
     except Exception as ex:
-        from lib.pylabyk.cacheutil import is_keyboard_interrupt
+        from pylabyk.cacheutil import is_keyboard_interrupt
         if not is_keyboard_interrupt(ex):
             raise ex
         print('fit interrupted by user at epoch %d' % epoch)
 
-        from lib.pylabyk.localfile import LocalFile, datetime4filename
+        from pylabyk.localfile import LocalFile, datetime4filename
         localfile = LocalFile()
         cache = localfile.get_cache('model_data_target')
         data_train_valid, target_train_valid = fun_data(

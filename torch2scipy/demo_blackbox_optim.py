@@ -13,7 +13,7 @@ from torch import distributions as distrib
 import numpy as np
 from scipy import optimize
 
-from lib.pylabyk.torch2scipy.obj import PyTorchObjective
+from pylabyk.torch2scipy.obj import PyTorchObjective
 
 from tqdm import tqdm
 

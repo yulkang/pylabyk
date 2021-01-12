@@ -9,16 +9,13 @@ Created on Mon Mar 12 10:28:15 2018
 
 import numpy as np
 import torch
-import scipy
 from scipy import interpolate
 from scipy import stats
 import numpy_groupies as npg
 import pandas as pd
-from copy import deepcopy, copy
+from copy import deepcopy
 from . import numpytorch
-from pprint import pprint
-from typing import Union, Sequence, Iterable, Tuple, Type, Callable
-import multiprocessing
+from typing import Union, Sequence, Iterable, Type, Callable
 from multiprocessing.pool import Pool as Pool0
 # from multiprocessing import Pool
 

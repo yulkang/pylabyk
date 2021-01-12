@@ -4,7 +4,7 @@ from . import argsutil
 import os, shutil
 from collections import OrderedDict as odict
 from typing import Union, Iterable
-from .cacheutil import datetime4filename, mkdir4file
+from .cacheutil import mkdir4file
 
 
 def replace_ext(fullpath, ext_new):

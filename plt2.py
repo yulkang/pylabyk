@@ -8,14 +8,14 @@ Created on Tue Feb 13 10:42:06 2018
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
-from typing import Union, List, Iterable, Callable, Sequence, Mapping, Tuple
+from typing import List, Callable, Sequence, Mapping, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib import patches
 from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
-from copy import deepcopy, copy
+from copy import copy
 
 import numpy_groupies as npg
 
@@ -290,7 +290,6 @@ def rowtitle(row_titles, axes, pad=5, ha='right', **kwargs):
     :return: n_rows array of row title handles
     adapted from: https://stackoverflow.com/a/25814386/2565317
     """
-    from matplotlib.transforms import offset_copy
 
     labels = []
     for ax, row in zip(axes[:, 0], row_titles):
@@ -355,8 +354,6 @@ def break_axis(amin, amax=None, xy='x', ax=None, fun_draw=None):
     @return: axs: a list of axes created
     @rtype: List[plt.Axes, plt.Axes]
     """
-    from copy import copy
-    from matplotlib.transforms import Bbox
 
     if amax is None:
         amax = amin
@@ -629,8 +626,7 @@ def ticks(ax=None, xy='y',
           major=True,
           interval=None, format=None, length=None, **kwargs):
 
-    from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
-                                   AutoMinorLocator, NullFormatter)
+    from matplotlib.ticker import (MultipleLocator, FormatStrFormatter)
 
     if ax is None:
         ax = plt.gca()
@@ -1324,7 +1320,7 @@ def arrays2gif(arrays, file='ani.gif', duration=100, loop=0,
     :param loop: 0 to loop forever, None not to loop
     :rtype: Iterable[PIL.Image]
     """
-    from PIL import Image, ImageDraw
+    from PIL import Image
 
     height, width, n_channel = arrays[0].shape
     images = []
