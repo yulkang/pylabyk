@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import numpy as np
 from scipy import optimize
 
-from pylabyk.torch2scipy.obj import PyTorchObjective
+from .obj import PyTorchObjective
 
 from tqdm import tqdm
 

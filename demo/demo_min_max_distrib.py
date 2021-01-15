@@ -2,8 +2,8 @@
 
 import torch
 import matplotlib.pyplot as plt
-from pylabyk import numpytorch as npt
-from pylabyk.numpytorch import npy, npys
+from .. import numpytorch as npt
+from ..numpytorch import npy, npys
 
 
 def print_demo(p, fun):

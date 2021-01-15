@@ -1,1 +1,1 @@
-# import pylabyk.hyperspherical_vae.distributions
+# import .hyperspherical_vae.distributions
