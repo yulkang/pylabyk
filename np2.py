@@ -1084,7 +1084,7 @@ def vectorize_par(f: Callable, inputs: Iterable,
     if otypes is None:
         otypes = [np.object] * nout
     elif not is_sequence(type(otypes)):
-        otypes = [otypes]
+        otypes = [otypes] * nout
 
     # NOTE: deliberately keeping outs, outs1, and outs2 for debugging.
     #  After confirming everything works well, rename all to "outs"
