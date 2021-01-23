@@ -300,13 +300,13 @@ def rowtitle(row_titles, axes, pad=5, ha='right', **kwargs):
             size='large', ha=ha, va='center', **kwargs)
         labels.append(label)
 
-    fig = axes[0,0].get_figure()
-    fig.tight_layout()
+    # fig = axes[0,0].get_figure()
+    # fig.tight_layout()
 
-    # tight_layout doesn't take these labels into account. We'll need
-    # to make some room. These numbers are are manually tweaked.
-    # You could automatically calculate them, but it's a pain.
-    fig.subplots_adjust(left=0.15, top=0.95)
+    # # tight_layout doesn't take these labels into account. We'll need
+    # # to make some room. These numbers are are manually tweaked.
+    # # You could automatically calculate them, but it's a pain.
+    # fig.subplots_adjust(left=0.15, top=0.95)
 
     return np.array(labels)
 
