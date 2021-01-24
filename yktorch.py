@@ -34,8 +34,8 @@ from torch.nn import functional as F
 from torch import optim
 from torch.utils.tensorboard import SummaryWriter
 
-from pylabyk import np2, plt2, numpytorch as npt
-from pylabyk.numpytorch import npy, npys
+from . import np2, plt2, numpytorch as npt
+from .numpytorch import npy, npys
 
 default_device = torch.device('cpu')  # CHECKING
 # default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -708,6 +708,37 @@ class BoundedModule(nn.Module):
         """
         return self.named_bounded_param_value()
 
+    def parameters_data_vec(self) -> torch.Tensor:
+        p = self.state_dict_data()
+        return torch.cat([v.flatten() for v in p.values()], 0)
+
+    def param_vec2value_vec(
+            self, param_vec: Union[torch.Tensor, np.ndarray]
+    ) -> Union[torch.Tensor, np.ndarray]:
+        param_vec0 = self.parameters_data_vec()
+        self.load_state_dict(self.param_vec2dict(param_vec), strict=False)
+        value_vec = self.parameters_data_vec()
+        self.load_state_dict(self.param_vec2dict(param_vec0), strict=False)
+        return value_vec
+
+    def param_vec2dict(self, param_vec, suffix='._param') -> odict:
+        dict0 = self.state_dict()  # type: Dict[str, torch.Tensor]
+        dict1 = odict()
+        if not torch.is_tensor(param_vec):
+            param_vec = torch.tensor(param_vec)
+        for k, v0 in dict0.items():
+            if not k.endswith(suffix):
+                continue
+            size = v0.size()
+            n = v0.numel()
+
+            v1 = param_vec[:n]
+            param_vec = param_vec[n:]
+
+            v1 = v1.reshape(size)
+            dict1[k] = v1
+        return dict1
+
 
 def enforce_float_tensor(v: Union[torch.Tensor, np.ndarray], device=None
                          ) -> torch.Tensor:
@@ -1185,12 +1216,12 @@ def optimize(
                     optimizer.step()
 
     except Exception as ex:
-        from pylabyk.cacheutil import is_keyboard_interrupt
+        from .cacheutil import is_keyboard_interrupt
         if not is_keyboard_interrupt(ex):
             raise ex
         print('fit interrupted by user at epoch %d' % epoch)
 
-        from pylabyk.localfile import LocalFile, datetime4filename
+        from .localfile import LocalFile, datetime4filename
         localfile = LocalFile()
         cache = localfile.get_cache('model_data_target')
         data_train_valid, target_train_valid = fun_data(

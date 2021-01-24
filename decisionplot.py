@@ -8,10 +8,10 @@ from matplotlib import pyplot as plt
 import numpy_groupies as npg
 import pandas as pd
 
-from pylabyk import plt2
-from pylabyk import np2
-from pylabyk import argsutil
-from pylabyk.numpytorch import npy, npys
+from . import plt2
+from . import np2
+from . import argsutil
+from .numpytorch import npy, npys
 
 class Decision(object):
     def __init__(

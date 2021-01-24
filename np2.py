@@ -973,19 +973,29 @@ class PoolSim:
         pass
 
 
-def Pool(processes=None, *args, **kwargs):
+def Pool(
+        processes=None, *args, **kwargs
+):
+    """
+
+    :param processes: When < 1, use n_processors + processes.
+        When 1, do not use multiprocessing (only simulate).
+    :param args:
+    :param kwargs:
+    :return:
+    """
     import multiprocessing
     n_processors = multiprocessing.cpu_count()
 
     if processes is None:
         processes = n_processors
-    elif processes < 0:
+    elif processes < 1:
         processes = n_processors + processes
     elif (0 < processes) and (processes < 1):
         processes = int(np.clip(n_processors * processes,
                                 a_min=1, a_max=n_processors))
 
-    if processes == 0:
+    if processes == 1:
         return PoolSim()
     else:
         return PoolParallel(processes=processes, *args, **kwargs)
@@ -1028,8 +1038,9 @@ def vectorize_par(f: Callable, inputs: Iterable,
         will give an output of
     :param pool: a Pool object. If None (default), one will be created.
     :param processes: Number of parallel processes.
-        If 0, use PoolSim, which does not use multiprocessing.
+        If 1, use PoolSim, which does not use multiprocessing.
         If None (default), set to the number of CPU cores.
+        If < 1, use n_processors + processes.
         Ignored if pool is given.
     :param chunksize: Giving an integer larger than 1 may boost efficiency.
     :param nout: If unspecified, set to the length of the first output from
@@ -1078,7 +1089,7 @@ def vectorize_par(f: Callable, inputs: Iterable,
     if otypes is None:
         otypes = [np.object] * nout
     elif not is_sequence(type(otypes)):
-        otypes = [otypes]
+        otypes = [otypes] * nout
 
     # NOTE: deliberately keeping outs, outs1, and outs2 for debugging.
     #  After confirming everything works well, rename all to "outs"
