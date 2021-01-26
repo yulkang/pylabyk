@@ -841,7 +841,7 @@ def nancrosscorr(
         fr2: np.ndarray = None,
         thres_n=2,
         fillvalue=np.nan,
-        processes=0,
+        processes=1,
 ) -> np.ndarray:
     """
     Normalized cross-correlation ignoring NaNs.
@@ -1051,7 +1051,7 @@ def vectorize_par(f: Callable, inputs: Iterable,
         arguments to f.
         If False, an iterable containing all inputs is given as one argument
         to f.
-        Ignored if processes=0 and multiprocessing is not used.
+        Ignored if processes=1 and multiprocessing is not used.
     :return: (iterable of) outputs from f.
     """
     inputs = [inp if (isinstance(inp, np.ndarray) and type(inp[0]) is np.object)
