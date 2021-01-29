@@ -36,6 +36,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from . import np2, plt2, numpytorch as npt
 from .numpytorch import npy, npys
+from .cacheutil import mkdir4file
 
 default_device = torch.device('cpu')  # CHECKING
 # default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -1437,6 +1438,7 @@ def save_optim_results(
         best_state = odict(model.named_parameters())
     if best_state is not None:
         file = fun_tab_file('best_state', '.csv')
+        mkdir4file(file)
         with open(file, 'w') as f:
             if isinstance(model, BoundedModule):
                 names, v, grad, lb, ub, requires_grad = \
