@@ -1464,6 +1464,7 @@ def save_optim_results(
         if isinstance(files1, str):
             files1 = [files1]
         for file in files1:
+            mkdir4file(file)
             with open(file, 'w') as f:
                 f.write('name, value\n')
                 for k, v in d.items():
@@ -1482,6 +1483,7 @@ def save_optim_results(
                 if isinstance(files1, str):
                     files1 = [files1]
                 for file in files1:
+                    mkdir4file(file)
                     fig, _ = fun_plot(model, d)
                     fig.savefig(file, dpi=300)
                     print('Saved to %s' % file)
