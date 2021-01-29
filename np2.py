@@ -698,8 +698,13 @@ def circdiff(angle1, angle2, maxangle=None):
 
 
 def pconc2conc(pconc: np.ndarray) -> np.ndarray:
-    pconc = np.clip(pconc, a_min=1e-6, a_max=1-1e-6)
+    # pconc = np.clip(pconc, a_min=1e-6, a_max=1-1e-6)
+    # pconc = np.clip(pconc, 0., 1.)
     return 1. / (1. - pconc) - 1.
+
+
+def conc2pconc(conc: np.ndarray) -> np.ndarray:
+    return 1. - 1. / (conc + 1.)
 
 
 def rotation_matrix(rad, dim=(-2, -1)):
