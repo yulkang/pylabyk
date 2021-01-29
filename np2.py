@@ -649,7 +649,11 @@ def info_criterion(nll, n_trial, n_param, kind='BIC'):
     :param kind: 'BIC'|'NLL'
     :return: the chosen information criterion
     """
-    if kind == 'BIC':
+    if kind == 'AIC':
+        return 2 * n_param + 2 * nll
+    elif kind == 'nAIC':
+        return n_param + nll
+    elif kind == 'BIC':
         return n_param * np.log(n_trial) + 2 * nll
     elif kind == 'nBIC':
         # nBIC: following Bishop's convention except for the sign,
