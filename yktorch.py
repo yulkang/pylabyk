@@ -36,6 +36,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from . import np2, plt2, numpytorch as npt
 from .numpytorch import npy, npys
+from .cacheutil import mkdir4file
 
 default_device = torch.device('cpu')  # CHECKING
 # default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -993,6 +994,11 @@ def optimize(
     learning_rate0 = learning_rate
     optimizer = get_optimizer(model, learning_rate)
 
+    if optimizer_kind == 'LBFGS':
+        assert n_fold_valid == 1, 'n_fold_valid > 1 is not implemented ' \
+                                  'for LBFGS yet - ' \
+                                  'will need averaging loss within the closure!'
+
     best_loss_epoch = 0
     best_loss_valid = np.inf
     best_state = model.state_dict()
@@ -1040,6 +1046,14 @@ def optimize(
     t_st = time.time()
     epoch = 0
 
+    def loss_wo_nan(model1, data1, target1) -> torch.Tensor:
+        is_nan = (
+            torch.isnan(data1.reshape(data1.shape[0], -1)).any(-1)
+            | torch.isnan(target1.reshape(target1.shape[0], -1)).any(-1)
+        )
+        out1 = model1(data1[~is_nan])
+        return fun_loss(out1, target1[~is_nan]), out1
+
     try:
         for epoch in range(max([max_epoch, 1])):
             losses_fold_train = []
@@ -1049,27 +1063,11 @@ def optimize(
                 data_train, target_train = fun_data('train', i_fold, epoch,
                                                     n_fold_valid)
                 model.train()
-                if optimizer_kind == 'LBFGS':
-                    def closure():
-                        optimizer.zero_grad()
-                        out_train = model(data_train)
-                        loss = fun_loss(out_train, target_train)
-                        loss.backward()
-                        return loss
-                    if max_epoch > 0:
-                        optimizer.step(closure)
-                    out_train = model(data_train)
-                    loss_train1 = fun_loss(out_train, target_train)
-                    raise NotImplementedError(
-                        'Restoring best state is not implemented yet'
-                    )
-                else:
-                    optimizer.zero_grad()
-                    out_train = model(data_train)
-                    loss_train1 = fun_loss(out_train, target_train)
-                    # DEBUGGED: optimizer.step() must not be taken before
-                    #  storing best_loss or best_state
-
+                optimizer.zero_grad()
+                loss_train1, out_train = loss_wo_nan(
+                    model, data_train, target_train)
+                # DEBUGGED: optimizer.step() must not be taken before
+                #  storing best_loss or best_state
                 losses_fold_train.append(loss_train1)
 
                 if n_fold_valid == 1:
@@ -1085,8 +1083,8 @@ def optimize(
                     model.eval()
                     data_valid, target_valid = fun_data('valid', i_fold, epoch,
                                                         n_fold_valid)
-                    out_valid = model(data_valid)
-                    loss_valid1 = fun_loss(out_valid, target_valid)
+                    loss_valid1, out_valid = loss_wo_nan(
+                        model, data_train, target_train)
                     model.train()
                 losses_fold_valid.append(loss_valid1)
 
@@ -1094,11 +1092,11 @@ def optimize(
             loss_valid = torch.mean(torch.stack(losses_fold_valid))
             losses_train.append(npy(loss_train))
             losses_valid.append(npy(loss_valid))
-            if optimizer_kind != 'LBFGS':
-                # steps are not taken here,
-                # since it's BEFORE storing the best state
-                # Still, take the gradient for plotting
-                loss_train.backward()
+
+            # steps are not taken here,
+            # since it's BEFORE storing the best state
+            # Still, take the gradient for plotting
+            loss_train.backward()
 
             if to_plot_progress and max_epoch > 0:
                 writer.add_scalar(
@@ -1134,7 +1132,7 @@ def optimize(
                 out0 = out_valid.detach().clone()
                 outs0 = fun_outs(model, data0)
 
-                loss001 = fun_loss(out0, target0)
+                loss001, _ = loss_wo_nan(model, data0, target0)
                 # CHECKED: loss001 must equal loss0
                 print('loss001 - loss0: %g' % (loss001 - loss0))
 
@@ -1149,13 +1147,18 @@ def optimize(
                          loss_train, loss_valid, learning_rate,
                          best_loss_valid, best_loss_epoch))
 
+            if torch.isnan(loss_train):
+                print_loss()
+                print('NaN loss!')
+                print('--')
+
             if show_progress_every != 0 and epoch % show_progress_every == 0:
                 model.train()
                 data_train_valid, target_train_valid = fun_data(
                     'train_valid', i_fold, epoch, n_fold_valid
                 )
-                out_train_valid = model(data_train_valid)
-                loss_train_valid = fun_loss(out_train_valid, target_train_valid)
+                loss_train_valid, out_train_valid = loss_wo_nan(
+                    model, data_train_valid, target_train_valid)
                 print_loss()
 
                 if to_plot_progress and max_epoch > 0:
@@ -1205,13 +1208,23 @@ def optimize(
                 if to_print_grad:
                     print_grad(model)
                 break
+            if to_print_grad and epoch == 0:
+                print_grad(model)
 
             # --- Take a step (do after plotting)
-            if optimizer_kind != 'LBFGS':
+            if optimizer_kind == 'LBFGS':
+                model.train()
+                def closure():
+                    optimizer.zero_grad()
+                    loss, out_train = loss_wo_nan(
+                        model, data_train, target_train)
+                    loss.backward()
+                    return loss
+                if max_epoch > 0:
+                    optimizer.step(closure)
+            else:
                 # steps are not taken above for n_fold_valid == 1, so take a
                 # step here, AFTER storing the best state
-                if to_print_grad and epoch == 0:
-                    print_grad(model)
                 if max_epoch > 0:
                     optimizer.step()
 
@@ -1345,8 +1358,7 @@ def optimize(
             model.train()
             model.zero_grad()
 
-        out = model(data)
-        loss = fun_loss(out, target)
+        loss, out = loss_wo_nan(model, data, target)
 
         if mode == best_grad_mode:
             loss.backward()
@@ -1426,6 +1438,7 @@ def save_optim_results(
         best_state = odict(model.named_parameters())
     if best_state is not None:
         file = fun_tab_file('best_state', '.csv')
+        mkdir4file(file)
         with open(file, 'w') as f:
             if isinstance(model, BoundedModule):
                 names, v, grad, lb, ub, requires_grad = \
@@ -1451,6 +1464,7 @@ def save_optim_results(
         if isinstance(files1, str):
             files1 = [files1]
         for file in files1:
+            mkdir4file(file)
             with open(file, 'w') as f:
                 f.write('name, value\n')
                 for k, v in d.items():
@@ -1469,6 +1483,7 @@ def save_optim_results(
                 if isinstance(files1, str):
                     files1 = [files1]
                 for file in files1:
+                    mkdir4file(file)
                     fig, _ = fun_plot(model, d)
                     fig.savefig(file, dpi=300)
                     print('Saved to %s' % file)
