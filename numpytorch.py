@@ -600,6 +600,20 @@ def sumto1(v, dim=None, axis=None, keepdim=True):
     else:
         return v / torch.sum(v, dim, keepdim=keepdim)
 
+
+def maxto1(v, dim=None, ignore_nan=True):
+    if ignore_nan:
+        if type(v) is np.ndarray:
+            return v / np.nanmax(v, axis=dim, keepdims=True)
+        else:  # v is torch.Tensor
+            return v / v.nanmax(dim, keepdim=True)
+    else:
+        if type(v) is np.ndarray:
+            return v / np.amax(v, axis=dim, keepdims=True)
+        else:  # v is torch.Tensor
+            return v / v.max(dim, keepdim=True)
+
+
 #%% Aggregate
 def ____AGGREGATE____():
     pass
@@ -1610,3 +1624,26 @@ def vmpdf(x, mu, scale=None, normalize=True):
         p = sumto1(p)
     return p
 
+
+def rotation_matrix(rad: torch.Tensor, dim=(-2, -1)) -> torch.Tensor:
+    if not torch.is_tensor(rad):
+        rad = tensor(rad)
+    if rad.ndim < 2:
+        for d in range(2 - rad.ndim):
+            rad = rad.unsqueeze(-1)
+        # rad = rad.expand(list(-(torch.arange(2 - rad.ndim) + 1)))
+    return torch.cat((
+        torch.cat((torch.cos(rad), -torch.sin(rad)), dim[1]),
+        torch.cat((torch.sin(rad), torch.cos(rad)), dim[1])), dim[0])
+
+
+def rotate(v, rad: torch.Tensor) -> torch.Tensor:
+    """
+
+    :param v: [batch_dims, (x0, y0)]
+    :param rad: [batch_dims]
+    :return: [batch_dims, (x, y)]
+    """
+
+    rotmat = rotation_matrix(rad.unsqueeze(-1).unsqueeze(-1))
+    return (rotmat @ v.unsqueeze(-1)).squeeze(-1)
