@@ -16,8 +16,6 @@ Cons
 """
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
-from time import time
-
 import numpy as np
 from pprint import pprint
 from typing import Union, Iterable, List, Tuple, Sequence, Callable, \
@@ -30,13 +28,12 @@ from copy import deepcopy
 import warnings
 
 import torch
-from scipy import optimize
+from scipy import optimize as scioptim
 from torch import nn
 from torch.nn import functional as F
 from torch import optim
 from torch.utils.tensorboard import SummaryWriter
 
-from a07_gaze_regression.main_01_gaze_residual_regression import npy
 from pytorchobjective.obj_torch import PyTorchObjective
 
 from . import plt2, numpytorch as npt
@@ -420,7 +417,7 @@ class BoundedModule(nn.Module):
         return odict([
             (k, param.v)
             for k, param in d.items()
-            if isinstance(param, BoundedParameter)
+            if isinstance(param, OverriddenParameter)
         ])
 
     def named_bounded_lb(self):
@@ -428,7 +425,7 @@ class BoundedModule(nn.Module):
         return odict([
             (k, param.lb)
             for k, param in d.items()
-            if isinstance(param, BoundedParameter)
+            if isinstance(param, OverriddenParameter)
         ])
 
     def named_bounded_ub(self):
@@ -436,7 +433,7 @@ class BoundedModule(nn.Module):
         return odict([
             (k, param.ub)
             for k, param in d.items()
-            if isinstance(param, BoundedParameter)
+            if isinstance(param, OverriddenParameter)
         ])
 
     # Get/set
@@ -1544,7 +1541,7 @@ if __name__ == 'main':
 
 
 def optimize_scipy(
-        model: ykt.BoundedModule,
+        model: BoundedModule,
         maxiter=400,
         verbose=True,
         kw_optim=(),
@@ -1557,13 +1554,13 @@ def optimize_scipy(
     kw_optim = dict(kw_optim)
     kw_optim_option = dict(kw_optim_option)
 
-    t_st = time()
+    t_st = time.time()
     # with tqdm(total=maxiter) as pbar:
     #     def verbose(xk):
     #         pbar.update(1)
 
     obj = PyTorchObjective(model)
-    out = optimize.minimize(
+    out = scioptim.minimize(
         obj.fun, obj.x0,
         jac=obj.jac,
         **{
@@ -1580,29 +1577,39 @@ def optimize_scipy(
     )
     model.load_state_dict(obj.unpack_parameters(out['x']))
 
-    t_en = time()
+    t_en = time.time()
     t_el = t_en - t_st
     print('Time elapsed: %1.3g s\n' % t_el)
 
     # --- Results
-    param = obj.parameters()
+    param = out['x']  # obj.parameters()
     se_param = np.sqrt(np.diag(out['hess_inv']))
-    out['se_param'] = se_param
+    out['x_param_vec'] = out['x']
+    out['se_param_vec'] = se_param
 
-    value = npy(model.param_vec2value_vec(param))
-    out['lb_value'] = npy(model.param_vec2value_vec(param - se_param))
-    out['ub_value'] = npy(model.param_vec2value_vec(param + se_param))
+    for k in ['x', 'se']:
+        out[k + '_param_dict'] = model.param_vec2dict(out[k + '_param_vec'])
 
-    out['x_dict'] = model.param_vec2dict(value)
-    out['se_param'] = model.param_vec2dict(se_param)
+    out['x_value_vec'] = npy(model.param_vec2value_vec(param))
+    out['lb_value_vec'] = npy(model.param_vec2value_vec(param - se_param))
+    out['ub_value_vec'] = npy(model.param_vec2value_vec(param + se_param))
+
+    for k in ['x', 'lb', 'ub']:
+        out[k + '_value_dict'] = model.param_vec2dict(out[k + '_value_vec'])
+
     # NOTE: somehow this is necessary to set params to the fitted state
     model.load_state_dict(obj.unpack_parameters(out['x']))
 
-    if verbose:
-        print('param:')
-        pprint(out['x_dict'])
-        print('se:')
-        pprint(se_dict)
+    # def vec2str(v) -> str:
+    #     return ', '.join(['%g' % v1 for v1 in v])
 
-    print('--')
-    return value, out['fun'], out
+    if verbose:
+        for k in out['x_value_dict'].keys():
+            x1, lb1, ub1 = (
+                out['x_value_dict'][k],
+                out['lb_value_dict'][k],
+                out['ub_value_dict'][k]
+            )
+            for i, (x11, lb11, ub11) in enumerate(zip(x1, lb1, ub1)):
+                print('%s[%d]: %g (%g - %g)\n' % (k, i, x11, lb11, ub11))
+    return out['x_value_vec'], out['fun'], out
