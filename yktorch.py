@@ -16,6 +16,7 @@ Cons
 """
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
+from time import time
 
 import numpy as np
 from pprint import pprint
@@ -29,13 +30,17 @@ from copy import deepcopy
 import warnings
 
 import torch
-from torch import nn, Tensor
+from scipy import optimize
+from torch import nn
 from torch.nn import functional as F
 from torch import optim
 from torch.utils.tensorboard import SummaryWriter
 
-from . import np2, plt2, numpytorch as npt
-from .numpytorch import npy, npys
+from a07_gaze_regression.main_01_gaze_residual_regression import npy
+from pytorchobjective.obj_torch import PyTorchObjective
+
+from . import plt2, numpytorch as npt
+from .numpytorch import npy
 from .cacheutil import mkdir4file
 
 default_device = torch.device('cpu')  # CHECKING
@@ -1536,3 +1541,68 @@ if __name__ == 'main':
     print(res.failures)
 
     #%%
+
+
+def optimize_scipy(
+        model: ykt.BoundedModule,
+        maxiter=400,
+        verbose=True,
+        kw_optim=(),
+        kw_optim_option=(),
+) -> (torch.Tensor, torch.Tensor, np.array):
+    """
+    :param model:
+    :return: b, se, loss
+    """
+    kw_optim = dict(kw_optim)
+    kw_optim_option = dict(kw_optim_option)
+
+    t_st = time()
+    # with tqdm(total=maxiter) as pbar:
+    #     def verbose(xk):
+    #         pbar.update(1)
+
+    obj = PyTorchObjective(model)
+    out = optimize.minimize(
+        obj.fun, obj.x0,
+        jac=obj.jac,
+        **{
+            'method': 'BFGS',
+            # method='L-BFGS-B',
+            # callback=verbose,
+            **kw_optim
+        }, options={
+            # 'gtol': 1e-16, # 12,
+            'disp': True, 'maxiter': maxiter,
+            # 'finite_diff_rel_step': 1e-6,
+            **kw_optim_option
+        },
+    )
+    model.load_state_dict(obj.unpack_parameters(out['x']))
+
+    t_en = time()
+    t_el = t_en - t_st
+    print('Time elapsed: %1.3g s\n' % t_el)
+
+    # --- Results
+    param = obj.parameters()
+    se_param = np.sqrt(np.diag(out['hess_inv']))
+    out['se_param'] = se_param
+
+    value = npy(model.param_vec2value_vec(param))
+    out['lb_value'] = npy(model.param_vec2value_vec(param - se_param))
+    out['ub_value'] = npy(model.param_vec2value_vec(param + se_param))
+
+    out['x_dict'] = model.param_vec2dict(value)
+    out['se_param'] = model.param_vec2dict(se_param)
+    # NOTE: somehow this is necessary to set params to the fitted state
+    model.load_state_dict(obj.unpack_parameters(out['x']))
+
+    if verbose:
+        print('param:')
+        pprint(out['x_dict'])
+        print('se:')
+        pprint(se_dict)
+
+    print('--')
+    return value, out['fun'], out
