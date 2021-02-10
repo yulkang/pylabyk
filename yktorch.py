@@ -1610,6 +1610,10 @@ def optimize_scipy(
                 out['lb_value_dict'][k],
                 out['ub_value_dict'][k]
             )
-            for i, (x11, lb11, ub11) in enumerate(zip(x1, lb1, ub1)):
-                print('%s[%d]: %g (%g - %g)\n' % (k, i, x11, lb11, ub11))
+            for i, (x11, lb11, ub11) in enumerate(zip(
+                    x1, lb1, ub1
+                    # x1.flatten(), lb1.flatten(), ub1.flatten()
+            )):
+                if x11.ndim == 0:
+                    print('%s[%d]: %g (%g - %g)\n' % (k, i, x11, lb11, ub11))
     return out['x_value_vec'], out['fun'], out
