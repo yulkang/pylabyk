@@ -1546,9 +1546,18 @@ def optimize_scipy(
         verbose=True,
         kw_optim=(),
         kw_optim_option=(),
+        kw_pyobj=(),
 ) -> (torch.Tensor, torch.Tensor, np.array):
     """
+
     :param model:
+    :param maxiter:
+    :param verbose:
+    :param kw_optim: e.g., {'callback': lambda x, *args: print(x)}
+    :param kw_optim_option:
+    :param kw_pyobj: {'separate_loss_for_jac': True} to separately return
+            loss_for_grad, loss = model()
+        e.g., for REINFORCE
     :return: b, se, loss
     """
     kw_optim = dict(kw_optim)
@@ -1559,7 +1568,7 @@ def optimize_scipy(
     #     def verbose(xk):
     #         pbar.update(1)
 
-    obj = PyTorchObjective(model)
+    obj = PyTorchObjective(model, **dict(kw_pyobj))
     out = scioptim.minimize(
         obj.fun, obj.x0,
         jac=obj.jac,
