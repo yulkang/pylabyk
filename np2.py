@@ -563,9 +563,11 @@ def argmax_margin(v, margin=0.1, margin_from='second',
     a[not_enough_margin] = fillvalue
     return a
 
+
 def argmin_margin(v, **kw):
     """argmin with margin. See argmax_margin for details."""
     return argmax_margin(-v, **kw)
+
 
 def sumto1(v, axis=None, ignore_nan=True):
     if ignore_nan:
@@ -578,6 +580,20 @@ def sumto1(v, axis=None, ignore_nan=True):
             return v / v.sum(axis=axis, keepdims=True)
         else:  # v is torch.Tensor
             return v / v.sum(axis, keepdim=True)
+
+
+def maxto1(v, axis=None, ignore_nan=True):
+    if ignore_nan:
+        if type(v) is np.ndarray:
+            return v / np.nanmax(v, axis=axis, keepdims=True)
+        else:  # v is torch.Tensor
+            return v / v.nanmax(axis, keepdim=True)
+    else:
+        if type(v) is np.ndarray:
+            return v / np.amax(v, axis=axis, keepdims=True)
+        else:  # v is torch.Tensor
+            return v / v.max(axis, keepdim=True)
+
 
 def nansem(v, axis=None, **kwargs):
     s = np.nanstd(v, axis=axis, **kwargs)
@@ -707,8 +723,13 @@ def circdiff(angle1, angle2, maxangle=None):
 
 
 def pconc2conc(pconc: np.ndarray) -> np.ndarray:
-    pconc = np.clip(pconc, a_min=1e-6, a_max=1-1e-6)
+    # pconc = np.clip(pconc, a_min=1e-6, a_max=1-1e-6)
+    # pconc = np.clip(pconc, 0., 1.)
     return 1. / (1. - pconc) - 1.
+
+
+def conc2pconc(conc: np.ndarray) -> np.ndarray:
+    return 1. - 1. / (conc + 1.)
 
 
 def rotation_matrix(rad, dim=(-2, -1)):

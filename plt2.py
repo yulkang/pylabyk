@@ -664,13 +664,13 @@ def ticks(ax=None, xy='y',
         axis.tick_params(which='major' if major else 'minor', **kwargs)
 
 
-def hide_ticklabels(xy='xy', ax=None):
+def hide_ticklabels(xy='xy', ax=None, to_hide=True):
     if ax is None:
         ax = plt.gca()
     if 'x' in xy:
-        plt.setp(ax.get_xticklabels(), visible=False)
+        plt.setp(ax.get_xticklabels(), visible=not to_hide)
     if 'y' in xy:
-        plt.setp(ax.get_yticklabels(), visible=False)
+        plt.setp(ax.get_yticklabels(), visible=not to_hide)
 
 
 def tick_color(xy, ticks, labels, colors):
