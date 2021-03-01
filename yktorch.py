@@ -36,7 +36,6 @@ from torch.nn import functional as F
 from torch import optim
 from torch.utils.tensorboard import SummaryWriter
 
-from a07_gaze_regression.main_01_gaze_residual_regression import npy
 from pytorchobjective.obj_torch import PyTorchObjective
 
 from . import plt2, numpytorch as npt
@@ -1544,7 +1543,7 @@ if __name__ == 'main':
 
 
 def optimize_scipy(
-        model: ykt.BoundedModule,
+        model: BoundedModule,
         maxiter=400,
         verbose=True,
         kw_optim=(),
