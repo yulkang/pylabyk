@@ -742,6 +742,10 @@ class BoundedModule(nn.Module):
             dict1[k] = v1
         return dict1
 
+    def grad_vec(self):
+        ps = self.parameters()
+        return torch.cat([p.grad.flatten() for p in ps])
+
 
 def enforce_float_tensor(v: Union[torch.Tensor, np.ndarray], device=None
                          ) -> torch.Tensor:
