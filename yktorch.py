@@ -1,18 +1,6 @@
 """
-Options:
+Example:
 
-1. Use OverriddenParameter
-Pros
-: can assign to slice
-: can use autocompletion
-Cons
-: need to use [:] to refer to the whole tensor
-
-2. Use BoundedModule.register_()
-Pros
-: ?
-Cons
-: cannot assign to slice without using setslice()
 """
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
@@ -647,8 +635,14 @@ class BoundedModule(nn.Module):
                 g0 = torch.zeros_like(v0)
             else:
                 g0 = param._param.grad.flatten()
-            l0 = npt.tensor(param.lb).expand_as(param.v).flatten()
-            u0 = npt.tensor(param.ub).expand_as(param.v).flatten()
+            if param.lb is None:
+                l0 = torch.tensor([-np.inf]).expand_as(param.v).flatten()
+            else:
+                l0 = npt.tensor(param.lb).expand_as(param.v).flatten()
+            if param.ub is None:
+                u0 = torch.tensor([np.inf]).expand_as(param.v).flatten()
+            else:
+                u0 = npt.tensor(param.ub).expand_as(param.v).flatten()
 
             for i, (v1, g1, l1, u1) in enumerate(zip(v0, g0, l0, u0)):
                 v.append(npy(v1))
