@@ -250,6 +250,13 @@ def nanmean(v, *args, inplace=False, **kwargs):
     v[is_nan] = 0
     return v.sum(*args, **kwargs) / float(~is_nan).sum(*args, **kwargs)
 
+def nanmax(v, *args, inplace=False, **kwargs):
+    if not inplace:
+        v = v.clone()
+    is_nan = isnan(v)
+    v[is_nan] = -np.inf
+    # Note: should return nan if a dimension is all NaN - not yet implemented
+    return torch.max(v, *args, **kwargs)
 
 def softmax_mask(w: torch.Tensor,
                  dim=-1,
