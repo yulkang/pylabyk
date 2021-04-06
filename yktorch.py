@@ -25,7 +25,7 @@ from torch.utils.tensorboard import SummaryWriter
 from pytorchobjective.obj_torch import PyTorchObjective
 
 from . import plt2, numpytorch as npt
-from .numpytorch import npy
+from .numpytorch import npy, freeze
 from .cacheutil import mkdir4file
 
 default_device = torch.device('cpu')  # CHECKING
@@ -740,6 +740,11 @@ class BoundedModule(nn.Module):
     def grad_vec(self):
         ps = self.parameters()
         return torch.cat([p.grad.flatten() for p in ps])
+
+    def freeze_(self):
+        """Freeze all parameters (set requires_grad=False)"""
+        freeze(self)
+        return self
 
 
 def enforce_float_tensor(v: Union[torch.Tensor, np.ndarray], device=None
