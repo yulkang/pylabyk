@@ -1030,14 +1030,26 @@ def fun_deal(f, inp):
     return f(*inp)
 
 
-def arrayobj1d(inp: Iterable):
+def arrayobj1d(inp: Iterable, copy=False):
     """
     Return a 1D np.ndarray of dtype=np.object.
     Different from np.array(inp, dtype=np.object) because the latter may
     return a multidimensional array, which gets flattened when fed to
     np.meshgrid, unlike the output from this function.
     """
-    return np.array([None] + list(inp), dtype=np.object)[1:]
+    return np.array([None] + list(inp), dtype=np.object, copy=copy)[1:]
+
+
+def meshgridflat(*args, copy=False):
+    """
+    flatten outputs from meshgrid, for use with np.vectorize()
+    :param args:
+    :param copy: whether to copy during meshgrid
+    :return:
+    """
+    outputs = np.meshgrid(*args, indexing='ij', copy=copy)  # type: Iterable[np.ndarray]
+    outputs = [v.flatten() for v in outputs]
+    return outputs
 
 
 def vectorize_par(f: Callable, inputs: Iterable,
