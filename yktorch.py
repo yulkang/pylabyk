@@ -1562,7 +1562,7 @@ def optimize_scipy(
     :param kw_pyobj: {'separate_loss_for_jac': True} to separately return
             loss_for_grad, loss = model()
         e.g., for REINFORCE
-    :return: b, se, loss
+    :return: param_fit, loss, out
     """
     kw_optim = dict(kw_optim)
     kw_optim_option = dict(kw_optim_option)
