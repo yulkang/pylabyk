@@ -236,19 +236,36 @@ def nan2v(v, fill=0.):
     return v
 
 
-def nansum(v, *args, inplace=False, **kwargs):
-    if not inplace:
-        v = v.clone()
+def nansum(v, *args, **kwargs):
+    v = v.clone()
     is_nan = isnan(v)
     v[is_nan] = 0
     return v.sum(*args, **kwargs)
 
-def nanmean(v, *args, inplace=False, **kwargs):
-    if not inplace:
-        v = v.clone()
+
+def nanmean(v: torch.Tensor, *args, allnan=np.nan, **kwargs) -> torch.Tensor:
+    """
+
+    :param v: tensor to take mean
+    :param dim: dimension(s) over which to take the mean
+    :param allnan: value to use in case all values averaged are NaN.
+        Defaults to np.nan, consistent with np.nanmean.
+    :return: mean.
+    """
+    v = v.clone()
     is_nan = isnan(v)
     v[is_nan] = 0
-    return v.sum(*args, **kwargs) / float(~is_nan).sum(*args, **kwargs)
+
+    if np.isnan(allnan):
+        return v.sum(*args, **kwargs) / float(~is_nan).sum(*args, **kwargs)
+    else:
+        sum_nonnan = v.sum(*args, **kwargs)
+        n_nonnan = float(~is_nan).sum(*args, **kwargs)
+        mean_nonnan = torch.zeros_like(sum_nonnan) + allnan
+        any_nonnan = n_nonnan > 1
+        mean_nonnan[any_nonnan] = (
+                sum_nonnan[any_nonnan] / n_nonnan[any_nonnan])
+        return mean_nonnan
 
 def nanmax(v, *args, inplace=False, **kwargs):
     if not inplace:

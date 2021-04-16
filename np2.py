@@ -1147,7 +1147,10 @@ def vectorize_par(f: Callable, inputs: Iterable,
         outs = pool.map(f, m, chunksize=chunksize)
 
     if nout is None:
-        nout = len(outs[0]) if is_iter(outs[0]) else 1
+        try:
+            nout = len(outs[0])
+        except TypeError:
+            nout = 1
 
     if otypes is None:
         otypes = [np.object] * nout

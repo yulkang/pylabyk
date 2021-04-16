@@ -11,6 +11,7 @@ Created on Fri Oct 12 10:58:48 2018
 from collections import OrderedDict as odict
 import hashlib
 import os
+import textwrap
 
 
 def varargin2props(obj, kw, skip_absent=True, error_absent=False):
@@ -133,6 +134,11 @@ def dict2fname(d, skip_None=True):
         else:
             return True
     return '+'.join(['%s=%s' % (k, d[k]) for k in d if to_include(k)])
+
+
+def fname2title(fname: str, wrapat=30):
+    return '\n'.join(textwrap.wrap(
+        fname.replace('_', '-'), wrapat))
 
 
 def rmkeys(d, keys):

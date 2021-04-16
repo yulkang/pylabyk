@@ -1,18 +1,6 @@
 """
-Options:
+Example:
 
-1. Use OverriddenParameter
-Pros
-: can assign to slice
-: can use autocompletion
-Cons
-: need to use [:] to refer to the whole tensor
-
-2. Use BoundedModule.register_()
-Pros
-: ?
-Cons
-: cannot assign to slice without using setslice()
 """
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
@@ -110,8 +98,8 @@ class BoundedParameter(OverriddenParameter):
         :param kwargs:
         """
         super().__init__(**kwargs)
-        self.lb = npt.tensor(lb)
-        self.ub = npt.tensor(ub)
+        self.lb = None if lb == -np.inf else npt.tensor(lb)
+        self.ub = None if ub == np.inf else npt.tensor(ub)
         self.skip_loading_lbub = skip_loading_lbub
         self._param = nn.Parameter(self.data2param(data),
                                    requires_grad=requires_grad)
@@ -124,7 +112,8 @@ class BoundedParameter(OverriddenParameter):
         lb = self.lb
         ub = self.ub
         data = enforce_float_tensor(data)
-        if lb is None and ub is None:  # Unbounded
+
+        if (lb is None) and (ub is None):  # Unbounded
             return data
         elif lb is None:
             data[data > ub - self.epsilon] = ub - self.epsilon
@@ -646,8 +635,14 @@ class BoundedModule(nn.Module):
                 g0 = torch.zeros_like(v0)
             else:
                 g0 = param._param.grad.flatten()
-            l0 = npt.tensor(param.lb).expand_as(param.v).flatten()
-            u0 = npt.tensor(param.ub).expand_as(param.v).flatten()
+            if param.lb is None:
+                l0 = torch.tensor([-np.inf]).expand_as(param.v).flatten()
+            else:
+                l0 = npt.tensor(param.lb).expand_as(param.v).flatten()
+            if param.ub is None:
+                u0 = torch.tensor([np.inf]).expand_as(param.v).flatten()
+            else:
+                u0 = npt.tensor(param.ub).expand_as(param.v).flatten()
 
             for i, (v1, g1, l1, u1) in enumerate(zip(v0, g0, l0, u0)):
                 v.append(npy(v1))
@@ -741,6 +736,10 @@ class BoundedModule(nn.Module):
             v1 = v1.reshape(size)
             dict1[k] = v1
         return dict1
+
+    def grad_vec(self):
+        ps = self.parameters()
+        return torch.cat([p.grad.flatten() for p in ps])
 
 
 def enforce_float_tensor(v: Union[torch.Tensor, np.ndarray], device=None
