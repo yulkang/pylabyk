@@ -28,8 +28,8 @@ from . import plt2, numpytorch as npt
 from .numpytorch import npy, freeze
 from .cacheutil import mkdir4file
 
-default_device = torch.device('cpu')  # CHECKING
-# default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+# default_device = torch.device('cpu')  # CHECKING
+default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 #%% Bounded parameters (under construction)
 # this is for better autocompletion, etc.
@@ -109,9 +109,9 @@ class BoundedParameter(OverriddenParameter):
                           'value.')
 
     def data2param(self, data) -> torch.Tensor:
-        lb = self.lb
-        ub = self.ub
-        data = enforce_float_tensor(data)
+        lb = npt.tensor(self.lb)
+        ub = npt.tensor(self.ub)
+        data = npt.tensor(enforce_float_tensor(data))
 
         if (lb is None) and (ub is None):  # Unbounded
             return data
@@ -210,7 +210,9 @@ class BoundedParameter(OverriddenParameter):
                 self.ub = npt.tensor(state_dict.pop(ub_name))
         if data_name in state_dict:
             state_dict[param_name] = self.data2param(
-                state_dict.pop(data_name).detach().clone())
+                state_dict.pop(data_name).detach().clone().to(npt.device0))
+        elif param_name in state_dict:
+            state_dict[param_name] = npt.tensor(state_dict[param_name])
         return super()._load_from_state_dict(
             state_dict, prefix, local_metadata, strict,
             missing_keys, unexpected_keys, error_msgs)
