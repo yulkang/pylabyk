@@ -145,7 +145,7 @@ class BoundedParameter(OverriddenParameter):
         if lb is None and ub is None: # Unbounded
             return param
         elif lb is None:
-            return torch.tensor(ub) - torch.exp(param)
+            return npt.tensor(ub) - torch.exp(param)
         elif ub is None:
             return lb + torch.exp(param)
         elif npt.tensor(lb == ub).all():
@@ -226,8 +226,8 @@ class ProbabilityParameter(OverriddenParameter):
         """
         super().__init__(**kwargs)
         self.probdim = probdim
-        self.lb = torch.zeros(1)
-        self.ub = torch.ones(1)
+        self.lb = npt.zeros(1)
+        self.ub = npt.ones(1)
         self._param = nn.Parameter(self.data2param(prob))
         if self._param.ndim == 0:
             raise Warning('Use ndim>0 to allow consistent use of [:]. '
@@ -632,15 +632,15 @@ class BoundedModule(nn.Module):
         for name, param in d.items():
             v0 = param.v.flatten()
             if param._param.grad is None:
-                g0 = torch.zeros_like(v0)
+                g0 = npt.zeros_like(v0)
             else:
                 g0 = param._param.grad.flatten()
             if param.lb is None:
-                l0 = torch.tensor([-np.inf]).expand_as(param.v).flatten()
+                l0 = npt.tensor([-np.inf]).expand_as(param.v).flatten()
             else:
                 l0 = npt.tensor(param.lb).expand_as(param.v).flatten()
             if param.ub is None:
-                u0 = torch.tensor([np.inf]).expand_as(param.v).flatten()
+                u0 = npt.tensor([np.inf]).expand_as(param.v).flatten()
             else:
                 u0 = npt.tensor(param.ub).expand_as(param.v).flatten()
 
@@ -723,7 +723,7 @@ class BoundedModule(nn.Module):
         dict0 = self.state_dict()  # type: Dict[str, torch.Tensor]
         dict1 = odict()
         if not torch.is_tensor(param_vec):
-            param_vec = torch.tensor(param_vec)
+            param_vec = npt.tensor(param_vec)
         for k, v0 in dict0.items():
             if not k.endswith(suffix):
                 continue
@@ -755,7 +755,7 @@ def enforce_float_tensor(v: Union[torch.Tensor, np.ndarray], device=None
     if device is None:
         device = default_device
     if not torch.is_tensor(v):
-        return torch.tensor(v, dtype=torch.get_default_dtype(), device=device)
+        return npt.tensor(v, dtype=torch.get_default_dtype(), device=device)
     elif not torch.is_floating_point(v):
         return v.float()
     else:
@@ -772,7 +772,7 @@ class TestBoundedModule(unittest.TestCase):
                 return '%d' % v
 
         bound = BoundedModule()
-        data = torch.zeros(2, 3)
+        data = npt.zeros(2, 3)
         for lb in [None, 0, -10, 10]:
             for ub in [None, 0, -5, 20]:
                 if lb is not None and ub is not None and lb >= ub:
@@ -795,7 +795,7 @@ class TestBoundedModule(unittest.TestCase):
                 return '%d' % v
 
         bound = BoundedModule()
-        data = torch.zeros(2, 3)
+        data = npt.zeros(2, 3)
         for lb in [None, 0, -10, 10]:
             for ub in [None, 0, -5, 20]:
                 if lb is not None and ub is not None and lb >= ub:
@@ -819,7 +819,7 @@ class TestBoundedModule(unittest.TestCase):
                 return '%d' % v
 
         bound = BoundedModule()
-        data = torch.zeros(2, 3)
+        data = npt.zeros(2, 3)
         for lb in [0, 5, 20]:
             for scale in [1, 5, 20]:
                 for offset in [0, 0.01, 0.5, scale]:
@@ -845,8 +845,8 @@ class TestBoundedModule(unittest.TestCase):
         bound = BoundedModule()
         for p in [0, 0.5, 1]:
             data = torch.cat([
-                torch.zeros(1, 3) + p,
-                torch.ones(1, 3) - p
+                npt.zeros(1, 3) + p,
+                npt.ones(1, 3) - p
                 ], dim=0)
             param = bound._prob2conf(data)
             data1 = bound._conf2prob(param)
@@ -862,8 +862,8 @@ class TestBoundedModule(unittest.TestCase):
         bound = BoundedModule()
         for p in [0, 0.5, 1]:
             data = torch.cat([
-                torch.zeros(1, 3) + p,
-                torch.ones(1, 3) - p
+                npt.zeros(1, 3) + p,
+                npt.ones(1, 3) - p
                 ], dim=0)
             bound.register_probability_parameter('prob', data)
             data1 = bound.prob
@@ -1275,7 +1275,7 @@ def optimize(
         data, target = fun_data('valid', 0, epoch_to_check, n_fold_valid)
 
         if not torch.is_tensor(data):
-            p_unequal = torch.tensor([
+            p_unequal = npt.tensor([
                 (v1 != v0).double().mean() for v1, v0
                 in zip(data, data0)
             ])
