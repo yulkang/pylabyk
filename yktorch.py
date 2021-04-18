@@ -122,7 +122,7 @@ class BoundedParameter(OverriddenParameter):
             data[data < lb + self.epsilon] = lb + self.epsilon
             return torch.log(data - lb)
         elif npt.tensor(lb == ub).all():
-            return torch.zeros_like(data)
+            return npt.zeros_like(data)
         else:
             too_small = data < lb + self.epsilon
             try:
@@ -149,7 +149,7 @@ class BoundedParameter(OverriddenParameter):
         elif ub is None:
             return lb + torch.exp(param)
         elif npt.tensor(lb == ub).all():
-            return torch.zeros_like(param) + lb
+            return npt.zeros_like(param) + lb
         else:
             return (1 / (1 + torch.exp(-param))) * (ub - lb) + lb  # noqa
 
