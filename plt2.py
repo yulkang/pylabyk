@@ -1175,6 +1175,15 @@ def bar_group(y: np.ndarray, yerr: np.ndarray = None,
 
 
 def errorbar_shade(x, y, yerr=None, **kw):
+    """
+
+    :param x:
+    :param y:
+    :param yerr: as in plt.errorbar.
+        If 2D,  yerr[0,:] = err_low, yerr[1,:] = err_high
+    :param kw:
+    :return:
+    """
     if yerr is None:
         y1 = y[0,:]
         y2 = y[1,:]
@@ -1183,9 +1192,7 @@ def errorbar_shade(x, y, yerr=None, **kw):
             yerr = np.concatenate([-yerr[np.newaxis,:],
                                    yerr[np.newaxis,:]], axis=0)
         elif yerr.ndim == 2:
-            # assume yerr[0,:] = err_low, yerr[1,:] = err_high
-            # (both positive), as in plt.errorbar
-            raise NotImplementedError()
+            pass
 
         else:
             raise ValueError()
