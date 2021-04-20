@@ -53,10 +53,12 @@ class LocalFile(object):
             pth_root='../Data',
             subdir_default='',
             cache_dir='cache',
+            ext_fig='.pdf',
     ):
         self.pth_root = pth_root
         self.subdir_default = subdir_default
         self.cache_dir = cache_dir
+        self.ext_fig = ext_fig
 
     def get_pth_out(self, subdir=None):
         if subdir is None:
@@ -137,9 +139,11 @@ class LocalFile(object):
 
     def get_file_fig(self, fig_kind,
                      d: Union[Iterable[tuple], dict, odict, None] = None,
-                     ext='.png', subdir=None) -> str:
+                     ext=None, subdir=None) -> str:
         """
         """
+        if ext is None:
+            ext = self.ext_fig
         return self.get_file('plt', fig_kind, d=d, ext=ext, subdir=subdir)
 
 
