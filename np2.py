@@ -1393,6 +1393,33 @@ def ____STRING____():
     pass
 
 
+def replace(s: str, src_dst: Iterable[(str, str)]) -> str:
+    """
+
+    :param s: string
+    :param src_dst: [(src1, dst1), (src2, dst2), ...]
+    :return: string with srcX replaced with dstX
+    """
+    for src, dst in src_dst:
+        s = s.replace(src, dst)
+    return s
+
+
+def shorten(v, src_dst: Iterable[(str, str)]) -> str:
+    """
+
+    :param v: string, Iterable[Number], or Number
+    :param src_dst: [(src1, dst1), (src2, dst2), ...]
+    :return: string with srcX replaced with dstX, or printed '%g,%g,...'
+    """
+    if type(v) is str:
+        return replace(v, src_dst)
+    elif is_iter(v):
+        return '%s' % (','.join([('%g' % v1) for v1 in npy(v).flatten()]))
+    else:
+        return '%g' % v
+
+
 def filt_str(s, filt_preset='alphanumeric', replace_with='_'):
     import re
 
