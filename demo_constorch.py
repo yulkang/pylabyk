@@ -1,13 +1,8 @@
-# constorch
-Constrained optimization in PyTorch. Currently uses transformation-based constraints.
-
-## Example usage
-```python
-# demo_constorch.py
+#  Copyright (c) 2021  Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
 import torch
 import numpy as np
-from constorch import yktorch as ykt
+from . import yktorch as ykt
 from matplotlib import pyplot as plt
 
 
@@ -34,7 +29,7 @@ class DemoModule(ykt.BoundedModule):
 
 # Usage is almost the same as torch.nn.Module,
 # except that currently a parameter's value needs to be
-# referred to as, e.g., model.param[:], 
+# referred to as, e.g., model.param[:],
 # to invoke __getitem__() and __setitem__().
 model = DemoModule(torch.tensor([0.5, -0.5, 0.]))
 print(model.lbub[:] + 2.) # works like regular parameters
@@ -51,4 +46,3 @@ print(model.grad_vec())
 # Bar plot of parameters with bounds, useful for monitoring training
 model.plot_params()
 plt.show()
-```
