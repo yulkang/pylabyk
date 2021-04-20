@@ -15,7 +15,7 @@ import numpy_groupies as npg
 import pandas as pd
 from copy import deepcopy
 from . import numpytorch
-from typing import Union, Sequence, Iterable, Type, Callable
+from typing import Union, Sequence, Iterable, Type, Callable, Tuple
 from multiprocessing.pool import Pool as Pool0
 # from multiprocessing import Pool
 
@@ -1393,7 +1393,7 @@ def ____STRING____():
     pass
 
 
-def replace(s: str, src_dst: Iterable[(str, str)]) -> str:
+def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
     """
 
     :param s: string
@@ -1405,7 +1405,7 @@ def replace(s: str, src_dst: Iterable[(str, str)]) -> str:
     return s
 
 
-def shorten(v, src_dst: Iterable[(str, str)]) -> str:
+def shorten(v, src_dst: Iterable[Tuple[str, str]]) -> str:
     """
 
     :param v: string, Iterable[Number], or Number
