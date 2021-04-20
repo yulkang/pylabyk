@@ -1,6 +1,7 @@
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 from . import cacheutil
 from . import argsutil
+from .cacheutil import dict2fname
 import os, shutil
 from collections import OrderedDict as odict
 from typing import Union, Iterable

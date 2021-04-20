@@ -270,6 +270,13 @@ def nanmean(v: torch.Tensor, *args, allnan=np.nan, **kwargs) -> torch.Tensor:
                 sum_nonnan[any_nonnan] / n_nonnan[any_nonnan])
         return mean_nonnan
 
+def nanmax(v, *args, inplace=False, **kwargs):
+    if not inplace:
+        v = v.clone()
+    is_nan = isnan(v)
+    v[is_nan] = -np.inf
+    # Note: should return nan if a dimension is all NaN - not yet implemented
+    return torch.max(v, *args, **kwargs)
 
 def softmax_mask(w: torch.Tensor,
                  dim=-1,
@@ -1300,13 +1307,12 @@ def onehotrnd(probs=None, logits=None, sample_shape=()):
     ).sample(sample_shape=sample_shape)
 
 
-def mvnpdf_log(x, mu=None, sigma=None):
+def mvnpdf_log(x, mu=None, sigma=None) -> torch.Tensor:
     """
     :param x: [batch, ndim]
     :param mu: [batch, ndim]
     :param sigma: [batch, ndim, ndim]
     :return: log_prob [batch]
-    :rtype: torch.FloatTensor
     """
     if mu is None:
         mu = tensor([0.])
