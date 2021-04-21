@@ -682,6 +682,17 @@ def info_criterion(nll, n_trial, n_param, kind='BIC'):
         raise ValueError()
 
 
+def dkl(a: np.ndarray, b: np.ndarray, axis=None) -> np.ndarray:
+    """
+
+    :param a:
+    :param b:
+    :param axis:
+    :return: sum(a * (log(a) - log(b)), axis)
+    """
+    return np.sum(a * (np.log(a) - np.log(b)), axis=axis)
+
+
 #%% Distribution
 def ____DISTRIBUTION____():
     pass
