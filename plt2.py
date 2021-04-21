@@ -339,20 +339,19 @@ def lim_margin(v, xy='y', margin=0.05, ax=None):
     return amin, amax
 
 
-def break_axis(amin, amax=None, xy='x', ax=None, fun_draw=None):
+def break_axis(
+        amin, amax=None, xy='x', ax: plt.Axes = None,
+        fun_draw: Callable = None,
+        margin=0.05,
+) -> (plt.Axes, plt.Axes):
     """
-    @param amin: data coordinate to start breaking from
-    @type amin: Union[float, int]
-    @param amax: data coordinate to end breaking at
-    @type amax: Union[float, int]
-    @param xy: 'x' or 'y'
-    @type ax: plt.Axes
-    @param fun_draw: if not None, fun_draw(ax1) and fun_draw(ax2) will
+    :param amin: data coordinate to start breaking from
+    :param amax: data coordinate to end breaking at
+    :param xy: 'x' or 'y'
+    :param fun_draw: if not None, fun_draw(ax1) and fun_draw(ax2) will
     be run to recreate ax. Use the same function as that was called for
     with ax. Use, e.g., fun_draw=lambda ax: ax.plot(x, y)
-    @type fun_draw: function
-    @return: axs: a list of axes created
-    @rtype: List[plt.Axes, plt.Axes]
+    :return: axs: a list of axes created
     """
 
     if amax is None:
@@ -361,7 +360,6 @@ def break_axis(amin, amax=None, xy='x', ax=None, fun_draw=None):
     if ax is None:
         ax = plt.gca()
 
-    axs = []
     if xy == 'x':
         rect = ax.get_position().bounds
         lim = ax.get_xlim()
@@ -403,7 +401,46 @@ def break_axis(amin, amax=None, xy='x', ax=None, fun_draw=None):
         axs = [ax1, ax2]
 
     elif xy == 'y':
-        raise NotImplementedError()
+        rect = ax.get_position().bounds
+        lim = ax.get_ylim()
+        prop_all = ((amin - lim[0]) + (lim[1] - amax)) / (1 - margin)
+        prop_min = (amin - lim[0]) / prop_all
+        prop_max = (lim[1] - amax) / prop_all
+        rect1 = np.array([
+            rect[0],
+            rect[1],
+            rect[2],
+            rect[3] * prop_min
+        ])
+        rect2 = [
+            rect[0],
+            rect[1] + rect[3] * (1 - prop_max),
+            rect[2],
+            rect[3] * (1 - prop_max)
+        ]
+
+        fig = ax.figure  # type: plt.Figure
+        ax1 = fig.add_axes(plt.Axes(fig=fig, rect=rect1))
+        ax1.update_from(ax)
+        if fun_draw is not None:
+            fun_draw(ax1)
+        ax1.set_yticks(ax.get_yticks())
+        ax1.set_ylim(lim[0], amin)
+        ax1.spines['top'].set_visible(False)
+
+        ax2 = fig.add_axes(plt.Axes(fig=fig, rect=rect2))
+        ax2.update_from(ax)
+        if fun_draw is not None:
+            fun_draw(ax2)
+        ax2.set_yticks(ax.get_yticks())
+        ax2.set_ylim(amax, lim[1])
+        ax2.spines['bottom'].set_visible(False)
+        ax2.set_xticks([])
+
+        ax.set_visible(False)
+        # plt.show()  # CHECKED
+        axs = [ax1, ax2]
+
     else:
         raise ValueError()
 
