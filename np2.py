@@ -1416,7 +1416,7 @@ def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
     return s
 
 
-def shorten(v, src_dst: Iterable[Tuple[str, str]]) -> str:
+def shorten(v, src_dst: Iterable[Tuple[str, str]]) -> Union[str, None]:
     """
 
     :param v: string, Iterable[Number], or Number
@@ -1427,6 +1427,8 @@ def shorten(v, src_dst: Iterable[Tuple[str, str]]) -> str:
         return replace(v, src_dst)
     elif is_iter(v):
         return '%s' % (','.join([('%g' % v1) for v1 in npy(v).flatten()]))
+    elif v is None:
+        return None
     else:
         return '%g' % v
 
