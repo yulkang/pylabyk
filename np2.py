@@ -1416,7 +1416,7 @@ def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
     return s
 
 
-def shorten(v, src_dst: Iterable[Tuple[str, str]]) -> Union[str, None]:
+def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[str, None]:
     """
 
     :param v: string, Iterable[Number], or Number
