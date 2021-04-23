@@ -15,7 +15,7 @@ import numpy_groupies as npg
 import pandas as pd
 from copy import deepcopy
 from . import numpytorch
-from typing import Union, Sequence, Iterable, Type, Callable, Tuple
+from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List
 from multiprocessing.pool import Pool as Pool0
 # from multiprocessing import Pool
 
@@ -93,14 +93,22 @@ def cell2mat2(l, max_len=None):
     return m
 
 
-def mat2cell(m):
+def mat2cell(m: np.ndarray, remove_nan=True) -> List[np.ndarray]:
     """
-    remove trailing NaNs from each row.
-    @param m: 2D array
-    @type m: np.ndarray
-    @rtype: np.ndarray
+    Make a list of array
+    :param remove_nan: if True (default), remove trailing NaNs from each row
     """
-    return [v[~np.isnan(v)] for v in m]
+    if remove_nan:
+        return [v[~np.isnan(v)] for v in m]
+    else:
+        return [v for v in m]
+
+
+def mat2list(m: np.ndarray) -> List[np.ndarray]:
+    """
+    Make a list of array
+    """
+    return [v for v in m]
 
 
 def dict_shapes(d, verbose=True):
