@@ -1434,7 +1434,15 @@ def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[str, None]:
     if type(v) is str:
         return replace(v, src_dst)
     elif is_iter(v):
-        return '%s' % (','.join([('%g' % v1) for v1 in npy(v).flatten()]))
+        v = list(v)
+        if isinstance(v[0], str):
+            return '%s' % (','.join([
+                ('%s' % shorten(v1, src_dst))
+                for v1 in v]))
+        else:
+            return '%s' % (','.join([
+                ('%s' % shorten(v1, src_dst))
+                for v1 in npy(v).flatten()]))
     elif v is None:
         return None
     else:
