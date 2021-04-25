@@ -701,6 +701,20 @@ def dkl(a: np.ndarray, b: np.ndarray, axis=None) -> np.ndarray:
     return np.sum(a * (np.log(a) - np.log(b)), axis=axis)
 
 
+def wsum_rvs(mu: np.ndarray, sigma: np.ndarray, w: np.ndarray
+             ) -> (np.ndarray, np.ndarray):
+    """
+    Mean and covariance of weighted sum of random variables
+    :param mu: [..., RV]
+    :param sigma: [..., RV, RV]
+    :param w: [RV]
+    :return: mu[..., RV], sigma[..., RV, RV]
+    """
+    mu1 = (mu * w).sum(axis=-1)
+    sigma1 = (sigma *  (w[..., None] * w[..., None, :])).sum(axis=(-1, -2))
+    return mu1, sigma1
+
+
 #%% Distribution
 def ____DISTRIBUTION____():
     pass
