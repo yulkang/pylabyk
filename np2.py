@@ -708,7 +708,7 @@ def wsum_rvs(mu: np.ndarray, sigma: np.ndarray, w: np.ndarray
     :param mu: [..., RV]
     :param sigma: [..., RV, RV]
     :param w: [RV]
-    :return: mu[..., RV], sigma[..., RV, RV]
+    :return: mu_sum[...], variance_sum[...]
     """
     mu1 = mu * w  # type: np.ndarray
     ndim = mu1.ndim
