@@ -710,8 +710,12 @@ def wsum_rvs(mu: np.ndarray, sigma: np.ndarray, w: np.ndarray
     :param w: [RV]
     :return: mu[..., RV], sigma[..., RV, RV]
     """
-    mu1 = (mu * w).sum(axis=-1)
-    sigma1 = (sigma *  (w[..., None] * w[..., None, :])).sum(axis=(-1, -2))
+    mu1 = mu * w  # type: np.ndarray
+    ndim = mu1.ndim
+    # not using axis=-1, to make it work with DataFrame and Series
+    mu1 = mu1.sum(axis=ndim - 1)
+    sigma1 = (sigma *  (w[..., None] * w[..., None, :])
+              ).sum(axis=ndim).sum(axis=ndim - 1)
     return mu1, sigma1
 
 
