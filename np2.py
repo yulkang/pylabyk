@@ -870,20 +870,26 @@ def project(a, b, axis=None, scalar_proj=False):
 def inverse_transform(xy0: np.ndarray, xy1: np.ndarray) -> np.ndarray:
     """
 
-    :param xy0: [(x, y), ...]: original grid
-    :param xy1: [(x, y), ...]: transformed grid
-    :return: xy2: [(x, y), ...]: inverse-transformed original grid
+    :param xy0: [(x, y), ix, iy]: original grid
+    :param xy1: [(x, y), ix, iy]: transformed grid
+    :return: xy2: [(x, y), ix, iy]: inverse-transformed original grid
     """
     from scipy.interpolate import griddata
-    xy2 = np.stack([
-        griddata(
-            xy11.flatten(),
-            xy00.flatten(),
-            xy00.flatten(),
-            method='linear'
-        ).reshape(xy0.shape[1:])
-        for xy00, xy11 in zip(npy(xy0), npy(xy1))
-    ])
+    if xy0.ndim == 3:
+        xy2 = np.stack([
+            np.stack([
+                inverse_transform(xy00, xy11)
+                for xy00, xy11 in zip(xy0[0].T, xy1[0].T)
+            ]).T,
+            np.stack([
+                inverse_transform(xy00, xy11)
+                for xy00, xy11 in zip(xy0[1], xy1[1])
+            ])
+        ])
+    elif xy0.ndim == 1:
+        xy2 = griddata(xy1, xy0, xy0, method='linear')
+    else:
+        raise ValueError()
     return xy2
 
 
