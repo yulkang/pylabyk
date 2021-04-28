@@ -867,6 +867,26 @@ def project(a, b, axis=None, scalar_proj=False):
         return proj * b
 
 
+def inverse_transform(xy0: np.ndarray, xy1: np.ndarray) -> np.ndarray:
+    """
+
+    :param xy0: [(x, y), ...]: original grid
+    :param xy1: [(x, y), ...]: transformed grid
+    :return: xy2: [(x, y), ...]: inverse-transformed original grid
+    """
+    from scipy.interpolate import griddata
+    xy2 = np.stack([
+        griddata(
+            xy11.flatten(),
+            xy00.flatten(),
+            xy00.flatten(),
+            method='linear'
+        ).reshape(xy0.shape[1:])
+        for xy00, xy11 in zip(npy(xy0), npy(xy1))
+    ])
+    return xy2
+
+
 def ____BINARY_OPS____():
     pass
 
