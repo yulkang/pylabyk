@@ -520,7 +520,18 @@ def same_clim(images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
 
     if clim is None:
         if img0 is None:
-            clims = np.array([im.get_clim() for im in images])
+            # # DEBUGGED: just using array min and max ignores existing
+            # #  non-None clims
+            # arrays = np.concatenate([
+            #     im.get_array().flatten() for im in images], 0)
+            # clim = [np.amin(arrays), np.amax(arrays)]
+
+            # # DEBUGGED: np.amax(clims) doesn't work when either clim is None.
+            clims = np.array([im.get_clim() for im in images], dtype=np.object)
+            clims[:, 0] = [v if v is not None else np.amin(im.get_array())
+                           for v, im in zip(clims[:, 0], images)]
+            clims[:, 1] = [v if v is not None else np.amax(im.get_array())
+                           for v, im in zip(clims[:, 1], images)]
             clim = [np.amin(clims[:,0]), np.amax(clims[:,1])]
         else:
             if isinstance(img0, plt.Axes):
@@ -629,8 +640,8 @@ def box_off(remove_spines: Union[str, Iterable[str]] = ('right', 'top'),
         ax = plt.gca()  # plt.Axes
     if remove_spines == 'all':
         remove_spines = ['left', 'right', 'top', 'bottom']
-        ax.set_xticks([])
-        ax.set_yticks([])
+        # ax.set_xticks([])
+        # ax.set_yticks([])
 
     if 'left' in remove_spines:
         ax.tick_params(axis='y', length=0)
