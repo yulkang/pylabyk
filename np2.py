@@ -569,6 +569,11 @@ def argmin_margin(v, **kw):
     return argmax_margin(-v, **kw)
 
 
+def argmedian(v, axis=None):
+    median = np.median(v, axis=axis, keepdims=True)
+    return np.argmin(np.abs(v - median), axis=axis)
+
+
 def sumto1(v, axis=None, ignore_nan=True):
     if ignore_nan:
         if type(v) is np.ndarray:
