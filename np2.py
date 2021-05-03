@@ -537,7 +537,7 @@ def ecdf(x0):
     """
     
     n = len(x0)
-    p = np.arange(1.,n+1.) / n
+    p = np.linspace(0, 1, n)
     x = np.sort(x0)
     return p, x
 

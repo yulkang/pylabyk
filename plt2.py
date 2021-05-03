@@ -1263,9 +1263,12 @@ def ____Stats_Probability____():
     pass
 
 def ecdf(x0, *args, **kw):
-    p, x = np2.ecdf(x0)
-    return plt.step(np.concatenate([x[:1], x], 0),
-                    np.concatenate([np.array([0.]), p], 0),
+    n = len(x0)
+    p = np.linspace(0, 1, n + 1)[:-1]
+    x = np.sort(x0)
+    return plt.step(np.concatenate([x[:1], x, x[-1:]], 0),
+                    np.concatenate([np.array([0.]), p, np.array([1.])
+                                    ], 0),
                     *args, **kw)
 
 def ____Gaussian____():
