@@ -738,6 +738,40 @@ def ____CIRCSTAT____():
     pass
 
 
+def circmean_distrib(p: np.ndarray, dim=-1, keepdim=False) -> np.ndarray:
+    """
+    Circular mean in radian.
+    p is assumed to sum to 1 along dim, and is assumed to correspond to
+    [0, 1/n, 2/n, ..., (n-1)/n] * 2 * pi radian, where n = p.shape[dim]
+    :param p:
+    :param dim: defaults to -1.
+    :return: circmean
+    """
+    n = p.shape[dim]
+    th = vec_on(np.linspace(0., 1. - 1. / n, n), dim, p.ndim)
+    c = np.cos(th * 2. * np.pi)
+    s = np.sin(th * 2. * np.pi)
+    c1 = np.sum(p * c, dim, keepdims=keepdim)
+    s1 = np.sum(p * s, dim, keepdims=keepdim)
+    return np.arctan2(s1, c1)
+
+def circvar_distrib(p: np.ndarray, dim=-1, keepdim=False) -> np.ndarray:
+    """
+    Circular variance = 1 - length of the resultant vector.
+    p is assumed to sum to 1 along dim, and is assumed to correspond to
+    [0, 1/n, 2/n, ..., (n-1)/n] * 2 * pi radian, where n = p.shape[dim]
+    :param p:
+    :param dim:
+    :return: circvar
+    """
+    n = p.shape[dim]
+    th = vec_on(np.linspace(0., 1. - 1. / n, n), dim, p.ndim)
+    c = np.cos(th * 2. * np.pi)
+    s = np.sin(th * 2. * np.pi)
+    c1 = np.sum(p * c, dim, keepdims=keepdim)
+    s1 = np.sum(p * s, dim, keepdims=keepdim)
+    return 1. - np.sqrt(c1 ** 2 + s1 ** 2)
+
 def rad2deg(rad):
     return rad / np.pi * 180.
 
