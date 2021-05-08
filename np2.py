@@ -1485,6 +1485,8 @@ def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[str, None]:
     """
     if type(v) is str:
         return replace(v, src_dst)
+    elif isinstance(v, bool):
+        return '%d' % int(v)
     elif is_iter(v):
         v = list(v)
         if isinstance(v[0], str):
