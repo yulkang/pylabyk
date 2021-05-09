@@ -1149,6 +1149,16 @@ def arrayobj1d(inp: Iterable, copy=False):
     return np.array([None] + list(inp), dtype=np.object, copy=copy)[1:]
 
 
+def scalararray(inp) -> np.ndarray:
+    """
+    Return a scalar np.ndarray of dtype=np.object.
+    Useful to return iterables of arbitrary lengths from np.vectorize()
+    :param inp:
+    :return:
+    """
+    return np.array([None, inp], dtype=np.object)[[1]].reshape([])
+
+
 def meshgridflat(*args, copy=False):
     """
     flatten outputs from meshgrid, for use with np.vectorize()
