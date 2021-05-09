@@ -1152,7 +1152,6 @@ def arrayobj1d(inp: Iterable, copy=False):
 def scalararray(inp) -> np.ndarray:
     """
     Return a scalar np.ndarray of dtype=np.object.
-    Useful to return iterables of arbitrary lengths from np.vectorize()
     :param inp:
     :return:
     """
