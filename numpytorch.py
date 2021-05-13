@@ -11,8 +11,24 @@ from typing import Union, Iterable, Tuple, Dict, Sequence
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
     Categorical, OneHotCategorical
 
-# device0 = torch.device('cpu')  # CHECKING
-device0 = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+# _device0 = torch.device('cpu')  # CHECKED
+_device0 = None
+# device0 = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+
+def set_device(device):
+    global _device0
+    _device0 = device
+
+
+def get_device(device=None):
+    if device is None:
+        if _device0 is None:
+            device = torch.device('cuda:0' if torch.cuda.is_available()
+                                  else 'cpu')
+        else:
+            device = _device0
+    return device
 
 
 #%% Wrapper that allows numpy-style syntax for torch
@@ -114,7 +130,7 @@ def tensor(v: Union[float, np.ndarray, torch.Tensor],
     :return:
     """
     if device is None:
-        device = device0
+        device = get_device()
 
     if v is None:
         pass
@@ -143,39 +159,39 @@ def cuda(v):
 
 
 def zeros(*args, **kwargs):
-    return torch.zeros(*args, **{'device': device0, **kwargs})
+    return torch.zeros(*args, **{'device': get_device(), **kwargs})
 
 
 def ones(*args, **kwargs):
-    return torch.ones(*args, **{'device': device0, **kwargs})
+    return torch.ones(*args, **{'device': get_device(), **kwargs})
 
 
 def zeros_like(*args, **kwargs):
-    return torch.zeros_like(*args, **{'device': device0, **kwargs})
+    return torch.zeros_like(*args, **{'device': get_device(), **kwargs})
 
 
 def ones_like(*args, **kwargs):
-    return torch.ones_like(*args, **{'device': device0, **kwargs})
+    return torch.ones_like(*args, **{'device': get_device(), **kwargs})
 
 
 def eye(*args, **kwargs):
-    return torch.eye(*args, **{'device': device0, **kwargs})
+    return torch.eye(*args, **{'device': get_device(), **kwargs})
 
 
 def empty(*args, **kwargs):
-    return torch.empty(*args, **{'device': device0, **kwargs})
+    return torch.empty(*args, **{'device': get_device(), **kwargs})
 
 
 def empty_like(*args, **kwargs):
-    return torch.empty_like(*args, **{'device': device0, **kwargs})
+    return torch.empty_like(*args, **{'device': get_device(), **kwargs})
 
 
 def arange(*args, **kwargs):
-    return torch.arange(*args, **{'device': device0, **kwargs})
+    return torch.arange(*args, **{'device': get_device(), **kwargs})
 
 
 def linspace(*args, **kwargs):
-    return torch.linspace(*args, **{'device': device0, **kwargs})
+    return torch.linspace(*args, **{'device': get_device(), **kwargs})
 
 
 def float(v):
@@ -217,16 +233,20 @@ def dclones(*args):
 
 
 #%% Constants
-nan = tensor(np.nan)
-pi = tensor(np.pi)
-pi2 = tensor(np.pi * 2)
+# nan = tensor(np.nan)
+# pi = tensor(np.pi)
+# pi2 = tensor(np.pi * 2)
+nan = np.nan
+pi = np.pi
+pi2 = np.pi * 2
 
 
 #%% NaN-related
 def ____NAN____():
     pass
 
-nanint = tensor(np.nan).long()
+nanint = torch.tensor(np.nan).long()
+# nanint = tensor(np.nan).long()
 def isnan(v):
     if v.dtype is torch.long:
         return v == nanint
@@ -1644,7 +1664,7 @@ def vmpdf(x, mu, scale=None, normalize=True):
         mu = mu / scale
         # mu[scale[:,0] == 0, :] = 0.
 
-    vm = vmf.VonMisesFisher(mu, scale + torch.zeros([1,1], device=device0))
+    vm = vmf.VonMisesFisher(mu, scale + torch.zeros([1,1], device=get_device()))
     p = torch.exp(vm.log_prob(x)).clamp_min(0.)
     # if scale == 0.:
     #     p = torch.ones_like(p) / p.shape[0]

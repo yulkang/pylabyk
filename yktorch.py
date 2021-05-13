@@ -210,7 +210,7 @@ class BoundedParameter(OverriddenParameter):
                 self.ub = npt.tensor(state_dict.pop(ub_name))
         if data_name in state_dict:
             state_dict[param_name] = self.data2param(
-                state_dict.pop(data_name).detach().clone().to(npt.device0))
+                state_dict.pop(data_name).detach().clone().to(npt.get_device()))
         elif param_name in state_dict:
             state_dict[param_name] = npt.tensor(state_dict[param_name])
         return super()._load_from_state_dict(
