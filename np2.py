@@ -151,7 +151,8 @@ def dict_shapes(d, verbose=True):
     return sh
 
 
-def filt_dict(d: dict, incl: np.ndarray) -> dict:
+def filt_dict(d: dict, incl: np.ndarray,
+              copy=True, ignore_diff_len=True) -> dict:
     """
     Copy d[k][incl] if d[k] is np.ndarray and d[k].shape[1] == incl.shape[0];
     otherwise copy the whole value.
@@ -159,12 +160,26 @@ def filt_dict(d: dict, incl: np.ndarray) -> dict:
     @type incl: np.ndarray
     @rtype: dict
     """
-    return {
-        k: (deepcopy(v[incl]) if (isinstance(v, np.ndarray)
-                                  and v.shape[0] == incl.shape[0])
-            else deepcopy(v))
-        for k, v in d.items()
-    }
+    if copy:
+        if ignore_diff_len:
+            return {
+                k: (deepcopy(v[incl]) if (isinstance(v, np.ndarray)
+                                          and v.shape[0] == incl.shape[0])
+                    else deepcopy(v))
+                for k, v in d.items()
+            }
+        else:
+            return {k: deepcopy(v[incl]) for k, v in d.items()}
+    else:
+        if ignore_diff_len:
+            return {
+                k: (v[incl] if (isinstance(v, np.ndarray)
+                                          and v.shape[0] == incl.shape[0])
+                    else v)
+                for k, v in d.items()
+            }
+        else:
+            return {k: v[incl] for k, v in d.items()}
 
 
 def listdict2dictlist(listdict: list, to_array=False) -> dict:
