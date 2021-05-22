@@ -135,7 +135,10 @@ class LocalFile(object):
             filekind='cache', kind=cache_kind,
             d=d, ext='.zpkl', subdir=subdir
         )
-        return cacheutil.Cache(file, **kwargs)
+        return cacheutil.Cache(file, {
+            'ignore_key': True,
+            **kwargs
+        })
 
     def get_file_fig(self, fig_kind,
                      d: Union[Iterable[tuple], dict, odict, None] = None,
