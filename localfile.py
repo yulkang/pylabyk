@@ -51,11 +51,11 @@ class LocalFile(object):
             self,
             pth_root='../Data',
             subdir_default='',
-            cache_dir='cache',
+            # cache_dir='cache',
     ):
         self.pth_root = pth_root
         self.subdir_default = subdir_default
-        self.cache_dir = cache_dir
+        # self.cache_dir = cache_dir
 
     def get_pth_out(self, subdir=None):
         if subdir is None:
@@ -65,11 +65,12 @@ class LocalFile(object):
         pth_out = os.path.join(self.pth_root, subdir)
         return pth_out
 
-    def get_pth_cache(self, subdir=None, cache_dir=None):
-        if cache_dir is None:
-            cache_dir = self.cache_dir
-        pth_cache = os.path.join(
-            self.get_pth_out(subdir), cache_dir)
+    def get_pth_cache(self, subdir=None):  # , cache_dir=None):
+        # if cache_dir is None:
+        #     cache_dir = self.cache_dir
+        # pth_cache = os.path.join(
+        #     self.get_pth_out(subdir), cache_dir)
+        pth_cache = self.get_pth_out(subdir)
         if not os.path.exists(pth_cache):
             mkdir4file(pth_cache)
         return pth_cache
@@ -77,11 +78,14 @@ class LocalFile(object):
     def get_file_cache(
             self,
             d: [Iterable[tuple], dict, odict, None],
-            subdir=None, cache_dir=None) -> str:
+            subdir=None,
+            # cache_dir=None
+    ) -> str:
         """
         """
         return os.path.join(
-            self.get_pth_cache(subdir, cache_dir=cache_dir),
+            # self.get_pth_cache(subdir, cache_dir=cache_dir),
+            self.get_pth_cache(subdir),  # , cache_dir=cache_dir),
             cacheutil.dict2fname(d) + '.zpkl'
         )
 
@@ -121,6 +125,8 @@ class LocalFile(object):
             d = [{}]
         elif not (type(d) is list):
             d = [d]
+        if subdir is None:
+            subdir = 'cache=' + cache_kind
         return cacheutil.Cache(
             self.get_file_cache(argsutil.kwdef(
                 argsutil.merge_fileargs(d),
