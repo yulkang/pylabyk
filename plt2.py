@@ -528,11 +528,20 @@ def same_clim(images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
 
             # # DEBUGGED: np.amax(clims) doesn't work when either clim is None.
             clims = np.array([im.get_clim() for im in images], dtype=np.object)
-            clims[:, 0] = [v if v is not None else np.amin(im.get_array())
+            def fun_or_val(fun, v, im):
+                if v is not None:
+                    return v
+                else:
+                    a = im.get_array()
+                    if a.size > 0:
+                        return fun(a)
+                    else:
+                        return np.nan
+            clims[:, 0] = [fun_or_val(np.nanmin, v, im)
                            for v, im in zip(clims[:, 0], images)]
-            clims[:, 1] = [v if v is not None else np.amax(im.get_array())
+            clims[:, 1] = [fun_or_val(np.nanmax, v, im)
                            for v, im in zip(clims[:, 1], images)]
-            clim = [np.amin(clims[:,0]), np.amax(clims[:,1])]
+            clim = [np.nanmin(clims[:,0]), np.nanmax(clims[:,1])]
         else:
             if isinstance(img0, plt.Axes):
                 img0 = img0.findobj(mpl.image.AxesImage)
