@@ -1032,6 +1032,7 @@ def colorbar(
         loc='right',
         width='5%', height='100%',
         borderpad=-1,
+        label='',
         kw_inset=(),
         kw_cbar=(),
 ) -> mpl.colorbar.Colorbar:
@@ -1064,7 +1065,7 @@ def colorbar(
     )
     cb = fig.colorbar(
         mappable, cax=axins,
-        **dict(kw_cbar)
+        **{'label': label, **dict(kw_cbar)}
     )
     return cb
 
