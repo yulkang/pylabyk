@@ -1287,7 +1287,7 @@ def mvnrnd(mu, sigma, sample_shape=()):
 def normrnd(
         mu=0., sigma=1., sample_shape=(), return_distrib=False
 ) -> Union[
-    (torch.Tensor, torch.distributions.Distribution),
+    Tuple[torch.Tensor, torch.distributions.Distribution],
     torch.Tensor
 ]:
     """
