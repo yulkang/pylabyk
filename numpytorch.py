@@ -596,7 +596,7 @@ def unravel_index(v, shape, **kwargs):
     return tensor(np.unravel_index(v, shape, **kwargs))
 
 
-def ravel_multi_index(v: Iterable[torch.LongTensor],
+def ravel_multi_index(v: Iterable[Union[torch.LongTensor, np.ndarray]],
                       shape: Iterable[int], **kwargs) -> torch.LongTensor:
     """
     For now, just use np.ravel_multi_index()
@@ -1284,22 +1284,20 @@ def mvnrnd(mu, sigma, sample_shape=()):
     return d.rsample(sample_shape)
 
 
-def normrnd(mu=0., sigma=1., sample_shape=(), return_distrib=False):
+def normrnd(
+        mu=0., sigma=1., sample_shape=(), return_distrib=False
+) -> Union[
+    (torch.Tensor, torch.distributions.Distribution),
+    torch.Tensor
+]:
     """
 
     @param mu:
     @param sigma:
     @param sample_shape:
     @type return_distrib: bool
-    @rtype: Union[(torch.Tensor, torch.distributions.Distribution),
-    torch.Tensor]
     """
     d = Normal(loc=tensor(mu), scale=tensor(sigma))
-    s = d.rsample(sample_shape)
-    if return_distrib:
-        return s, d
-    else:
-        return s
     s = d.rsample(sample_shape)
     if return_distrib:
         return s, d
