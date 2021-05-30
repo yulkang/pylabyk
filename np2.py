@@ -15,7 +15,7 @@ import numpy_groupies as npg
 import pandas as pd
 from copy import deepcopy
 from . import numpytorch
-from typing import Union, Sequence, Iterable, Type, Callable, Tuple
+from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List
 from multiprocessing.pool import Pool as Pool0
 # from multiprocessing import Pool
 
@@ -93,14 +93,22 @@ def cell2mat2(l, max_len=None):
     return m
 
 
-def mat2cell(m):
+def mat2cell(m: np.ndarray, remove_nan=True) -> List[np.ndarray]:
     """
-    remove trailing NaNs from each row.
-    @param m: 2D array
-    @type m: np.ndarray
-    @rtype: np.ndarray
+    Make a list of array
+    :param remove_nan: if True (default), remove trailing NaNs from each row
     """
-    return [v[~np.isnan(v)] for v in m]
+    if remove_nan:
+        return [v[~np.isnan(v)] for v in m]
+    else:
+        return [v for v in m]
+
+
+def mat2list(m: np.ndarray) -> List[np.ndarray]:
+    """
+    Make a list of array
+    """
+    return [v for v in m]
 
 
 def dict_shapes(d, verbose=True):
@@ -143,7 +151,8 @@ def dict_shapes(d, verbose=True):
     return sh
 
 
-def filt_dict(d: dict, incl: np.ndarray) -> dict:
+def filt_dict(d: dict, incl: np.ndarray,
+              copy=True, ignore_diff_len=True) -> dict:
     """
     Copy d[k][incl] if d[k] is np.ndarray and d[k].shape[1] == incl.shape[0];
     otherwise copy the whole value.
@@ -151,12 +160,26 @@ def filt_dict(d: dict, incl: np.ndarray) -> dict:
     @type incl: np.ndarray
     @rtype: dict
     """
-    return {
-        k: (deepcopy(v[incl]) if (isinstance(v, np.ndarray)
-                                  and v.shape[0] == incl.shape[0])
-            else deepcopy(v))
-        for k, v in d.items()
-    }
+    if copy:
+        if ignore_diff_len:
+            return {
+                k: (deepcopy(v[incl]) if (isinstance(v, np.ndarray)
+                                          and v.shape[0] == incl.shape[0])
+                    else deepcopy(v))
+                for k, v in d.items()
+            }
+        else:
+            return {k: deepcopy(v[incl]) for k, v in d.items()}
+    else:
+        if ignore_diff_len:
+            return {
+                k: (v[incl] if (isinstance(v, np.ndarray)
+                                          and v.shape[0] == incl.shape[0])
+                    else v)
+                for k, v in d.items()
+            }
+        else:
+            return {k: v[incl] for k, v in d.items()}
 
 
 def listdict2dictlist(listdict: list, to_array=False) -> dict:
@@ -529,7 +552,7 @@ def ecdf(x0):
     """
     
     n = len(x0)
-    p = np.arange(1.,n+1.) / n
+    p = np.linspace(0, 1, n)
     x = np.sort(x0)
     return p, x
 
@@ -698,6 +721,24 @@ def dkl(a: np.ndarray, b: np.ndarray, axis=None) -> np.ndarray:
     return np.sum(a * (np.log(a) - np.log(b)), axis=axis)
 
 
+def wsum_rvs(mu: np.ndarray, sigma: np.ndarray, w: np.ndarray
+             ) -> (np.ndarray, np.ndarray):
+    """
+    Mean and covariance of weighted sum of random variables
+    :param mu: [..., RV]
+    :param sigma: [..., RV, RV]
+    :param w: [RV]
+    :return: mu_sum[...], variance_sum[...]
+    """
+    mu1 = mu * w  # type: np.ndarray
+    ndim = mu1.ndim
+    # not using axis=-1, to make it work with DataFrame and Series
+    mu1 = mu1.sum(axis=ndim - 1)
+    sigma1 = (sigma *  (w[..., None] * w[..., None, :])
+              ).sum(axis=ndim).sum(axis=ndim - 1)
+    return mu1, sigma1
+
+
 #%% Distribution
 def ____DISTRIBUTION____():
     pass
@@ -716,6 +757,40 @@ def pdf_trapezoid(x, center, width_top, width_bottom):
 def ____CIRCSTAT____():
     pass
 
+
+def circmean_distrib(p: np.ndarray, dim=-1, keepdim=False) -> np.ndarray:
+    """
+    Circular mean in radian.
+    p is assumed to sum to 1 along dim, and is assumed to correspond to
+    [0, 1/n, 2/n, ..., (n-1)/n] * 2 * pi radian, where n = p.shape[dim]
+    :param p:
+    :param dim: defaults to -1.
+    :return: circmean
+    """
+    n = p.shape[dim]
+    th = vec_on(np.linspace(0., 1. - 1. / n, n), dim, p.ndim)
+    c = np.cos(th * 2. * np.pi)
+    s = np.sin(th * 2. * np.pi)
+    c1 = np.sum(p * c, dim, keepdims=keepdim)
+    s1 = np.sum(p * s, dim, keepdims=keepdim)
+    return np.arctan2(s1, c1)
+
+def circvar_distrib(p: np.ndarray, dim=-1, keepdim=False) -> np.ndarray:
+    """
+    Circular variance = 1 - length of the resultant vector.
+    p is assumed to sum to 1 along dim, and is assumed to correspond to
+    [0, 1/n, 2/n, ..., (n-1)/n] * 2 * pi radian, where n = p.shape[dim]
+    :param p:
+    :param dim:
+    :return: circvar
+    """
+    n = p.shape[dim]
+    th = vec_on(np.linspace(0., 1. - 1. / n, n), dim, p.ndim)
+    c = np.cos(th * 2. * np.pi)
+    s = np.sin(th * 2. * np.pi)
+    c1 = np.sum(p * c, dim, keepdims=keepdim)
+    s1 = np.sum(p * s, dim, keepdims=keepdim)
+    return 1. - np.sqrt(c1 ** 2 + s1 ** 2)
 
 def rad2deg(rad):
     return rad / np.pi * 180.
@@ -1120,6 +1195,15 @@ def arrayobj1d(inp: Iterable, copy=False):
     return np.array([None] + list(inp), dtype=np.object, copy=copy)[1:]
 
 
+def scalararray(inp) -> np.ndarray:
+    """
+    Return a scalar np.ndarray of dtype=np.object.
+    :param inp:
+    :return:
+    """
+    return np.array([None, inp], dtype=np.object)[[1]].reshape([])
+
+
 def meshgridflat(*args, copy=False):
     """
     flatten outputs from meshgrid, for use with np.vectorize()
@@ -1447,7 +1531,7 @@ def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
     return s
 
 
-def shorten(v, src_dst: Iterable[Tuple[str, str]]) -> Union[str, None]:
+def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[str, None]:
     """
 
     :param v: string, Iterable[Number], or Number
@@ -1456,8 +1540,18 @@ def shorten(v, src_dst: Iterable[Tuple[str, str]]) -> Union[str, None]:
     """
     if type(v) is str:
         return replace(v, src_dst)
+    elif isinstance(v, bool):
+        return '%d' % int(v)
     elif is_iter(v):
-        return '%s' % (','.join([('%g' % v1) for v1 in npy(v).flatten()]))
+        v = list(v)
+        if isinstance(v[0], str):
+            return '%s' % (','.join([
+                ('%s' % shorten(v1, src_dst))
+                for v1 in v]))
+        else:
+            return '%s' % (','.join([
+                ('%s' % shorten(v1, src_dst))
+                for v1 in npy(v).flatten()]))
     elif v is None:
         return None
     else:
