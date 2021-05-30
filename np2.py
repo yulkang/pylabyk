@@ -1543,15 +1543,18 @@ def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[str, None]:
     elif isinstance(v, bool):
         return '%d' % int(v)
     elif is_iter(v):
-        v = list(v)
-        if isinstance(v[0], str):
-            return '%s' % (','.join([
-                ('%s' % shorten(v1, src_dst))
-                for v1 in v]))
-        else:
-            return '%s' % (','.join([
-                ('%s' % shorten(v1, src_dst))
-                for v1 in npy(v).flatten()]))
+        try:
+            v = list(npy(v))
+            if isinstance(v[0], str):
+                return '%s' % (','.join([
+                    ('%s' % shorten(v1, src_dst))
+                    for v1 in v]))
+            else:
+                return '%s' % (','.join([
+                    ('%s' % shorten(v1, src_dst))
+                    for v1 in npy(v).flatten()]))
+        except TypeError:
+            return '%g' % v
     elif v is None:
         return None
     else:
