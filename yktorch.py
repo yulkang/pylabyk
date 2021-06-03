@@ -113,28 +113,44 @@ class BoundedParameter(OverriddenParameter):
         ub = npt.tensor(self.ub)
         data = npt.tensor(enforce_float_tensor(data))
 
+        if lb is not None and ub is not None and (lb == ub).all():
+            if (data != lb).any():
+                warnings.warn('Out of lb=ub assignment to %s!' % type(self))
+            return npt.zeros_like(data)
+
+        if lb is not None:
+            too_small = data < lb + self.epsilon
+            if too_small.any():
+                warnings.warn('Out of lb assignment to %s!' % type(self))
+        else:
+            too_small = None
+
+        if ub is not None:
+            too_big = data > ub - self.epsilon
+            if too_big.any():
+                warning.warn('Out of ub assignment to %s!' % type(self))
+        else:
+            too_big = None
+
         if (lb is None) and (ub is None):  # Unbounded
             return data
         elif lb is None:
-            data[data > ub - self.epsilon] = ub - self.epsilon
+            data[too_big] = ub - self.epsilon
             return torch.log(ub - data)
         elif ub is None:
-            data[data < lb + self.epsilon] = lb + self.epsilon
+            data[too_small] = lb + self.epsilon
             return torch.log(data - lb)
-        elif npt.tensor(lb == ub).all():
-            return npt.zeros_like(data)
         else:
-            too_small = data < lb + self.epsilon
             try:
                 data[too_small] = lb + self.epsilon
             except RuntimeError:
                 data[too_small] = (lb + self.epsilon)[too_small]
 
-            too_big = data > ub - self.epsilon
             try:
                 data[too_big] = ub - self.epsilon
             except RuntimeError:
                 data[too_big] = (ub - self.epsilon)[too_big]
+
             p = (data - lb) / (ub - lb)
             return torch.log(p) - torch.log(1. - p)
 
