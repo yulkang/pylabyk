@@ -115,20 +115,20 @@ class BoundedParameter(OverriddenParameter):
 
         if lb is not None and ub is not None and (lb == ub).all():
             if (data != lb).any():
-                warnings.warn('Out of lb=ub assignment to %s!' % type(self))
+                print('Out of lb=ub assignment to %s!' % type(self))
             return npt.zeros_like(data)
 
         if lb is not None:
             too_small = data < lb + self.epsilon
             if too_small.any():
-                warnings.warn('Out of lb assignment to %s!' % type(self))
+                print('Out of lb assignment to %s!' % type(self))
         else:
             too_small = None
 
         if ub is not None:
             too_big = data > ub - self.epsilon
             if too_big.any():
-                warning.warn('Out of ub assignment to %s!' % type(self))
+                print('Out of ub assignment to %s!' % type(self))
         else:
             too_big = None
 
