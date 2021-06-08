@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 from typing import Union, Iterable, Tuple, Dict, Sequence
 
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
-    Categorical, OneHotCategorical
+    Categorical, OneHotCategorical, VonMises
 
 # _device0 = torch.device('cpu')  # CHECKED
 _device0 = None
@@ -1597,11 +1597,11 @@ def circdiff(angle1, angle2, maxangle=pi2):
     return (((angle1 / maxangle) - (angle2 / maxangle) + .5) % 1. - .5) * maxangle
 
 
-def rad2deg(rad):
+def rad2deg(rad: torch.Tensor) -> torch.Tensor:
     return rad / pi * 180.
 
 
-def deg2rad(deg):
+def deg2rad(deg: torch.Tensor) -> torch.Tensor:
     return deg / 180. * pi
 
 
@@ -1653,6 +1653,14 @@ def vmpdf_a_given_b(a_prad, b_prad, pconc):
 
 
 def vmpdf(x, mu, scale=None, normalize=True):
+    """
+
+    :param x:
+    :param mu:
+    :param scale:
+    :param normalize:
+    :return:
+    """
     from .hyperspherical_vae.distributions import von_mises_fisher as vmf
 
     if scale is None:
@@ -1662,13 +1670,17 @@ def vmpdf(x, mu, scale=None, normalize=True):
         mu = mu / scale
         # mu[scale[:,0] == 0, :] = 0.
 
-    vm = vmf.VonMisesFisher(mu, scale + torch.zeros([1,1], device=get_device()))
+    vm = vmf.VonMisesFisher(mu, scale + zeros([1,1]))
     p = torch.exp(vm.log_prob(x)).clamp_min(0.)
     # if scale == 0.:
     #     p = torch.ones_like(p) / p.shape[0]
     if normalize:
         p = sumto1(p)
     return p
+
+
+def vmpdf_logprob(x, loc, conc) -> torch.Tensor:
+    return VonMises(loc, conc).log_prob(x)
 
 
 def rotation_matrix(rad: torch.Tensor, dim=(-2, -1)) -> torch.Tensor:
@@ -1683,7 +1695,7 @@ def rotation_matrix(rad: torch.Tensor, dim=(-2, -1)) -> torch.Tensor:
         torch.cat((torch.sin(rad), torch.cos(rad)), dim[1])), dim[0])
 
 
-def rotate(v, rad: torch.Tensor) -> torch.Tensor:
+def rotate(v: torch.Tensor, rad: torch.Tensor) -> torch.Tensor:
     """
 
     :param v: [batch_dims, (x0, y0)]
