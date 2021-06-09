@@ -660,7 +660,10 @@ def maxto1(v, dim=None, ignore_nan=True):
         if type(v) is np.ndarray:
             return v / np.amax(v, axis=dim, keepdims=True)
         else:  # v is torch.Tensor
-            return v / v.max(dim, keepdim=True)
+            if dim is None:
+                return v / v.max()
+            else:
+                return v / v.max(dim, keepdim=True)
 
 
 #%% Aggregate
