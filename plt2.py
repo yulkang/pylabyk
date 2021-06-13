@@ -12,6 +12,7 @@ from typing import List, Callable, Sequence, Mapping, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import pylatex as ltx
 from matplotlib import patches
 from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
@@ -20,6 +21,7 @@ from copy import copy
 import numpy_groupies as npg
 
 from . import np2
+from .cacheutil import mkdir4file
 
 
 def ____Subplots____():
@@ -1459,3 +1461,34 @@ class Animator:
             files = files[1:]
 
         return files
+
+
+def pdfs2subfigs(
+        files, file_out,
+        width_column='2cm',
+        hspace='10pt',
+):
+    doc = ltx.Document(
+        documentclass=['standalone'],
+        document_options=[
+            'varwidth',
+            'border=0pt'
+        ],
+    )
+    # doc.packages.append(ltx.Package('subcaption'))
+    # doc.packages.append(ltx.Package('caption', ['labelformat=parens', 'labelsep=quad']))
+    doc.packages.append(ltx.Package('graphicx'))
+    with doc.create(ltx.Figure()):
+        for files_row in files:
+            for file in files_row:
+                if file is None:
+                    continue
+                with doc.create(ltx.SubFigure(width_column)
+                                ) as subfig:
+                    doc.append(ltx.Command('centering'))
+                    subfig.add_image(file, width=width_column)
+                    doc.append(ltx.VerticalSpace(hspace))
+            doc.append(ltx.NewLine())
+    mkdir4file(file_out)
+    doc.generate_pdf(file_out, clean_tex=False)
+    print('Saved to %s' % file_out)
