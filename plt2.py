@@ -1464,23 +1464,56 @@ class Animator:
 
 
 def pdfs2subfigs(
-        files, file_out,
+        files: Union[Sequence, np.ndarray], file_out: str,
         width_column='2cm',
-        hspace='10pt',
+        hspace='0pt',
+        ncol: int = None,
+        clean_tex=True,
+        caption=None,
+        subcaptions: Union[Sequence, np.ndarray] = None,
+        caption_on_top=False,
 ):
+    if not isinstance(files, np.ndarray):
+        files = np.array(files)
+    if files.ndim == 1 and ncol is None:
+        ncol = int(np.floor(np.sqrt(files.size)))
+    if ncol is not None:
+        files = reshape_ragged(files, ncol)
+    if subcaptions is not None:
+        subcaptions = np.array(subcaptions)
+        if subcaptions.ndim == 1:
+            reshape_ragged(subcaptions, files.shape[1])
+        else:
+            assert files.shape == subcaptions.shape
+
     doc = ltx.Document(
         documentclass=['standalone'],
         document_options=[
-            'varwidth',
+            'varwidth=%dcm' % (int(width_column[0]) * ncol),
             'border=0pt'
         ],
     )
-    # doc.packages.append(ltx.Package('subcaption'))
-    # doc.packages.append(ltx.Package('caption', ['labelformat=parens', 'labelsep=quad']))
+    doc.packages.append(ltx.Package('subcaption'))
+    doc.packages.append(ltx.Package(
+        'caption', [
+            'labelformat=parens',
+            'labelsep=quad',
+            'justification=centering',
+            'font=scriptsize',
+            'labelfont=sf',
+            'textfont=sf',
+        ]))
     doc.packages.append(ltx.Package('graphicx'))
-    with doc.create(ltx.Figure()):
-        for files_row in files:
-            for file in files_row:
+    doc.append(ltx.Command('setlength', [
+        ltx.Command('abovecaptionskip'), '0pt']))
+    doc.append( ltx.Command('setlength', [
+        ltx.Command('belowcaptionskip'), '0pt']))
+    with doc.create(ltx.Figure()) as fig:
+        if caption is not None:
+            fig.add_caption(caption)
+        for row in range(files.shape[0]):
+            for col in range(files.shape[1]):
+                file = files[row, col]
                 if file is None:
                     continue
                 with doc.create(ltx.SubFigure(width_column)
@@ -1488,7 +1521,17 @@ def pdfs2subfigs(
                     doc.append(ltx.Command('centering'))
                     subfig.add_image(file, width=width_column)
                     doc.append(ltx.VerticalSpace(hspace))
+                    if subcaptions is not None:
+                        subfig.add_caption(subcaptions[row, col])
             doc.append(ltx.NewLine())
     mkdir4file(file_out)
-    doc.generate_pdf(file_out, clean_tex=False)
-    print('Saved to %s' % file_out)
+    if file_out.lower().endswith('.pdf'):
+        file_out = file_out[:-4]
+    doc.generate_pdf(file_out, clean_tex=clean_tex)
+
+
+def reshape_ragged(v, ncol):
+    return np.r_[
+        v.flatten(),
+        [None] * (int(np.ceil(v.size / ncol)) * ncol - v.size)
+    ].reshape([-1, ncol])
