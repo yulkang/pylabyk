@@ -1465,6 +1465,7 @@ class Animator:
 
 def pdfs2subfigs(
         files: Union[Sequence, np.ndarray], file_out: str,
+        width_document=None,
         width_column='2cm',
         hspace='0pt',
         ncol: int = None,
@@ -1485,11 +1486,13 @@ def pdfs2subfigs(
             reshape_ragged(subcaptions, files.shape[1])
         else:
             assert files.shape == subcaptions.shape
+    if width_document is None:
+        width_document = 'varwidth=%dcm' % (int(width_column[0]) * ncol)
 
     doc = ltx.Document(
         documentclass=['standalone'],
         document_options=[
-            'varwidth=%dcm' % (int(width_column[0]) * ncol),
+            width_document,
             'border=0pt'
         ],
     )
@@ -1509,7 +1512,7 @@ def pdfs2subfigs(
     doc.append( ltx.Command('setlength', [
         ltx.Command('belowcaptionskip'), '0pt']))
     with doc.create(ltx.Figure()) as fig:
-        if caption is not None:
+        if caption_on_top and caption is not None:
             fig.add_caption(caption)
         for row in range(files.shape[0]):
             for col in range(files.shape[1]):
@@ -1524,6 +1527,8 @@ def pdfs2subfigs(
                     if subcaptions is not None:
                         subfig.add_caption(subcaptions[row, col])
             doc.append(ltx.NewLine())
+        if (not caption_on_top) and caption is not None:
+            fig.add_caption(caption)
     mkdir4file(file_out)
     if file_out.lower().endswith('.pdf'):
         file_out = file_out[:-4]
