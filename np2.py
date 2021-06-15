@@ -486,7 +486,7 @@ def wmean(values: np.ndarray, weights: np.ndarray,
 def wstd(values: np.ndarray, weights: np.ndarray,
          axis=None, keepdim=False) -> np.ndarray:
     """
-    Return the weighted average and standard deviation.
+    Return the weighted standard deviation.
 
     from: https://stackoverflow.com/a/2415343/2565317
 
@@ -498,6 +498,22 @@ def wstd(values: np.ndarray, weights: np.ndarray,
     if not keepdim:
         var = np.squeeze(var, axis=axis)
     return np.sqrt(var)
+
+
+def wsem(values: np.ndarray, weights: np.ndarray,
+         axis=None, keepdim=False) -> np.ndarray:
+    """
+    Weighted standard error of mean.
+    :param values:
+    :param weights:
+    :param axis:
+    :param keepdim:
+    :return:
+    """
+    return (
+        wstd(values, weights, axis, keepdim)
+        / np.sqrt(np.sum(weights, axis=axis, keepdims=keepdim))
+    )
 
 
 def quantilize(v, n_quantile=5, return_summary=False, fallback_to_unique=True):
@@ -712,11 +728,11 @@ def info_criterion(nll, n_trial, n_param, kind='BIC'):
 
 def dkl(a: np.ndarray, b: np.ndarray, axis=None) -> np.ndarray:
     """
-
+    DKL[a || b]
     :param a:
     :param b:
     :param axis:
-    :return: sum(a * (log(a) - log(b)), axis)
+    :return: DKL[a || b] = sum(a * (log(a) - log(b)), axis)
     """
     return np.sum(a * (np.log(a) - np.log(b)), axis=axis)
 
