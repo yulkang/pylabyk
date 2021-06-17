@@ -58,6 +58,14 @@ class OverriddenParameter(nn.Module):
     def v(self, data):
         self._param = nn.Parameter(self.data2param(data))
 
+    @property
+    def requires_grad(self):
+        return self._param.requires_grad
+
+    @requires_grad.setter
+    def requires_grad(self, v):
+        self._param.requires_grad = v
+
     def __getitem__(self, key):
         return self.v[key]
 
@@ -757,7 +765,11 @@ class BoundedModule(nn.Module):
 
     def grad_vec(self):
         ps = self.parameters()
-        return torch.cat([p.grad.flatten() for p in ps])
+        return torch.cat([
+            (p.grad.flatten() if p.requires_grad
+             else npt.zeros(p.numel()))
+            for p in ps
+        ])
 
     def freeze_(self):
         """Freeze all parameters (set requires_grad=False)"""
