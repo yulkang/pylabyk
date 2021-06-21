@@ -11,9 +11,8 @@ from typing import Union, Iterable, Tuple, Dict, Sequence
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
     Categorical, OneHotCategorical, VonMises
 
-# _device0 = torch.device('cpu')  # CHECKED
-_device0 = None
-# device0 = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+_device0 = torch.device('cpu')  # CHECKED
+# _device0 = None  # should be used as a default
 
 
 def set_device(device):

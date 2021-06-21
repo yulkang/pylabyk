@@ -166,13 +166,21 @@ class BoundedParameter(OverriddenParameter):
         lb = self.lb
         ub = self.ub
         param = enforce_float_tensor(param)
+
+        def tensor1(v):
+            return npt.tensor(v).to(param.device)
+        if lb is not None:
+            lb = tensor1(lb)
+        if ub is not None:
+            ub = tensor1(ub)
+
         if lb is None and ub is None: # Unbounded
             return param
         elif lb is None:
-            return npt.tensor(ub) - torch.exp(param)
+            return ub - torch.exp(param)
         elif ub is None:
             return lb + torch.exp(param)
-        elif npt.tensor(lb == ub).all():
+        elif (lb == ub).all():
             return npt.zeros_like(param) + lb
         else:
             return (1 / (1 + torch.exp(-param))) * (ub - lb) + lb  # noqa
