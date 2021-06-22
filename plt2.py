@@ -520,6 +520,9 @@ def same_clim(images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
             im = ax.findobj(mpl.image.AxesImage)
             images += im
 
+    if len(images) == 0:
+        return
+
     if clim is None:
         if img0 is None:
             # # DEBUGGED: just using array min and max ignores existing
