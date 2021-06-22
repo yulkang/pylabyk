@@ -543,6 +543,7 @@ def same_clim(images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
                            for v, im in zip(clims[:, 0], images)]
             clims[:, 1] = [fun_or_val(np.nanmax, v, im)
                            for v, im in zip(clims[:, 1], images)]
+            clims = clims.astype(float)
             clim = [np.nanmin(clims[:,0]), np.nanmax(clims[:,1])]
         else:
             if isinstance(img0, plt.Axes):
