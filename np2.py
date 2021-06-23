@@ -1042,22 +1042,30 @@ def nancrosscorr(
     """
     Normalized cross-correlation ignoring NaNs.
     As in Barry et al. 2007
-    :param fr1: [x, y]
-    :param fr2: [x, y]
+    :param fr1: [x, y, batch]
+    :param fr2: [x, y, batch]
     :param fillvalue:
     :param thres_n: Minimum number of non-NaN entries to compute crosscorr with.
     :param processes: >0 to run in parallel
-    :return: cc[i_dx, i_dy]
+    :return: cc[i_dx, i_dy, batch]
     """
-    assert fr1.ndim == 2
-    assert thres_n >= 2, 'to compute correlation thres_n needs to be >= 2'
     if fr2 is None:
         fr2 = fr1
-    else:
-        assert fr2.ndim == 2
 
-    fsh1 = np.array(fr1.shape)
-    fsh2 = np.array(fr2.shape)
+    is_fr1_ndim2 = fr1.ndim == 2
+    if is_fr1_ndim2:
+        fr1 = fr1[..., None]
+
+    is_fr2_ndim2 = fr2.ndim == 2
+    if is_fr2_ndim2:
+        fr2 = fr2[..., None]
+
+    assert fr1.ndim == 3
+    assert fr2.ndim == 3
+    assert thres_n >= 2, 'to compute correlation thres_n needs to be >= 2'
+
+    fsh1 = np.array(fr1.shape[:2])
+    fsh2 = np.array(fr2.shape[:2])
     # csh = fsh1 + fsh2
 
     # NOTE: pad smaller of the two to match max_shape + 2,
@@ -1108,12 +1116,21 @@ def nancrosscorr(
     # if processes > 0:
     #     pool.close()
 
+    if is_fr1_ndim2 and is_fr2_ndim2:
+        assert cc.shape[-1] == 1
+        cc = cc[..., 0]
+
     return cc
 
 
 def _ccorrs_given_dx(inp):
+    """
+
+    :param inp: [dim_ccor, batch]
+    :return:
+    """
     dx, csh, fillvalue, fr1, fr2, fsh, thres_n = inp
-    cc0 = np.zeros(csh[1]) + fillvalue
+    cc0 = np.zeros([csh[1], inp.shape[-1]]) + fillvalue
     if dx == 0:
         f1 = fr1
         f2 = fr2
@@ -1134,15 +1151,56 @@ def _ccorrs_given_dx(inp):
             g1 = f1[:, :dy]
             g2 = f2[:, -dy:]
 
-        g1 = g1.flatten()
-        g2 = g2.flatten()
+        # g1 = g1.flatten()
+        # g2 = g2.flatten()
+        g1 = g1.reshape([np.prod(g1.shape[:2]), -1])
+        g2 = g2.reshape([np.prod(g1.shape[:2]), -1])
 
-        incl = ~np.isnan(g1) & ~np.isnan(g2)
+        incl = np.all(~np.isnan(g1), -1) & np.all(~np.isnan(g2), -1)
         if np.sum(incl) >= thres_n:
-            cc0[dy + fsh[1]] = stats.pearsonr(g1[incl], g2[incl])[0]
+            # cc0[dy + fsh[1]] = stats.pearsonr(g1[incl], g2[incl])[0]
+            cc0[dy + fsh[1]] = pearsonr(g1[incl].T, g2[incl].T)
 
         # return cc0
     return cc0
+
+
+def pearsonr(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """
+    Same as scipy.stats.pearsonr, but works along dim=-1, w/o checks or pvalue.
+    :param a:
+    :param b:
+    :param dim:
+    :return:
+    """
+    xmean = x.mean(axis=-1, keepdims=True)
+    ymean = y.mean(axis=-1, keepdims=True)
+
+    xm = x - xmean
+    ym = y - ymean
+
+    from scipy import linalg
+    # Unlike np.linalg.norm or the expression sqrt((xm*xm).sum()),
+    # scipy.linalg.norm(xm) does not overflow if xm is, for example,
+    # [-5e210, 5e210, 3e200, -3e200]
+    normxm = linalg.norm(xm, axis=-1, keepdims=True)
+    normym = linalg.norm(ym, axis=-1, keepdims=True)
+
+    threshold = 1e-13
+    import warnings
+    from scipy.stats import PearsonRNearConstantInputWarning
+    if normxm < threshold * np.abs(xmean) or normym < threshold * np.abs(ymean):
+        # If all the values in x (likewise y) are very close to the mean,
+        # the loss of precision that occurs in the subtraction xm = x - xmean
+        # might result in large errors in r.
+        warnings.warn(PearsonRNearConstantInputWarning())
+
+    r = np.dot(xm / normxm, ym / normym)
+
+    # Presumably, if abs(r) > 1, then it is only some small artifact of
+    # floating point arithmetic.
+    r = np.clip(r, -1., 1.)
+    return r
 
 
 def ____MULTIPROCESSING____():
