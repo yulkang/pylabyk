@@ -52,10 +52,10 @@ class GridAxes:
                  nrows=1, ncols=1,
                  left=0.5, right=0.1,
                  bottom=0.5, top=0.5,
-                 wspace: Union[float, Iterable[float]] = 0.25,
-                 hspace: Union[float, Iterable[float]] = 0.25,
-                 widths: Union[float, Iterable[float]] = 1.,
-                 heights: Union[float, Iterable[float]] = 0.75,
+                 wspace: Union[float, Sequence[float]] = 0.25,
+                 hspace: Union[float, Sequence[float]] = 0.25,
+                 widths: Union[float, Sequence[float]] = 1.,
+                 heights: Union[float, Sequence[float]] = 0.75,
                  kw_fig=(),
                  close_on_del=True,
                  ):
@@ -89,6 +89,16 @@ class GridAxes:
         :param kw_fig:
         :return: axs[row, col] = plt.Axes
         """
+        # truncate if too long for convenience
+        wspace, hspace, widths, heights = [
+            v[:l] if np2.is_sequence(v) and len(v) > l else v
+            for v, l in [
+                (wspace, ncols - 1),
+                (hspace, nrows - 1),
+                (widths, ncols),
+                (heights, nrows)
+            ]
+        ]
 
         wspace = np.zeros([ncols - 1]) + wspace
         hspace = np.zeros([nrows - 1]) + hspace
