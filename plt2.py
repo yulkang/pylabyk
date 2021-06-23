@@ -564,6 +564,7 @@ def same_clim(images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
             clim = img0.get_clim()
     for img in images:
         img.set_clim(clim)
+    return clim
 
 
 def lim_symmetric(xy='y', lim=None, ax=None):
