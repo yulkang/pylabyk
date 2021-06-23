@@ -12,7 +12,6 @@ from typing import List, Callable, Sequence, Mapping, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-import pylatex as ltx
 from matplotlib import patches
 from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
@@ -1524,6 +1523,8 @@ def pdfs2subfigs(
             assert files.shape == subcaptions.shape
     if width_document is None:
         width_document = 'varwidth=%dcm' % (int(width_column[0]) * ncol)
+
+    import pylatex as ltx
 
     doc = ltx.Document(
         documentclass=['standalone'],
