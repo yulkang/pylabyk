@@ -1558,7 +1558,7 @@ def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[str, None]:
     :param src_dst: [(src1, dst1), (src2, dst2), ...]
     :return: string with srcX replaced with dstX, or printed '%g,%g,...'
     """
-    if type(v) is str:
+    if isinstance(v, str):
         return replace(v, src_dst)
     elif isinstance(v, bool):
         return '%d' % int(v)
