@@ -135,7 +135,7 @@ class LocalFile(object):
             filekind='cache', kind=cache_kind,
             d=d, ext='.zpkl', subdir=subdir
         )
-        return cacheutil.Cache(file, {
+        return cacheutil.Cache(file, **{
             'ignore_key': True,
             **kwargs
         })
