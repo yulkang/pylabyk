@@ -1547,6 +1547,10 @@ def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
     return s
 
 
+def shorten_dict(d: dict, src_dst=()):
+    return {k: shorten(v, src_dst) for k, v in d.items()}
+
+
 def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[str, None]:
     """
 
