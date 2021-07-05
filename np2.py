@@ -479,8 +479,10 @@ def sem(v, axis=0):
 
 
 def wmean(values: np.ndarray, weights: np.ndarray,
-          axis=None) -> np.ndarray:
-    return (values * weights).sum(axis=axis) / weights.sum(axis)
+          axis=None, keepdim=False) -> np.ndarray:
+    return (values * weights).sum(
+        axis=axis, keepdims=keepdim
+    ) / weights.sum(axis, keepdims=keepdim)
 
 
 def wstd(values: np.ndarray, weights: np.ndarray,
@@ -498,6 +500,20 @@ def wstd(values: np.ndarray, weights: np.ndarray,
     if not keepdim:
         var = np.squeeze(var, axis=axis)
     return np.sqrt(var)
+
+
+def wstandardize(values: np.ndarray, weights: np.ndarray,
+                 axis=None) -> np.ndarray:
+    """
+    Standardization using weighted mean and stdev
+    :param values:
+    :param weights:
+    :param axis:
+    :return: values_standardized
+    """
+    return (
+            values - wmean(values, weights, axis, keepdim=True)
+    ) / wstd(values, weights, axis, keepdim=True)
 
 
 def quantilize(v, n_quantile=5, return_summary=False, fallback_to_unique=True):
