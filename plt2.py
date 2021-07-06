@@ -1479,7 +1479,7 @@ class Animator:
 def pdfs2subfigs(
         files: Union[Sequence, np.ndarray], file_out: str,
         width_document=None,
-        width_column='2cm',
+        width_column_cm=(2,),
         hspace='0pt',
         ncol: int = None,
         clean_tex=True,
@@ -1487,10 +1487,27 @@ def pdfs2subfigs(
         subcaptions: Union[Sequence, np.ndarray] = None,
         caption_on_top=False,
 ):
+    """
+
+    :param files: [row, col] = file path relative to file_out's folder
+    :param file_out:
+    :param width_document:
+    :param width_column_cm:
+    :param hspace:
+    :param ncol:
+    :param clean_tex:
+    :param caption:
+    :param subcaptions:
+    :param caption_on_top:
+    :return:
+    """
     if not isinstance(files, np.ndarray):
         files = np.array(files)
     if files.ndim == 1 and ncol is None:
         ncol = int(np.floor(np.sqrt(files.size)))
+    else:
+        assert files.ndim == 2
+        ncol = files.shape[1]
     if ncol is not None:
         files = reshape_ragged(files, ncol)
     if subcaptions is not None:
@@ -1499,8 +1516,14 @@ def pdfs2subfigs(
             reshape_ragged(subcaptions, files.shape[1])
         else:
             assert files.shape == subcaptions.shape
+    if np.isscalar(width_column_cm):
+        width_column_cm = [width_column_cm]
+    elif len(width_column_cm) > ncol:
+        width_column_cm = width_column_cm[:ncol]
+    width_column_cm = np.array(width_column_cm)
+
     if width_document is None:
-        width_document = 'varwidth=%dcm' % (int(width_column[0]) * ncol)
+        width_document = 'varwidth=%fcm' % (width_column_cm.sum())
 
     doc = ltx.Document(
         documentclass=['standalone'],
@@ -1532,10 +1555,10 @@ def pdfs2subfigs(
                 file = files[row, col]
                 if file is None:
                     continue
-                with doc.create(ltx.SubFigure(width_column)
+                with doc.create(ltx.SubFigure('%fcm' % width_column_cm[col])
                                 ) as subfig:
                     doc.append(ltx.Command('centering'))
-                    subfig.add_image(file, width=width_column)
+                    subfig.add_image(file, width='%fcm' % width_column_cm[col])
                     doc.append(ltx.VerticalSpace(hspace))
                     if subcaptions is not None:
                         subfig.add_caption(subcaptions[row, col])
