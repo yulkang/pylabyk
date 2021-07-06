@@ -1264,9 +1264,22 @@ def plot_binned_ch(x0, ch, n_bin=9, **kw):
 def ____Stats_Probability____():
     pass
 
-def ecdf(x0, *args, **kw):
+def ecdf(x0, *args, w=None, **kw):
+    """
+
+    :param x0:
+    :param args:
+    :param w: weight
+    :param kw:
+    :return:
+    """
     n = len(x0)
-    p = np.linspace(0, 1, n + 1)[:-1]
+    if w is None:
+        w = np.ones(n) / n
+    else:
+        w = w / np.sum(w)
+    p = np.cumsum(np.r_[[0], w])[:-1]
+    # p = np.linspace(0, 1, n + 1)[:-1]
     x = np.sort(x0)
     return plt.step(np.concatenate([x[:1], x, x[-1:]], 0),
                     np.concatenate([np.array([0.]), p, np.array([1.])
