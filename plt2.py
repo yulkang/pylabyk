@@ -1486,6 +1486,7 @@ def pdfs2subfigs(
         caption=None,
         subcaptions: Union[Sequence, np.ndarray] = None,
         caption_on_top=False,
+        suptitle='',
 ):
     """
 
@@ -1547,6 +1548,11 @@ def pdfs2subfigs(
         ltx.Command('abovecaptionskip'), '0pt']))
     doc.append( ltx.Command('setlength', [
         ltx.Command('belowcaptionskip'), '0pt']))
+
+    if len(suptitle) > 0:
+        doc.preamble.append(ltx.Command('title', 'Awesome Title'))
+        doc.append(ltx.Command(r'\maketitle'))
+
     with doc.create(ltx.Figure()) as fig:
         if caption_on_top and caption is not None:
             fig.add_caption(caption)
