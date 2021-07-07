@@ -750,6 +750,27 @@ def wsum_rvs(mu: np.ndarray, sigma: np.ndarray, w: np.ndarray
     return mu1, sigma1
 
 
+def bonferroni_holm(p: np.ndarray, alpha=0.05, dim=None) -> np.ndarray:
+    """
+
+    :param p:
+    :return: h: same shape as p. 1 if signifiant after correction
+    """
+    # TODO: make it work with multidimensional arrays by updating how indexing
+    #   works.. use ravel/unravel, since ix_sort is only along dim,
+    #   and other indices should be preserved
+    ix_sort = np.argsort(p, axis=dim)
+    rev_ix_sort = np.argsort(ix_sort, axis=dim)
+    p_sort = p[ix_sort]
+    p_corr_sort = p_sort * np.cumsum(np.ones(p.shape), axis=dim)
+    h_sort = p_corr_sort < alpha
+    h_cum_sort = (
+            np.cumsum(h_sort, axis=dim)
+            >= np.cumsum(np.ones(p.shape), axis=dim))
+    h = h_cum_sort[rev_ix_sort]
+    return h
+
+
 #%% Distribution
 def ____DISTRIBUTION____():
     pass
