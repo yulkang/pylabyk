@@ -933,8 +933,10 @@ def ____TRANSFORM____():
     pass
 
 
-def logit(v):
+def logit(v, epsilon=0.):
     """logit function"""
+    if epsilon != 0:
+        v = (v * (1 - epsilon)) + epsilon / 2
     return np.log(v) - np.log(1 - v)
 
 
