@@ -692,7 +692,7 @@ def aggregate(subs, val=1., *args, **kwargs):
     """
 
     if type(subs) is tuple or type(subs) is list:
-        subs = np.stack(subs)
+        subs = np.stack([npy(v) for v in subs])
         # subs = np.concatenate(npys(*(sub.reshape(1,-1) for sub in subs)), 0)
     elif torch.is_tensor(subs):
         subs = npy(subs)
