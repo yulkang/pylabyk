@@ -53,7 +53,7 @@ class LocalFile(object):
             pth_root='../Data',
             subdir_default='',
             cache_dir='cache',
-            ext_fig='.pdf',
+            ext_fig='.png',  # .png is much faster than .pdf (~5x)
     ):
         self.pth_root = pth_root
         self.subdir_default = subdir_default
