@@ -9,6 +9,7 @@ Created on Mon Mar 12 10:28:15 2018
 
 import numpy as np
 import torch
+import weightedstats as ws
 from scipy import interpolate
 from scipy import stats
 import numpy_groupies as npg
@@ -478,44 +479,6 @@ def sem(v, axis=0):
         return np.std(v, axis=axis) / np.sqrt(v.shape[axis])
 
 
-def wmean(values: np.ndarray, weights: np.ndarray,
-          axis=None, keepdim=False) -> np.ndarray:
-    return (values * weights).sum(
-        axis=axis, keepdims=keepdim
-    ) / weights.sum(axis, keepdims=keepdim)
-
-
-def wstd(values: np.ndarray, weights: np.ndarray,
-         axis=None, keepdim=False) -> np.ndarray:
-    """
-    Return the weighted average and standard deviation.
-
-    from: https://stackoverflow.com/a/2415343/2565317
-
-    values, weights -- Numpy ndarrays with the same shape.
-    """
-    sum_wt = weights.sum(axis=axis, keepdims=True)
-    avg = (values * weights).sum(axis=axis, keepdims=True) / sum_wt
-    var = ((values - avg) ** 2 * weights).sum(axis=axis, keepdims=True) / sum_wt
-    if not keepdim:
-        var = np.squeeze(var, axis=axis)
-    return np.sqrt(var)
-
-
-def wstandardize(values: np.ndarray, weights: np.ndarray,
-                 axis=None) -> np.ndarray:
-    """
-    Standardization using weighted mean and stdev
-    :param values:
-    :param weights:
-    :param axis:
-    :return: values_standardized
-    """
-    return (
-            values - wmean(values, weights, axis, keepdim=True)
-    ) / wstd(values, weights, axis, keepdim=True)
-
-
 def quantilize(v, n_quantile=5, return_summary=False, fallback_to_unique=True):
     """Quantile starting from 0. Array is flattened first."""
 
@@ -769,6 +732,145 @@ def bonferroni_holm(p: np.ndarray, alpha=0.05, dim=None) -> np.ndarray:
             >= np.cumsum(np.ones(p.shape), axis=dim))
     h = h_cum_sort[rev_ix_sort]
     return h
+
+
+#%% Weighted stats
+def ____WEIGHTED_STATS____():
+    pass
+
+
+def wmean(values: np.ndarray, weights: np.ndarray,
+          axis=None, keepdim=False) -> np.ndarray:
+    return (values * weights).sum(
+        axis=axis, keepdims=keepdim
+    ) / weights.sum(axis, keepdims=keepdim)
+
+
+def wstd(values: np.ndarray, weights: np.ndarray,
+         axis=None, keepdim=False) -> np.ndarray:
+    """
+    Return the weighted average and standard deviation.
+
+    from: https://stackoverflow.com/a/2415343/2565317
+
+    values, weights -- Numpy ndarrays with the same shape.
+    """
+    sum_wt = weights.sum(axis=axis, keepdims=True)
+    avg = (values * weights).sum(axis=axis, keepdims=True) / sum_wt
+    var = ((values - avg) ** 2 * weights).sum(axis=axis, keepdims=True) / sum_wt
+    if not keepdim:
+        var = np.squeeze(var, axis=axis)
+    return np.sqrt(var)
+
+
+def wstandardize(values: np.ndarray, weights: np.ndarray,
+                 axis=None) -> np.ndarray:
+    """
+    Standardization using weighted mean and stdev
+    :param values:
+    :param weights:
+    :param axis:
+    :return: values_standardized
+    """
+    return (
+            values - wmean(values, weights, axis, keepdim=True)
+    ) / wstd(values, weights, axis, keepdim=True)
+
+
+def weighted_median_split(
+        w: np.ndarray, v: np.ndarray, d: np.ndarray = None
+) -> (np.ndarray, np.ndarray, np.ndarray, float, np.ndarray):
+    """
+    Splits weights & values when multiple cells may equal the median
+    :param w: [cell]: weight
+    :param v: [cell]: floats that determine the median
+    :param d: [cell]: data to be duplicated & split along with w & v
+    :return: is_above_median[cell_new], w[cell_new], v[cell_new], v_median,
+        d[cell_new]
+    """
+    # NOTE:
+    #  ◦ split cells where value1 == median1 into two
+    # 		‣ such that left half is assigned
+    # 			• 0.5 - P(value1 < median1)
+    # 		‣ right half is assigned
+    # 			• 0.5 - P(value1 > median1)
+    # 	◦ when splitting, what we care about is gtm, weight, value1, value2
+    # 		‣ 1. assign sgn1 := sign( value1 - median1 )
+    # 		‣ 2. then perform splitting for instances with sgn1 == 0
+    # 			• replace sgn1 == 0 with sgn1 == -1 or 1, depending on the above criteria
+    # 			• at the same time, replace weights as above
+    w = np2.sumto1(w)
+
+    m = ws.numpy_weighted_median(v, w)
+    a = v > m  # Assignment: 0=lt, 1=gt
+
+    # Keep a copy of the old values before concatenation for debugging
+    # a0 = a.copy()
+    w0 = w.copy()
+    # v0 = v.copy()
+    # m0 = m + 0
+    # d0 = d.copy()
+
+    # Prepare split into lesser & greater half
+    to_split = v == m
+    p_lt = w[v < m].sum()
+    p_gt = w[v > m].sum()
+
+    p_split_lt = 0.5 - p_lt
+    p_split_gt = 0.5 - p_gt
+    p_split_sum = p_split_lt + p_split_gt
+
+    # Append weight of the greater half,
+    # and replace w[sgn0] with the lesser half's weight
+    w_gt = w0[to_split] * (p_split_gt / p_split_sum)  # weight of the greater half to append
+    w[to_split] = w0[to_split] * (p_split_lt / p_split_sum)  # weight of the lesser half: replace original
+    w = np.r_[w, w_gt]
+
+    # Concatenate original with the greater half (duplicate)
+    v_gt = v[to_split]
+    v = np.r_[v, v_gt]
+
+    a_gt = np.ones([to_split.sum()], bool)
+    a = np.r_[a, a_gt]
+
+    if d is not None:
+        d1 = d[to_split]
+        d = np.r_[d, d1]
+
+    # Check that a is indeed a median split
+    assert np.abs(w[:len(w0)][to_split].sum() + w_gt.sum() - p_split_sum) < 1e-6
+    assert np.abs(w[a].sum() - 0.5) < 1e-6
+    assert np.abs(w[~a].sum() - 0.5) < 1e-6
+    assert np.all(v[a] >= m)
+    assert np.all(v[~a] <= m)
+
+    return a, w, v, m, d
+
+
+def weighted_crosstab(w: np.ndarray, v: np.ndarray) -> np.ndarray:
+    """
+
+    :param w: [cell]: weight
+    :param v: [cell, (v1, v2)]
+    :return: p_jt[is_above_median1, is_above_median2]
+    """
+    assert v.ndim == 2
+    assert v.shape[1] == 2  # more general form not implemented yet
+
+    a0, w, _, _, v = weighted_median_split(w, v[:, 0], v)
+    a1, w, _, _, av = weighted_median_split(
+        w, v[:, 1], np.concatenate([a0[:, None], v], -1))
+    a = np.concatenate([av[:, :1], a1[:, None]], 1)
+
+    # # more general form for v.shape[1] > 2: not implemented yet
+    # i = 0
+    # while i < v.shape[-1]:
+    #     i += 1
+    #     a1, w, _, _, v = weighted_median_split(w, v[:, i], v)
+
+    nj = npg.aggregate(a.T, 1, 'sum', [2] * v.shape[1])
+    pj = np2.sumto1(nj)
+    return pj
 
 
 #%% Distribution
