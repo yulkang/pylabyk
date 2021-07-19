@@ -806,6 +806,7 @@ def weighted_median_split(
 
     # Keep a copy of the old values before concatenation for debugging
     # a0 = a.copy()
+    w_sum = w.sum()
     w0 = w.copy()
     # v0 = v.copy()
     # m0 = m + 0
@@ -844,6 +845,7 @@ def weighted_median_split(
     assert np.all(v[a] >= m)
     assert np.all(v[~a] <= m)
 
+    w = w * w_sum
     return a, w, v, m, d
 
 
@@ -852,7 +854,8 @@ def weighted_crosstab(w: np.ndarray, v: np.ndarray) -> np.ndarray:
 
     :param w: [cell]: weight
     :param v: [cell, (v1, v2)]
-    :return: p_jt[is_above_median1, is_above_median2]
+    :return: n_jt[is_above_median1, is_above_median2] = sum of w,
+        a[cell_new, (v1, v2)], w[cell_new], v[cell_new, (v1, v2)]
     """
     assert v.ndim == 2
     assert v.shape[1] == 2  # more general form not implemented yet
@@ -861,6 +864,7 @@ def weighted_crosstab(w: np.ndarray, v: np.ndarray) -> np.ndarray:
     a1, w, _, _, av = weighted_median_split(
         w, v[:, 1], np.concatenate([a0[:, None], v], -1))
     a = np.concatenate([av[:, :1], a1[:, None]], 1)
+    v = av[:, 1:]
 
     # # more general form for v.shape[1] > 2: not implemented yet
     # i = 0
@@ -869,8 +873,8 @@ def weighted_crosstab(w: np.ndarray, v: np.ndarray) -> np.ndarray:
     #     a1, w, _, _, v = weighted_median_split(w, v[:, i], v)
 
     nj = npg.aggregate(a.T, 1, 'sum', [2] * v.shape[1])
-    pj = sumto1(nj)
-    return pj
+    # pj = sumto1(nj)
+    return nj, a, w, v
 
 
 #%% Distribution
