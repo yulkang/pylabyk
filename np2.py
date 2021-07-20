@@ -799,6 +799,7 @@ def weighted_median_split(
     # 		‣ 2. then perform splitting for instances with sgn1 == 0
     # 			• replace sgn1 == 0 with sgn1 == -1 or 1, depending on the above criteria
     # 			• at the same time, replace weights as above
+    w_sum = w.sum()
     w = sumto1(w)
 
     m = ws.numpy_weighted_median(v, w)
@@ -806,7 +807,6 @@ def weighted_median_split(
 
     # Keep a copy of the old values before concatenation for debugging
     # a0 = a.copy()
-    w_sum = w.sum()
     w0 = w.copy()
     # v0 = v.copy()
     # m0 = m + 0
@@ -872,7 +872,7 @@ def weighted_crosstab(w: np.ndarray, v: np.ndarray) -> np.ndarray:
     #     i += 1
     #     a1, w, _, _, v = weighted_median_split(w, v[:, i], v)
 
-    nj = npg.aggregate(a.T, 1, 'sum', [2] * v.shape[1])
+    nj = npg.aggregate(a.T, w, 'sum', [2] * v.shape[1])
     # pj = sumto1(nj)
     return nj, a, w, v
 
