@@ -863,7 +863,7 @@ def weighted_crosstab(w: np.ndarray, v: np.ndarray) -> np.ndarray:
     a0, w, _, _, v = weighted_median_split(w, v[:, 0], v)
     a1, w, _, _, av = weighted_median_split(
         w, v[:, 1], np.concatenate([a0[:, None], v], -1))
-    a = np.concatenate([av[:, :1], a1[:, None]], 1)
+    a = np.concatenate([av[:, :1], a1[:, None]], 1).astype(int)
     v = av[:, 1:]
 
     # # more general form for v.shape[1] > 2: not implemented yet
