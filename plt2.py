@@ -1490,7 +1490,8 @@ def pdfs2subfigs(
 ):
     """
 
-    :param files: [row, col] = file path relative to file_out's folder
+    :param files: [row, col] = file path relative to file_out's folder,
+        or absolute path as obtained from os.path.abspath()
     :param file_out:
     :param width_document:
     :param width_column_cm:
