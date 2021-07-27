@@ -112,6 +112,9 @@ def mat2list(m: np.ndarray) -> List[np.ndarray]:
 
 
 def dict_shapes(d, verbose=True):
+    if not isinstance(d, dict):
+        assert is_iter(d)
+        d = {k: v for k, v in enumerate(d)}
     sh = {}
     for k in d.keys():
         v = d[k]
@@ -1070,7 +1073,8 @@ def nancrosscorr(
 
     # NOTE: pad smaller of the two to match max_shape + 2,
     #   + 2 to ensure both are padded on both sides to remove smoothing artifact
-    max_sh = np.amax(np.stack([fsh1, fsh2], axis=0), axis=0) + 2
+    max_sh0 = np.amax(np.stack([fsh1, fsh2], axis=0), axis=0)
+    max_sh = max_sh0 + 2
     # max_sh = (max_sh // 2) * 2 + 1  # enforce odd numbers so it has a center
     pad1 = max_sh - fsh1
     # pad1 = np.stack([
@@ -1080,20 +1084,22 @@ def nancrosscorr(
         (int(np.floor(pad1[0] / 2)),
          int(np.ceil(pad1[0] / 2))),
         (int(np.floor(pad1[1] / 2)),
-         int(np.ceil(pad1[1] / 2)))
+         int(np.ceil(pad1[1] / 2))),
+        (0, 0)
     ], constant_values=np.nan)
     fr2 = np.pad(fr2, [
         (int(np.floor(pad2[0] / 2)),
          int(np.ceil(pad2[0] / 2))),
         (int(np.floor(pad2[1] / 2)),
-         int(np.ceil(pad2[1] / 2)))
+         int(np.ceil(pad2[1] / 2))),
+        (0, 0)
     ], constant_values=np.nan)
 
-    csh = max_sh * 2
-    cc = np.zeros(csh) + fillvalue
+    csh = max_sh0 * 2
+    cc = np.zeros(tuple(csh) + fr1.shape[2:]) + fillvalue
     # fsh = np.amin(np.stack([fsh1, fsh2], axis=0), axis=0)
     # fsh = np.ceil(max_sh / 2).astype(int)
-    fsh = max_sh
+    fsh = max_sh0
 
     pool = Pool(processes=processes)
     # if processes > 0:
@@ -1126,11 +1132,19 @@ def nancrosscorr(
 def _ccorrs_given_dx(inp):
     """
 
-    :param inp: [dim_ccor, batch]
-    :return:
+    :param inp: dx, csh, fillvalue, fr1, fr2, fsh, thres_n
+        dx: int
+        csh: [(x, y)] shape of the results (cross correlation)
+        fillvalue: what to fill when the number of bins < thres_n
+        fr1: [x, y, batch]
+        fr2: [x, y, batch]
+        fsh: [(x, y)]
+        thres_n: min number of bins required
+    :return: cross_correlation[x, y]
     """
     dx, csh, fillvalue, fr1, fr2, fsh, thres_n = inp
-    cc0 = np.zeros([csh[1], inp.shape[-1]]) + fillvalue
+    n_batch = fr1.shape[-1]
+    cc0 = np.zeros([csh[1], n_batch]) + fillvalue
     if dx == 0:
         f1 = fr1
         f2 = fr2
@@ -1154,7 +1168,7 @@ def _ccorrs_given_dx(inp):
         # g1 = g1.flatten()
         # g2 = g2.flatten()
         g1 = g1.reshape([np.prod(g1.shape[:2]), -1])
-        g2 = g2.reshape([np.prod(g1.shape[:2]), -1])
+        g2 = g2.reshape([np.prod(g2.shape[:2]), -1])
 
         incl = np.all(~np.isnan(g1), -1) & np.all(~np.isnan(g2), -1)
         if np.sum(incl) >= thres_n:
@@ -1189,13 +1203,19 @@ def pearsonr(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     threshold = 1e-13
     import warnings
     from scipy.stats import PearsonRNearConstantInputWarning
-    if normxm < threshold * np.abs(xmean) or normym < threshold * np.abs(ymean):
+    if (
+        np.any(normxm < threshold * np.abs(xmean)) or
+        np.any(normym < threshold * np.abs(ymean))
+    ):
         # If all the values in x (likewise y) are very close to the mean,
         # the loss of precision that occurs in the subtraction xm = x - xmean
         # might result in large errors in r.
         warnings.warn(PearsonRNearConstantInputWarning())
 
-    r = np.dot(xm / normxm, ym / normym)
+    # YK: Assume dot product along the last dim;
+    #   the preceding dims are considered batch
+    r = ((xm / normxm) * (ym / normym)).sum(-1)
+    # r = np.dot(xm / normxm, ym / normym)
 
     # Presumably, if abs(r) > 1, then it is only some small artifact of
     # floating point arithmetic.
