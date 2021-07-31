@@ -464,9 +464,10 @@ def mean_distrib(p, v, axis=None):
 
 
 def var_distrib(p, v, axis=None):
-    return (
-            mean_distrib(p, v ** 2, axis=axis)
-            - mean_distrib(p, v, axis=axis) ** 2
+    return np.clip(
+        mean_distrib(p, v ** 2, axis=axis)
+        - mean_distrib(p, v, axis=axis) ** 2,
+        0, np.inf
     )
 
 def std_distrib(p, v, axis=None):
