@@ -21,6 +21,7 @@ def set_device(device):
 
 
 def get_device(device=None):
+    # device = torch.device('cpu')  # CHECKED
     if device is None:
         if _device0 is None:
             device = torch.device('cuda:0' if torch.cuda.is_available()
