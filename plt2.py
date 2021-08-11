@@ -1552,8 +1552,7 @@ def subfigs(
 
     temp_dir_rel = '_temp_subfig' + temp_name
     temp_dir_abs = os.path.join(os.path.dirname(file_out), temp_dir_rel)
-    mkdir4file(temp_dir_abs)
-    os.mkdir(temp_dir_abs)
+    mkdir4file(os.path.join(temp_dir_abs, 'temp'))
     files_rel = np.empty_like(files)
     files_abs = np.empty_like(files)
     for row in range(files.shape[0]):
