@@ -7,7 +7,7 @@ Created on Tue Feb 13 10:42:06 2018
 """
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
-
+import os
 from typing import List, Callable, Sequence, Mapping, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
@@ -1508,13 +1508,33 @@ def pdfs2subfigs(
         caption=None,
         subcaptions: Union[Sequence, np.ndarray] = None,
         caption_on_top=False,
+        subcaption_on_top=None,
 ):
+    """
+
+    :param files: 1D or 2D array of strings. Path relative to file_out.
+    :param file_out:
+    :param width_document:
+    :param width_column:
+    :param hspace: space between rows
+    :param ncol: defaults to files.shape[1] if it is an array;
+        makes the array close to square otherwise
+    :param clean_tex: delete intermediate files
+    :param caption: caption for the whole array of subfigures
+    :param subcaptions: caption under each subfig
+    :param caption_on_top:
+    :param subcaption_on_top: defaults to caption_on_top
+    :return:
+    """
     if not isinstance(files, np.ndarray):
         files = np.array(files)
-    if files.ndim == 1 and ncol is None:
-        ncol = int(np.floor(np.sqrt(files.size)))
-    if ncol is not None:
-        files = reshape_ragged(files, ncol)
+    if ncol is None:
+        if files.ndim == 1:
+            ncol = int(np.floor(np.sqrt(files.size)))
+        else:
+            assert files.ndim == 2
+            ncol = files.shape[1]
+    files = reshape_ragged(files, ncol)
     if subcaptions is not None:
         subcaptions = np.array(subcaptions)
         if subcaptions.ndim == 1:
@@ -1523,6 +1543,30 @@ def pdfs2subfigs(
             assert files.shape == subcaptions.shape
     if width_document is None:
         width_document = 'varwidth=%dcm' % (int(width_column[0]) * ncol)
+    if subcaption_on_top is None:
+        subcaption_on_top = caption_on_top
+
+    # rename files to simple names
+    import os, shutil, hashlib
+    temp_name = hashlib.md5(file_out.encode('utf-8')).hexdigest()
+
+    temp_dir_rel = '_temp_subfig' + temp_name
+    temp_dir_abs = os.path.join(os.path.dirname(file_out), temp_dir_rel)
+    mkdir4file(temp_dir_abs)
+    os.mkdir(temp_dir_abs)
+    files_rel = np.empty_like(files)
+    files_abs = np.empty_like(files)
+    for row in range(files.shape[0]):
+        for col in range(files.shape[1]):
+            file0 = files[row, col]
+            if file0 is None:
+                files_rel[row, col] = None
+                files_abs[row, col] = None
+                continue
+            file_name1 = 'row%dcol%d%s' % (row, col, os.path.splitext(file0)[1])
+            files_rel[row, col] = os.path.join(temp_dir_rel, file_name1)
+            files_abs[row, col] = os.path.join(temp_dir_abs, file_name1)
+            shutil.copy(file0, files_abs[row, col])
 
     import pylatex as ltx
 
@@ -1551,18 +1595,20 @@ def pdfs2subfigs(
     with doc.create(ltx.Figure()) as fig:
         if caption_on_top and caption is not None:
             fig.add_caption(caption)
-        for row in range(files.shape[0]):
-            for col in range(files.shape[1]):
-                file = files[row, col]
+        for row in range(files_rel.shape[0]):
+            for col in range(files_rel.shape[1]):
+                file = files_rel[row, col]
                 if file is None:
                     continue
                 with doc.create(ltx.SubFigure(width_column)
                                 ) as subfig:
                     doc.append(ltx.Command('centering'))
-                    subfig.add_image(file, width=width_column)
-                    doc.append(ltx.VerticalSpace(hspace))
-                    if subcaptions is not None:
+                    if subcaption_on_top and subcaptions is not None:
                         subfig.add_caption(subcaptions[row, col])
+                    subfig.add_image(file, width=width_column)
+                    if (not subcaption_on_top) and subcaptions is not None:
+                        subfig.add_caption(subcaptions[row, col])
+                    doc.append(ltx.VerticalSpace(hspace))
             doc.append(ltx.NewLine())
         if (not caption_on_top) and caption is not None:
             fig.add_caption(caption)
@@ -1570,6 +1616,15 @@ def pdfs2subfigs(
     if file_out.lower().endswith('.pdf'):
         file_out = file_out[:-4]
     doc.generate_pdf(file_out, clean_tex=clean_tex)
+
+    from send2trash import send2trash
+    for row in range(files_abs.shape[0]):
+        for col in range(files_abs.shape[1]):
+            file0 = files[row, col]
+            file1 = files_abs[row, col]
+            if file1 is not None and file0 != file1:
+                send2trash(file1)
+    os.rmdir(temp_dir_abs)
 
 
 def reshape_ragged(v, ncol):
