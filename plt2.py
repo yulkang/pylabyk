@@ -1498,7 +1498,7 @@ class Animator:
         return files
 
 
-def pdfs2subfigs(
+def subfigs(
         files: Union[Sequence, np.ndarray], file_out: str,
         width_document=None,
         width_column='2cm',
@@ -1627,8 +1627,72 @@ def pdfs2subfigs(
     os.rmdir(temp_dir_abs)
 
 
+pdfs2subfigs = subfigs  # alias for backward compatibility
+
+
 def reshape_ragged(v, ncol):
     return np.r_[
         v.flatten(),
         [None] * (int(np.ceil(v.size / ncol)) * ncol - v.size)
     ].reshape([-1, ncol])
+
+
+def subfigs_from_template(
+        file_out: str, template: str,
+        srcs: Iterable[str],
+        dstss: Iterable[Union[
+            Mapping[Tuple[int, int], str],
+            np.ndarray
+        ]],
+        caption='',
+        caption_on_top=True,
+        subcaptions: Union[None, str, np.ndarray] = 'auto',
+        **kwargs) -> None:
+    """
+
+    :param file_out: output file
+    :param template: path relative to the output file
+    :param srcs: [pair] = src_pair
+    :param dstss: [pair][row, col] = dst_pair
+    :param caption: title on top
+    :param caption_on_top:
+    :param subcaptions: defaults to combination of destination strings. In the
+        example, these are 'row0; col0', etc.
+        Give subcaptions[row, col] = 'subcaption_row_col' to set manually.
+        Give None to omit.
+
+    EXAMPLE:
+    subfigs_from_template(
+        'out.pdf',
+        'input_row0_col1.png',
+        ['row0', 'col1'],
+        [
+            np.array([
+                ['row0'],
+                ['row1']
+            ]),
+            np.array([
+                ['col0', 'col1']
+            ])
+        ]
+    )
+    """
+    files = np.vectorize(
+        lambda *dsts:
+            np2.replace(template, [
+                (src, dst) for src, dst in zip(srcs, dsts)
+            ])
+    )(*dstss)
+
+    if subcaptions == 'auto':
+        subcaptions = np.vectorize(
+            lambda *args: '; '.join(args)
+        )(*dstss)
+
+    subfigs(
+        files, file_out,
+        caption=caption,
+        caption_on_top=caption_on_top,
+        subcaptions=subcaptions,
+        **kwargs
+    )
