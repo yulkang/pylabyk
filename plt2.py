@@ -1683,7 +1683,7 @@ def subfigs_from_template(
             ])
     )(*dstss)
 
-    if subcaptions == 'auto':
+    if subcaptions is str and subcaptions == 'auto':
         subcaptions = np.vectorize(
             lambda *args: '; '.join(args)
         )(*dstss)
