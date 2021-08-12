@@ -1567,8 +1567,13 @@ def subfigs(
             files_abs[row, col] = os.path.join(temp_dir_abs, file_name1)
             shutil.copy(file0, files_abs[row, col])
 
-    import pylatex as ltx
+    import pandas as pd
+    df = pd.DataFrame(files)
+    file_csv = os.path.splitext(file_out)[0] + '.csv'
+    df.to_csv(file_csv)
+    print('Saved original paths to %s' % file_csv)
 
+    import pylatex as ltx
     doc = ltx.Document(
         documentclass=['standalone'],
         document_options=[
