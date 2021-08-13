@@ -917,6 +917,23 @@ def lineseg_dists(p, a, b):
     return np.hypot(h, c)
 
 
+def distance_point_line(
+        point: np.ndarray,
+        line_st: np.ndarray,
+        line_en: np.ndarray) -> np.ndarray:
+    """
+    Adapted from https://stackoverflow.com/a/48137604/2565317
+    :param point: [index, (x, y)]
+    :param line_st: [index, (x, y)]
+    :param line_en: [index, (x, y)]
+    :return: distance[index]
+    """
+    d = np.cross(
+        line_en - line_st, point - line_st
+    ) / np.linalg.norm(line_en - line_st)
+    return d
+
+
 def ____TRANSFORM____():
     pass
 
