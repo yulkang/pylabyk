@@ -553,9 +553,18 @@ def expand_upto_dim(args, dim, to_expand_left=True):
 def ____PERMUTE____():
     pass
 
+
+def swapaxes(tensor: torch.Tensor, dim0, dim1) -> torch.Tensor:
+    dims = np.arange(tensor.ndim)
+    dims[dim1] = dim0
+    dims[dim0] = dim1
+    return tensor.permute(tuple(dims))
+
+
 def t(tensor):
     nd = tensor.dim()
     return tensor.permute(list(range(nd - 2)) + [nd - 1, nd - 2])
+
 
 def permute2st(v, ndim_en=1):
     """
@@ -566,6 +575,8 @@ def permute2st(v, ndim_en=1):
     """
     nd = v.ndimension()
     return v.permute([*range(-ndim_en, 0)] + [*range(nd - ndim_en)])
+
+
 p2st = permute2st
 
 
