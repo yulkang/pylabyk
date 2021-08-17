@@ -62,6 +62,10 @@ class OverriddenParameter(nn.Module):
     def requires_grad(self):
         return self._param.requires_grad
 
+    @property
+    def shape(self):
+        return self._param.shape
+
     @requires_grad.setter
     def requires_grad(self, v):
         self._param.requires_grad = v
