@@ -778,13 +778,14 @@ def wstandardize(values: np.ndarray, weights: np.ndarray,
 
 
 def weighted_median_split(
-        w: np.ndarray, v: np.ndarray, d: np.ndarray = None
+        w: np.ndarray, v: np.ndarray, d: np.ndarray = None, to_sample=False
 ) -> (np.ndarray, np.ndarray, np.ndarray, float, np.ndarray):
     """
     Splits weights & values when multiple cells may equal the median
     :param w: [cell]: weight
     :param v: [cell]: floats that determine the median
     :param d: [cell]: data to be duplicated & split along with w & v
+    :param to_sample: if True, randomly assign elements that equals median.
     :return: is_above_median[cell_new], w[cell_new], v[cell_new], v_median,
         d[cell_new]
     """
@@ -803,68 +804,84 @@ def weighted_median_split(
     w = sumto1(w)
 
     m = ws.numpy_weighted_median(v, w)
-    a = v > m  # Assignment: 0=lt, 1=gt
 
-    # Keep a copy of the old values before concatenation for debugging
-    # a0 = a.copy()
-    w0 = w.copy()
-    # v0 = v.copy()
-    # m0 = m + 0
-    # d0 = d.copy()
+    if to_sample:
+        # NOW: permute order among whose values equal the median,
+        #  and cut at where the cdf equals 0.5
+        #  (Assign i randomly if cumsum(p[:i]) < 0.5 and cumsum(p[:(i+1)]) > 0.5)
 
-    # Prepare split into lesser & greater half
-    to_split = v == m
-    p_lt = w[v < m].sum()
-    p_gt = w[v > m].sum()
+        raise NotImplementedError()
+    else:
+        a = v > m  # Assignment: 0=lt, 1=gt
 
-    p_split_lt = 0.5 - p_lt
-    p_split_gt = 0.5 - p_gt
-    p_split_sum = p_split_lt + p_split_gt
+        # Keep a copy of the old values before concatenation for debugging
+        # a0 = a.copy()
+        w0 = w.copy()
+        # v0 = v.copy()
+        # m0 = m + 0
+        # d0 = d.copy()
 
-    # Append weight of the greater half,
-    # and replace w[sgn0] with the lesser half's weight
-    w_gt = w0[to_split] * (p_split_gt / p_split_sum)  # weight of the greater half to append
-    w[to_split] = w0[to_split] * (p_split_lt / p_split_sum)  # weight of the lesser half: replace original
-    w = np.r_[w, w_gt]
+        # Prepare split into lesser & greater half
+        to_split = v == m
+        p_lt = w[v < m].sum()
+        p_gt = w[v > m].sum()
 
-    # Concatenate original with the greater half (duplicate)
-    v_gt = v[to_split]
-    v = np.r_[v, v_gt]
+        p_split_lt = 0.5 - p_lt
+        p_split_gt = 0.5 - p_gt
+        p_split_sum = p_split_lt + p_split_gt
 
-    a_gt = np.ones([to_split.sum()], bool)
-    a = np.r_[a, a_gt]
+        # Append weight of the greater half,
+        # and replace w[sgn0] with the lesser half's weight
+        w_gt = w0[to_split] * (p_split_gt / p_split_sum)  # weight of the greater half to append
+        w[to_split] = w0[to_split] * (p_split_lt / p_split_sum)  # weight of the lesser half: replace original
+        w = np.r_[w, w_gt]
 
-    if d is not None:
-        d1 = d[to_split]
-        d = np.r_[d, d1]
+        # Concatenate original with the greater half (duplicate)
+        v_gt = v[to_split]
+        v = np.r_[v, v_gt]
 
-    # Check that a is indeed a median split
-    assert np.abs(w[:len(w0)][to_split].sum() + w_gt.sum() - p_split_sum) < 1e-6
-    assert np.abs(w[a].sum() - 0.5) < 1e-6
-    assert np.abs(w[~a].sum() - 0.5) < 1e-6
-    assert np.all(v[a] >= m)
-    assert np.all(v[~a] <= m)
+        a_gt = np.ones([to_split.sum()], bool)
+        a = np.r_[a, a_gt]
 
-    w = w * w_sum
+        if d is not None:
+            d1 = d[to_split]
+            d = np.r_[d, d1]
+
+        # Check that a is indeed a median split
+        assert np.abs(w[:len(w0)][to_split].sum() + w_gt.sum() - p_split_sum) < 1e-6
+        assert np.abs(w[a].sum() - 0.5) < 1e-6
+        assert np.abs(w[~a].sum() - 0.5) < 1e-6
+        assert np.all(v[a] >= m)
+        assert np.all(v[~a] <= m)
+
+        w = w * w_sum
     return a, w, v, m, d
 
 
-def weighted_crosstab(w: np.ndarray, v: np.ndarray) -> np.ndarray:
+def weighted_crosstab(w: np.ndarray, v: np.ndarray, n_sample=0) -> np.ndarray:
     """
 
     :param w: [cell]: weight
     :param v: [cell, (v1, v2)]
+    :param n_sample: if 0, split continuously.
+        If >0, repeat randomly sampling assignments for the elements that equal
+        median.
     :return: n_jt[is_above_median1, is_above_median2] = sum of w,
         a[cell_new, (v1, v2)], w[cell_new], v[cell_new, (v1, v2)]
     """
     assert v.ndim == 2
     assert v.shape[1] == 2  # more general form not implemented yet
-
-    a0, w, _, _, v = weighted_median_split(w, v[:, 0], v)
-    a1, w, _, _, av = weighted_median_split(
-        w, v[:, 1], np.concatenate([a0[:, None], v], -1))
-    a = np.concatenate([av[:, :1], a1[:, None]], 1).astype(int)
-    v = av[:, 1:]
+    if n_sample == 0:
+        a0, w, _, _, v = weighted_median_split(w, v[:, 0], v)
+        a1, w, _, _, av = weighted_median_split(
+            w, v[:, 1], np.concatenate([a0[:, None], v], -1))
+        a = np.concatenate([av[:, :1], a1[:, None]], 1).astype(int)
+        v = av[:, 1:]
+    else:
+        assert n_sample > 0
+        # NOW: add n_sample>0 (=0 is the same as now; default to n_sample=100)
+        #   among outputs, I only need n_jt
+        raise NotImplementedError()
 
     # # more general form for v.shape[1] > 2: not implemented yet
     # i = 0
