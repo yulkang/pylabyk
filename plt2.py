@@ -7,12 +7,11 @@ Created on Tue Feb 13 10:42:06 2018
 """
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
-
+import os
 from typing import List, Callable, Sequence, Mapping, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-import pylatex as ltx
 from matplotlib import patches
 from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
@@ -52,10 +51,10 @@ class GridAxes:
                  nrows=1, ncols=1,
                  left=0.5, right=0.1,
                  bottom=0.5, top=0.5,
-                 wspace: Union[float, Iterable[float]] = 0.25,
-                 hspace: Union[float, Iterable[float]] = 0.25,
-                 widths: Union[float, Iterable[float]] = 1.,
-                 heights: Union[float, Iterable[float]] = 0.75,
+                 wspace: Union[float, Sequence[float]] = 0.25,
+                 hspace: Union[float, Sequence[float]] = 0.25,
+                 widths: Union[float, Sequence[float]] = 1.,
+                 heights: Union[float, Sequence[float]] = 0.75,
                  kw_fig=(),
                  close_on_del=True,
                  ):
@@ -89,6 +88,16 @@ class GridAxes:
         :param kw_fig:
         :return: axs[row, col] = plt.Axes
         """
+        # truncate if too long for convenience
+        wspace, hspace, widths, heights = [
+            v[:l] if np2.is_sequence(v) and len(v) > l else v
+            for v, l in [
+                (wspace, ncols - 1),
+                (hspace, nrows - 1),
+                (widths, ncols),
+                (heights, nrows)
+            ]
+        ]
 
         wspace = np.zeros([ncols - 1]) + wspace
         hspace = np.zeros([nrows - 1]) + hspace
@@ -520,16 +529,41 @@ def same_clim(images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
             im = ax.findobj(mpl.image.AxesImage)
             images += im
 
+    if len(images) == 0:
+        return
+
     if clim is None:
         if img0 is None:
-            clims = np.array([im.get_clim() for im in images])
-            clim = [np.amin(clims[:,0]), np.amax(clims[:,1])]
+            # # DEBUGGED: just using array min and max ignores existing
+            # #  non-None clims
+            # arrays = np.concatenate([
+            #     im.get_array().flatten() for im in images], 0)
+            # clim = [np.amin(arrays), np.amax(arrays)]
+
+            # # DEBUGGED: np.amax(clims) doesn't work when either clim is None.
+            clims = np.array([im.get_clim() for im in images], dtype=np.object)
+            def fun_or_val(fun, v, im):
+                if v is not None:
+                    return v
+                else:
+                    a = im.get_array()
+                    if a.size > 0:
+                        return fun(a)
+                    else:
+                        return np.nan
+            clims[:, 0] = [fun_or_val(np.nanmin, v, im)
+                           for v, im in zip(clims[:, 0], images)]
+            clims[:, 1] = [fun_or_val(np.nanmax, v, im)
+                           for v, im in zip(clims[:, 1], images)]
+            clims = clims.astype(float)
+            clim = [np.nanmin(clims[:,0]), np.nanmax(clims[:,1])]
         else:
             if isinstance(img0, plt.Axes):
                 img0 = img0.findobj(mpl.image.AxesImage)
             clim = img0.get_clim()
     for img in images:
         img.set_clim(clim)
+    return clim
 
 
 def lim_symmetric(xy='y', lim=None, ax=None):
@@ -631,8 +665,8 @@ def box_off(remove_spines: Union[str, Iterable[str]] = ('right', 'top'),
         ax = plt.gca()  # plt.Axes
     if remove_spines == 'all':
         remove_spines = ['left', 'right', 'top', 'bottom']
-        ax.set_xticks([])
-        ax.set_yticks([])
+        # ax.set_xticks([])
+        # ax.set_yticks([])
 
     if 'left' in remove_spines:
         ax.tick_params(axis='y', length=0)
@@ -1023,6 +1057,7 @@ def colorbar(
         loc='right',
         width='5%', height='100%',
         borderpad=-1,
+        label='',
         kw_inset=(),
         kw_cbar=(),
 ) -> mpl.colorbar.Colorbar:
@@ -1055,7 +1090,7 @@ def colorbar(
     )
     cb = fig.colorbar(
         mappable, cax=axins,
-        **dict(kw_cbar)
+        **{'label': label, **dict(kw_cbar)}
     )
     return cb
 
@@ -1476,7 +1511,7 @@ class Animator:
         return files
 
 
-def pdfs2subfigs(
+def subfigs(
         files: Union[Sequence, np.ndarray], file_out: str,
         width_document=None,
         width_column_cm=(2,),
@@ -1486,32 +1521,36 @@ def pdfs2subfigs(
         caption=None,
         subcaptions: Union[Sequence, np.ndarray] = None,
         caption_on_top=False,
+        subcaption_on_top=None,
         suptitle='',
 ):
     """
 
-    :param files: [row, col] = file path relative to file_out's folder,
+    :param files: 1D or 2D array of strings.
+        if 2D, [row, col] = file path relative to file_out's folder,
         or absolute path as obtained from os.path.abspath()
     :param file_out:
     :param width_document:
     :param width_column_cm:
-    :param hspace:
-    :param ncol:
-    :param clean_tex:
-    :param caption:
-    :param subcaptions:
+    :param hspace: space between rows
+    :param ncol: defaults to files.shape[1] if it is an array;
+        makes the array close to square otherwise
+    :param clean_tex: delete intermediate files
+    :param caption: caption for the whole array of subfigures
+    :param subcaptions: caption under each subfig
     :param caption_on_top:
+    :param subcaption_on_top: defaults to caption_on_top
     :return:
     """
     if not isinstance(files, np.ndarray):
         files = np.array(files)
-    if files.ndim == 1 and ncol is None:
-        ncol = int(np.floor(np.sqrt(files.size)))
-    else:
-        assert files.ndim == 2
-        ncol = files.shape[1]
-    if ncol is not None:
-        files = reshape_ragged(files, ncol)
+    if ncol is None:
+        if files.ndim == 1:
+            ncol = int(np.floor(np.sqrt(files.size)))
+        else:
+            assert files.ndim == 2
+            ncol = files.shape[1]
+    files = reshape_ragged(files, ncol)
     if subcaptions is not None:
         subcaptions = np.array(subcaptions)
         if subcaptions.ndim == 1:
@@ -1525,8 +1564,38 @@ def pdfs2subfigs(
     width_column_cm = np.array(width_column_cm)
 
     if width_document is None:
-        width_document = 'varwidth=%fcm' % (width_column_cm.sum())
+        width_document = 'varwidth=%fcm' % (width_column_cm[0] * ncol)
+    if subcaption_on_top is None:
+        subcaption_on_top = caption_on_top
 
+    # rename files to simple names
+    import os, shutil, hashlib
+    temp_name = hashlib.md5(file_out.encode('utf-8')).hexdigest()
+
+    temp_dir_rel = '_temp_subfig' + temp_name
+    temp_dir_abs = os.path.join(os.path.dirname(file_out), temp_dir_rel)
+    mkdir4file(os.path.join(temp_dir_abs, 'temp'))
+    files_rel = np.empty_like(files)
+    files_abs = np.empty_like(files)
+    for row in range(files.shape[0]):
+        for col in range(files.shape[1]):
+            file0 = files[row, col]
+            if file0 is None:
+                files_rel[row, col] = None
+                files_abs[row, col] = None
+                continue
+            file_name1 = 'row%dcol%d%s' % (row, col, os.path.splitext(file0)[1])
+            files_rel[row, col] = os.path.join(temp_dir_rel, file_name1)
+            files_abs[row, col] = os.path.join(temp_dir_abs, file_name1)
+            shutil.copy(file0, files_abs[row, col])
+
+    import pandas as pd
+    df = pd.DataFrame(files)
+    file_csv = os.path.splitext(file_out)[0] + '.csv'
+    df.to_csv(file_csv)
+    print('Saved original paths to %s' % file_csv)
+
+    import pylatex as ltx
     doc = ltx.Document(
         documentclass=['standalone'],
         document_options=[
@@ -1557,18 +1626,20 @@ def pdfs2subfigs(
     with doc.create(ltx.Figure()) as fig:
         if caption_on_top and caption is not None:
             fig.add_caption(caption)
-        for row in range(files.shape[0]):
-            for col in range(files.shape[1]):
-                file = files[row, col]
+        for row in range(files_rel.shape[0]):
+            for col in range(files_rel.shape[1]):
+                file = files_rel[row, col]
                 if file is None:
                     continue
                 with doc.create(ltx.SubFigure('%fcm' % width_column_cm[col])
                                 ) as subfig:
                     doc.append(ltx.Command('centering'))
-                    subfig.add_image(file, width='%fcm' % width_column_cm[col])
-                    doc.append(ltx.VerticalSpace(hspace))
-                    if subcaptions is not None:
+                    if subcaption_on_top and subcaptions is not None:
                         subfig.add_caption(subcaptions[row, col])
+                    subfig.add_image(file, width=width_column_cm[col])
+                    if (not subcaption_on_top) and subcaptions is not None:
+                        subfig.add_caption(subcaptions[row, col])
+                    doc.append(ltx.VerticalSpace(hspace))
             doc.append(ltx.NewLine())
         if (not caption_on_top) and caption is not None:
             fig.add_caption(caption)
@@ -1577,9 +1648,82 @@ def pdfs2subfigs(
         file_out = file_out[:-4]
     doc.generate_pdf(file_out, clean_tex=clean_tex)
 
+    from send2trash import send2trash
+    for row in range(files_abs.shape[0]):
+        for col in range(files_abs.shape[1]):
+            file0 = files[row, col]
+            file1 = files_abs[row, col]
+            if file1 is not None and file0 != file1:
+                send2trash(file1)
+    os.rmdir(temp_dir_abs)
+
+
+pdfs2subfigs = subfigs  # alias for backward compatibility
+
 
 def reshape_ragged(v, ncol):
     return np.r_[
         v.flatten(),
         [None] * (int(np.ceil(v.size / ncol)) * ncol - v.size)
     ].reshape([-1, ncol])
+
+
+def subfigs_from_template(
+        file_out: str, template: str,
+        srcs: Iterable[str],
+        dstss: Iterable[Union[
+            Mapping[Tuple[int, int], str],
+            np.ndarray
+        ]],
+        caption='',
+        caption_on_top=True,
+        subcaptions: Union[None, str, np.ndarray] = 'auto',
+        **kwargs) -> None:
+    """
+
+    :param file_out: output file
+    :param template: path relative to the output file
+    :param srcs: [pair] = src_pair
+    :param dstss: [pair][row, col] = dst_pair
+    :param caption: title on top
+    :param caption_on_top:
+    :param subcaptions: defaults to combination of destination strings. In the
+        example, these are 'row0; col0', etc.
+        Give subcaptions[row, col] = 'subcaption_row_col' to set manually.
+        Give None to omit.
+
+    EXAMPLE:
+    subfigs_from_template(
+        'out.pdf',
+        'input_row0_col1.png',
+        ['row0', 'col1'],
+        [
+            np.array([
+                ['row0'],
+                ['row1']
+            ]),
+            np.array([
+                ['col0', 'col1']
+            ])
+        ]
+    )
+    """
+    files = np.vectorize(
+        lambda *dsts:
+            np2.replace(template, [
+                (src, dst) for src, dst in zip(srcs, dsts)
+            ])
+    )(*dstss)
+
+    if isinstance(subcaptions, str) and subcaptions == 'auto':
+        subcaptions = np.vectorize(
+            lambda *args: '; '.join(args)
+        )(*dstss)
+
+    subfigs(
+        files, file_out,
+        caption=caption,
+        caption_on_top=caption_on_top,
+        subcaptions=subcaptions,
+        **kwargs
+    )

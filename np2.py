@@ -113,6 +113,9 @@ def mat2list(m: np.ndarray) -> List[np.ndarray]:
 
 
 def dict_shapes(d, verbose=True):
+    if not isinstance(d, dict):
+        assert is_iter(d)
+        d = {k: v for k, v in enumerate(d)}
     sh = {}
     for k in d.keys():
         v = d[k]
@@ -462,9 +465,10 @@ def mean_distrib(p, v, axis=None):
 
 
 def var_distrib(p, v, axis=None):
-    return (
-            mean_distrib(p, v ** 2, axis=axis)
-            - mean_distrib(p, v, axis=axis) ** 2
+    return np.clip(
+        mean_distrib(p, v ** 2, axis=axis)
+        - mean_distrib(p, v, axis=axis) ** 2,
+        0, np.inf
     )
 
 def std_distrib(p, v, axis=None):
@@ -477,6 +481,44 @@ def sem(v, axis=0):
         return np.std(v) / np.sqrt(v.size)
     else:
         return np.std(v, axis=axis) / np.sqrt(v.shape[axis])
+
+
+def wmean(values: np.ndarray, weights: np.ndarray,
+          axis=None) -> np.ndarray:
+    return (values * weights).sum(axis=axis) / weights.sum(axis)
+
+
+def wstd(values: np.ndarray, weights: np.ndarray,
+         axis=None, keepdim=False) -> np.ndarray:
+    """
+    Return the weighted standard deviation.
+
+    from: https://stackoverflow.com/a/2415343/2565317
+
+    values, weights -- Numpy ndarrays with the same shape.
+    """
+    sum_wt = weights.sum(axis=axis, keepdims=True)
+    avg = (values * weights).sum(axis=axis, keepdims=True) / sum_wt
+    var = ((values - avg) ** 2 * weights).sum(axis=axis, keepdims=True) / sum_wt
+    if not keepdim:
+        var = np.squeeze(var, axis=axis)
+    return np.sqrt(var)
+
+
+def wsem(values: np.ndarray, weights: np.ndarray,
+         axis=None, keepdim=False) -> np.ndarray:
+    """
+    Weighted standard error of mean.
+    :param values:
+    :param weights:
+    :param axis:
+    :param keepdim:
+    :return:
+    """
+    return (
+        wstd(values, weights, axis, keepdim)
+        / np.sqrt(np.sum(weights, axis=axis, keepdims=keepdim))
+    )
 
 
 def quantilize(v, n_quantile=5, return_summary=False, fallback_to_unique=True):
@@ -569,6 +611,11 @@ def argmax_margin(v, margin=0.1, margin_from='second',
 def argmin_margin(v, **kw):
     """argmin with margin. See argmax_margin for details."""
     return argmax_margin(-v, **kw)
+
+
+def argmedian(v, axis=None):
+    median = np.median(v, axis=axis, keepdims=True)
+    return np.argmin(np.abs(v - median), axis=axis)
 
 
 def sumto1(v, axis=None, ignore_nan=True):
@@ -686,11 +733,11 @@ def info_criterion(nll, n_trial, n_param, kind='BIC'):
 
 def dkl(a: np.ndarray, b: np.ndarray, axis=None) -> np.ndarray:
     """
-
+    DKL[a || b]
     :param a:
     :param b:
     :param axis:
-    :return: sum(a * (log(a) - log(b)), axis)
+    :return: DKL[a || b] = sum(a * (log(a) - log(b)), axis)
     """
     return np.sum(a * (np.log(a) - np.log(b)), axis=axis)
 
@@ -1052,6 +1099,23 @@ def lineseg_dists(p, a, b):
     return np.hypot(h, c)
 
 
+def distance_point_line(
+        point: np.ndarray,
+        line_st: np.ndarray,
+        line_en: np.ndarray) -> np.ndarray:
+    """
+    Adapted from https://stackoverflow.com/a/48137604/2565317
+    :param point: [index, (x, y)]
+    :param line_st: [index, (x, y)]
+    :param line_en: [index, (x, y)]
+    :return: distance[index]
+    """
+    d = np.cross(
+        line_en - line_st, point - line_st
+    ) / np.linalg.norm(line_en - line_st)
+    return d
+
+
 def ____TRANSFORM____():
     pass
 
@@ -1097,6 +1161,32 @@ def project(a, b, axis=None, scalar_proj=False):
         return proj
     else:
         return proj * b
+
+
+def inverse_transform(xy0: np.ndarray, xy1: np.ndarray) -> np.ndarray:
+    """
+
+    :param xy0: [(x, y), ix, iy]: original grid
+    :param xy1: [(x, y), ix, iy]: transformed grid
+    :return: xy2: [(x, y), ix, iy]: inverse-transformed original grid
+    """
+    from scipy.interpolate import griddata
+    if xy0.ndim == 3:
+        xy2 = np.stack([
+            np.stack([
+                inverse_transform(xy00, xy11)
+                for xy00, xy11 in zip(xy0[0].T, xy1[0].T)
+            ]).T,
+            np.stack([
+                inverse_transform(xy00, xy11)
+                for xy00, xy11 in zip(xy0[1], xy1[1])
+            ])
+        ])
+    elif xy0.ndim == 1:
+        xy2 = griddata(xy1, xy0, xy0, method='linear')
+    else:
+        raise ValueError()
+    return xy2
 
 
 def ____BINARY_OPS____():
@@ -1157,27 +1247,36 @@ def nancrosscorr(
     """
     Normalized cross-correlation ignoring NaNs.
     As in Barry et al. 2007
-    :param fr1: [x, y]
-    :param fr2: [x, y]
+    :param fr1: [x, y, batch]
+    :param fr2: [x, y, batch]
     :param fillvalue:
     :param thres_n: Minimum number of non-NaN entries to compute crosscorr with.
     :param processes: >0 to run in parallel
-    :return: cc[i_dx, i_dy]
+    :return: cc[i_dx, i_dy, batch]
     """
-    assert fr1.ndim == 2
-    assert thres_n >= 2, 'to compute correlation thres_n needs to be >= 2'
     if fr2 is None:
         fr2 = fr1
-    else:
-        assert fr2.ndim == 2
 
-    fsh1 = np.array(fr1.shape)
-    fsh2 = np.array(fr2.shape)
+    is_fr1_ndim2 = fr1.ndim == 2
+    if is_fr1_ndim2:
+        fr1 = fr1[..., None]
+
+    is_fr2_ndim2 = fr2.ndim == 2
+    if is_fr2_ndim2:
+        fr2 = fr2[..., None]
+
+    assert fr1.ndim == 3
+    assert fr2.ndim == 3
+    assert thres_n >= 2, 'to compute correlation thres_n needs to be >= 2'
+
+    fsh1 = np.array(fr1.shape[:2])
+    fsh2 = np.array(fr2.shape[:2])
     # csh = fsh1 + fsh2
 
     # NOTE: pad smaller of the two to match max_shape + 2,
     #   + 2 to ensure both are padded on both sides to remove smoothing artifact
-    max_sh = np.amax(np.stack([fsh1, fsh2], axis=0), axis=0) + 2
+    max_sh0 = np.amax(np.stack([fsh1, fsh2], axis=0), axis=0)
+    max_sh = max_sh0 + 2
     # max_sh = (max_sh // 2) * 2 + 1  # enforce odd numbers so it has a center
     pad1 = max_sh - fsh1
     # pad1 = np.stack([
@@ -1187,20 +1286,22 @@ def nancrosscorr(
         (int(np.floor(pad1[0] / 2)),
          int(np.ceil(pad1[0] / 2))),
         (int(np.floor(pad1[1] / 2)),
-         int(np.ceil(pad1[1] / 2)))
+         int(np.ceil(pad1[1] / 2))),
+        (0, 0)
     ], constant_values=np.nan)
     fr2 = np.pad(fr2, [
         (int(np.floor(pad2[0] / 2)),
          int(np.ceil(pad2[0] / 2))),
         (int(np.floor(pad2[1] / 2)),
-         int(np.ceil(pad2[1] / 2)))
+         int(np.ceil(pad2[1] / 2))),
+        (0, 0)
     ], constant_values=np.nan)
 
-    csh = max_sh * 2
-    cc = np.zeros(csh) + fillvalue
+    csh = max_sh0 * 2
+    cc = np.zeros(tuple(csh) + fr1.shape[2:]) + fillvalue
     # fsh = np.amin(np.stack([fsh1, fsh2], axis=0), axis=0)
     # fsh = np.ceil(max_sh / 2).astype(int)
-    fsh = max_sh
+    fsh = max_sh0
 
     pool = Pool(processes=processes)
     # if processes > 0:
@@ -1223,12 +1324,29 @@ def nancrosscorr(
     # if processes > 0:
     #     pool.close()
 
+    if is_fr1_ndim2 and is_fr2_ndim2:
+        assert cc.shape[-1] == 1
+        cc = cc[..., 0]
+
     return cc
 
 
 def _ccorrs_given_dx(inp):
+    """
+
+    :param inp: dx, csh, fillvalue, fr1, fr2, fsh, thres_n
+        dx: int
+        csh: [(x, y)] shape of the results (cross correlation)
+        fillvalue: what to fill when the number of bins < thres_n
+        fr1: [x, y, batch]
+        fr2: [x, y, batch]
+        fsh: [(x, y)]
+        thres_n: min number of bins required
+    :return: cross_correlation[x, y]
+    """
     dx, csh, fillvalue, fr1, fr2, fsh, thres_n = inp
-    cc0 = np.zeros(csh[1]) + fillvalue
+    n_batch = fr1.shape[-1]
+    cc0 = np.zeros([csh[1], n_batch]) + fillvalue
     if dx == 0:
         f1 = fr1
         f2 = fr2
@@ -1249,15 +1367,62 @@ def _ccorrs_given_dx(inp):
             g1 = f1[:, :dy]
             g2 = f2[:, -dy:]
 
-        g1 = g1.flatten()
-        g2 = g2.flatten()
+        # g1 = g1.flatten()
+        # g2 = g2.flatten()
+        g1 = g1.reshape([np.prod(g1.shape[:2]), -1])
+        g2 = g2.reshape([np.prod(g2.shape[:2]), -1])
 
-        incl = ~np.isnan(g1) & ~np.isnan(g2)
+        incl = np.all(~np.isnan(g1), -1) & np.all(~np.isnan(g2), -1)
         if np.sum(incl) >= thres_n:
-            cc0[dy + fsh[1]] = stats.pearsonr(g1[incl], g2[incl])[0]
+            # cc0[dy + fsh[1]] = stats.pearsonr(g1[incl], g2[incl])[0]
+            cc0[dy + fsh[1]] = pearsonr(g1[incl].T, g2[incl].T)
 
         # return cc0
     return cc0
+
+
+def pearsonr(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """
+    Same as scipy.stats.pearsonr, but works along dim=-1, w/o checks or pvalue.
+    :param a:
+    :param b:
+    :param dim:
+    :return:
+    """
+    xmean = x.mean(axis=-1, keepdims=True)
+    ymean = y.mean(axis=-1, keepdims=True)
+
+    xm = x - xmean
+    ym = y - ymean
+
+    from scipy import linalg
+    # Unlike np.linalg.norm or the expression sqrt((xm*xm).sum()),
+    # scipy.linalg.norm(xm) does not overflow if xm is, for example,
+    # [-5e210, 5e210, 3e200, -3e200]
+    normxm = linalg.norm(xm, axis=-1, keepdims=True)
+    normym = linalg.norm(ym, axis=-1, keepdims=True)
+
+    threshold = 1e-13
+    import warnings
+    from scipy.stats import PearsonRNearConstantInputWarning
+    if (
+        np.any(normxm < threshold * np.abs(xmean)) or
+        np.any(normym < threshold * np.abs(ymean))
+    ):
+        # If all the values in x (likewise y) are very close to the mean,
+        # the loss of precision that occurs in the subtraction xm = x - xmean
+        # might result in large errors in r.
+        warnings.warn(PearsonRNearConstantInputWarning())
+
+    # YK: Assume dot product along the last dim;
+    #   the preceding dims are considered batch
+    r = ((xm / normxm) * (ym / normym)).sum(-1)
+    # r = np.dot(xm / normxm, ym / normym)
+
+    # Presumably, if abs(r) > 1, then it is only some small artifact of
+    # floating point arithmetic.
+    r = np.clip(r, -1., 1.)
+    return r
 
 
 def ____MULTIPROCESSING____():
@@ -1662,6 +1827,10 @@ def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
     return s
 
 
+def shorten_dict(d: dict, src_dst=()):
+    return {k: shorten(v, src_dst) for k, v in d.items()}
+
+
 def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[str, None]:
     """
 
@@ -1669,20 +1838,23 @@ def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[str, None]:
     :param src_dst: [(src1, dst1), (src2, dst2), ...]
     :return: string with srcX replaced with dstX, or printed '%g,%g,...'
     """
-    if type(v) is str:
+    if isinstance(v, str):
         return replace(v, src_dst)
     elif isinstance(v, bool):
         return '%d' % int(v)
     elif is_iter(v):
-        v = list(v)
-        if isinstance(v[0], str):
-            return '%s' % (','.join([
-                ('%s' % shorten(v1, src_dst))
-                for v1 in v]))
-        else:
-            return '%s' % (','.join([
-                ('%s' % shorten(v1, src_dst))
-                for v1 in npy(v).flatten()]))
+        try:
+            v = list(npy(v))
+            if isinstance(v[0], str):
+                return '%s' % (','.join([
+                    ('%s' % shorten(v1, src_dst))
+                    for v1 in v]))
+            else:
+                return '%s' % (','.join([
+                    ('%s' % shorten(v1, src_dst))
+                    for v1 in npy(v).flatten()]))
+        except TypeError:
+            return '%g' % v
     elif v is None:
         return None
     else:

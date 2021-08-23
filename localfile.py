@@ -1,7 +1,7 @@
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 from . import cacheutil
 from . import argsutil
-from .cacheutil import dict2fname
+from .cacheutil import Cache
 import os, shutil
 from collections import OrderedDict as odict
 from typing import Union, Iterable
@@ -53,7 +53,7 @@ class LocalFile(object):
             pth_root='../Data',
             subdir_default='',
             cache_dir='cache',
-            ext_fig='.pdf',
+            ext_fig='.png',  # .png is much faster than .pdf (~5x)
     ):
         self.pth_root = pth_root
         self.subdir_default = subdir_default
@@ -126,7 +126,8 @@ class LocalFile(object):
             self, cache_kind: str,
             d: Union[str, dict] = None,
             subdir: Union[str, dict] = None,
-            **kwargs) -> cacheutil.Cache:
+            ignore_key=True,
+            **kwargs) -> Cache:
         """
         :type cache_kind: str
         :type d: Union[Iterable[tuple], dict, odict, None]
@@ -135,8 +136,8 @@ class LocalFile(object):
             filekind='cache', kind=cache_kind,
             d=d, ext='.zpkl', subdir=subdir
         )
-        return cacheutil.Cache(file, {
-            'ignore_key': True,
+        return Cache(file, **{
+            'ignore_key': ignore_key,
             **kwargs
         })
 

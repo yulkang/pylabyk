@@ -9,10 +9,26 @@ from matplotlib import pyplot as plt
 from typing import Union, Iterable, Tuple, Dict, Sequence
 
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
-    Categorical, OneHotCategorical
+    Categorical, OneHotCategorical, VonMises
 
-# device0 = torch.device('cpu')  # CHECKING
-device0 = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+_device0 = torch.device('cpu')  # CHECKED
+# _device0 = None  # should be used as a default
+
+
+def set_device(device):
+    global _device0
+    _device0 = device
+
+
+def get_device(device=None):
+    # device = torch.device('cpu')  # CHECKED
+    if device is None:
+        if _device0 is None:
+            device = torch.device('cuda:0' if torch.cuda.is_available()
+                                  else 'cpu')
+        else:
+            device = _device0
+    return device
 
 
 #%% Wrapper that allows numpy-style syntax for torch
@@ -114,7 +130,7 @@ def tensor(v: Union[float, np.ndarray, torch.Tensor],
     :return:
     """
     if device is None:
-        device = device0
+        device = get_device()
 
     if v is None:
         pass
@@ -143,39 +159,39 @@ def cuda(v):
 
 
 def zeros(*args, **kwargs):
-    return torch.zeros(*args, **{'device': device0, **kwargs})
+    return torch.zeros(*args, **{'device': get_device(), **kwargs})
 
 
 def ones(*args, **kwargs):
-    return torch.ones(*args, **{'device': device0, **kwargs})
+    return torch.ones(*args, **{'device': get_device(), **kwargs})
 
 
 def zeros_like(*args, **kwargs):
-    return torch.zeros_like(*args, **{'device': device0, **kwargs})
+    return torch.zeros_like(*args, **{'device': get_device(), **kwargs})
 
 
 def ones_like(*args, **kwargs):
-    return torch.ones_like(*args, **{'device': device0, **kwargs})
+    return torch.ones_like(*args, **{'device': get_device(), **kwargs})
 
 
 def eye(*args, **kwargs):
-    return torch.eye(*args, **{'device': device0, **kwargs})
+    return torch.eye(*args, **{'device': get_device(), **kwargs})
 
 
 def empty(*args, **kwargs):
-    return torch.empty(*args, **{'device': device0, **kwargs})
+    return torch.empty(*args, **{'device': get_device(), **kwargs})
 
 
 def empty_like(*args, **kwargs):
-    return torch.empty_like(*args, **{'device': device0, **kwargs})
+    return torch.empty_like(*args, **{'device': get_device(), **kwargs})
 
 
 def arange(*args, **kwargs):
-    return torch.arange(*args, **{'device': device0, **kwargs})
+    return torch.arange(*args, **{'device': get_device(), **kwargs})
 
 
 def linspace(*args, **kwargs):
-    return torch.linspace(*args, **{'device': device0, **kwargs})
+    return torch.linspace(*args, **{'device': get_device(), **kwargs})
 
 
 def float(v):
@@ -217,16 +233,20 @@ def dclones(*args):
 
 
 #%% Constants
-nan = tensor(np.nan)
-pi = tensor(np.pi)
-pi2 = tensor(np.pi * 2)
+# nan = tensor(np.nan)
+# pi = tensor(np.pi)
+# pi2 = tensor(np.pi * 2)
+nan = np.nan
+pi = np.pi
+pi2 = np.pi * 2
 
 
 #%% NaN-related
 def ____NAN____():
     pass
 
-nanint = tensor(np.nan).long()
+nanint = torch.tensor(np.nan).long()
+# nanint = tensor(np.nan).long()
 def isnan(v):
     if v.dtype is torch.long:
         return v == nanint
@@ -533,9 +553,18 @@ def expand_upto_dim(args, dim, to_expand_left=True):
 def ____PERMUTE____():
     pass
 
+
+def swapaxes(tensor: torch.Tensor, dim0, dim1) -> torch.Tensor:
+    dims = np.arange(tensor.ndim)
+    dims[dim1] = dim0
+    dims[dim0] = dim1
+    return tensor.permute(tuple(dims))
+
+
 def t(tensor):
     nd = tensor.dim()
     return tensor.permute(list(range(nd - 2)) + [nd - 1, nd - 2])
+
 
 def permute2st(v, ndim_en=1):
     """
@@ -546,6 +575,8 @@ def permute2st(v, ndim_en=1):
     """
     nd = v.ndimension()
     return v.permute([*range(-ndim_en, 0)] + [*range(nd - ndim_en)])
+
+
 p2st = permute2st
 
 
@@ -576,7 +607,7 @@ def unravel_index(v, shape, **kwargs):
     return tensor(np.unravel_index(v, shape, **kwargs))
 
 
-def ravel_multi_index(v: Iterable[torch.LongTensor],
+def ravel_multi_index(v: Iterable[Union[torch.LongTensor, np.ndarray]],
                       shape: Iterable[int], **kwargs) -> torch.LongTensor:
     """
     For now, just use np.ravel_multi_index()
@@ -640,7 +671,10 @@ def maxto1(v, dim=None, ignore_nan=True):
         if type(v) is np.ndarray:
             return v / np.amax(v, axis=dim, keepdims=True)
         else:  # v is torch.Tensor
-            return v / v.max(dim, keepdim=True)
+            if dim is None:
+                return v / v.max()
+            else:
+                return v / v.max(dim, keepdim=True)
 
 
 #%% Aggregate
@@ -670,7 +704,7 @@ def aggregate(subs, val=1., *args, **kwargs):
     """
 
     if type(subs) is tuple or type(subs) is list:
-        subs = np.stack(subs)
+        subs = np.stack([npy(v) for v in subs])
         # subs = np.concatenate(npys(*(sub.reshape(1,-1) for sub in subs)), 0)
     elif torch.is_tensor(subs):
         subs = npy(subs)
@@ -1264,22 +1298,20 @@ def mvnrnd(mu, sigma, sample_shape=()):
     return d.rsample(sample_shape)
 
 
-def normrnd(mu=0., sigma=1., sample_shape=(), return_distrib=False):
+def normrnd(
+        mu=0., sigma=1., sample_shape=(), return_distrib=False
+) -> Union[
+    Tuple[torch.Tensor, torch.distributions.Distribution],
+    torch.Tensor
+]:
     """
 
     @param mu:
     @param sigma:
     @param sample_shape:
     @type return_distrib: bool
-    @rtype: Union[(torch.Tensor, torch.distributions.Distribution),
-    torch.Tensor]
     """
     d = Normal(loc=tensor(mu), scale=tensor(sigma))
-    s = d.rsample(sample_shape)
-    if return_distrib:
-        return s, d
-    else:
-        return s
     s = d.rsample(sample_shape)
     if return_distrib:
         return s, d
@@ -1579,11 +1611,11 @@ def circdiff(angle1, angle2, maxangle=pi2):
     return (((angle1 / maxangle) - (angle2 / maxangle) + .5) % 1. - .5) * maxangle
 
 
-def rad2deg(rad):
+def rad2deg(rad: torch.Tensor) -> torch.Tensor:
     return rad / pi * 180.
 
 
-def deg2rad(deg):
+def deg2rad(deg: torch.Tensor) -> torch.Tensor:
     return deg / 180. * pi
 
 
@@ -1635,6 +1667,14 @@ def vmpdf_a_given_b(a_prad, b_prad, pconc):
 
 
 def vmpdf(x, mu, scale=None, normalize=True):
+    """
+
+    :param x:
+    :param mu:
+    :param scale:
+    :param normalize:
+    :return:
+    """
     from .hyperspherical_vae.distributions import von_mises_fisher as vmf
 
     if scale is None:
@@ -1644,13 +1684,17 @@ def vmpdf(x, mu, scale=None, normalize=True):
         mu = mu / scale
         # mu[scale[:,0] == 0, :] = 0.
 
-    vm = vmf.VonMisesFisher(mu, scale + torch.zeros([1,1], device=device0))
+    vm = vmf.VonMisesFisher(mu, scale + zeros([1,1]))
     p = torch.exp(vm.log_prob(x)).clamp_min(0.)
     # if scale == 0.:
     #     p = torch.ones_like(p) / p.shape[0]
     if normalize:
         p = sumto1(p)
     return p
+
+
+def vmpdf_logprob(x, loc, conc) -> torch.Tensor:
+    return VonMises(loc, conc).log_prob(x)
 
 
 def rotation_matrix(rad: torch.Tensor, dim=(-2, -1)) -> torch.Tensor:
@@ -1665,7 +1709,7 @@ def rotation_matrix(rad: torch.Tensor, dim=(-2, -1)) -> torch.Tensor:
         torch.cat((torch.sin(rad), torch.cos(rad)), dim[1])), dim[0])
 
 
-def rotate(v, rad: torch.Tensor) -> torch.Tensor:
+def rotate(v: torch.Tensor, rad: torch.Tensor) -> torch.Tensor:
     """
 
     :param v: [batch_dims, (x0, y0)]

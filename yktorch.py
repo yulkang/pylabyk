@@ -58,6 +58,18 @@ class OverriddenParameter(nn.Module):
     def v(self, data):
         self._param = nn.Parameter(self.data2param(data))
 
+    @property
+    def requires_grad(self):
+        return self._param.requires_grad
+
+    @property
+    def shape(self):
+        return self._param.shape
+
+    @requires_grad.setter
+    def requires_grad(self, v):
+        self._param.requires_grad = v
+
     def __getitem__(self, key):
         return self.v[key]
 
@@ -113,28 +125,44 @@ class BoundedParameter(OverriddenParameter):
         ub = npt.tensor(self.ub)
         data = npt.tensor(enforce_float_tensor(data))
 
+        if lb is not None and ub is not None and (lb == ub).all():
+            if (data != lb).any():
+                print('Out of lb=ub assignment to %s!' % type(self))
+            return npt.zeros_like(data)
+
+        if lb is not None:
+            too_small = data < lb + self.epsilon
+            if too_small.any():
+                print('Out of lb assignment to %s!' % type(self))
+        else:
+            too_small = None
+
+        if ub is not None:
+            too_big = data > ub - self.epsilon
+            if too_big.any():
+                print('Out of ub assignment to %s!' % type(self))
+        else:
+            too_big = None
+
         if (lb is None) and (ub is None):  # Unbounded
             return data
         elif lb is None:
-            data[data > ub - self.epsilon] = ub - self.epsilon
+            data[too_big] = ub - self.epsilon
             return torch.log(ub - data)
         elif ub is None:
-            data[data < lb + self.epsilon] = lb + self.epsilon
+            data[too_small] = lb + self.epsilon
             return torch.log(data - lb)
-        elif npt.tensor(lb == ub).all():
-            return npt.zeros_like(data)
         else:
-            too_small = data < lb + self.epsilon
             try:
                 data[too_small] = lb + self.epsilon
             except RuntimeError:
                 data[too_small] = (lb + self.epsilon)[too_small]
 
-            too_big = data > ub - self.epsilon
             try:
                 data[too_big] = ub - self.epsilon
             except RuntimeError:
                 data[too_big] = (ub - self.epsilon)[too_big]
+
             p = (data - lb) / (ub - lb)
             return torch.log(p) - torch.log(1. - p)
 
@@ -142,13 +170,21 @@ class BoundedParameter(OverriddenParameter):
         lb = self.lb
         ub = self.ub
         param = enforce_float_tensor(param)
+
+        def tensor1(v):
+            return npt.tensor(v).to(param.device)
+        if lb is not None:
+            lb = tensor1(lb)
+        if ub is not None:
+            ub = tensor1(ub)
+
         if lb is None and ub is None: # Unbounded
             return param
         elif lb is None:
-            return npt.tensor(ub) - torch.exp(param)
+            return ub - torch.exp(param)
         elif ub is None:
             return lb + torch.exp(param)
-        elif npt.tensor(lb == ub).all():
+        elif (lb == ub).all():
             return npt.zeros_like(param) + lb
         else:
             return (1 / (1 + torch.exp(-param))) * (ub - lb) + lb  # noqa
@@ -210,7 +246,7 @@ class BoundedParameter(OverriddenParameter):
                 self.ub = npt.tensor(state_dict.pop(ub_name))
         if data_name in state_dict:
             state_dict[param_name] = self.data2param(
-                state_dict.pop(data_name).detach().clone().to(npt.device0))
+                state_dict.pop(data_name).detach().clone().to(npt.get_device()))
         elif param_name in state_dict:
             state_dict[param_name] = npt.tensor(state_dict[param_name])
         return super()._load_from_state_dict(
@@ -741,7 +777,11 @@ class BoundedModule(nn.Module):
 
     def grad_vec(self):
         ps = self.parameters()
-        return torch.cat([p.grad.flatten() for p in ps])
+        return torch.cat([
+            (p.grad.flatten() if p.requires_grad
+             else npt.zeros(p.numel()))
+            for p in ps
+        ])
 
     def freeze_(self):
         """Freeze all parameters (set requires_grad=False)"""

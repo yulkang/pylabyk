@@ -157,6 +157,9 @@ class Cache(object):
     def dict(self, v):
         self._dict = v
 
+    def keys(self):
+        return [k for k in self.dict.keys() if not k.startswith('_')]
+
     @property
     def fname_orig(self):
         return os.path.splitext(os.path.split(self.fullpath_orig)[1])[0]
@@ -192,7 +195,7 @@ class Cache(object):
         :rtype: bool
         """
         if self.ignore_key:
-            return self.dict.__len__() > 0
+            return len(self.keys()) > 0
         if key is None:
             key = self.key
         r = self.format_key(key) in self.dict
@@ -219,10 +222,10 @@ class Cache(object):
         :rtype: Any
         """
         if self.ignore_key:
-            if len(self.dict) == 0:
+            if len(self.keys()) == 0:
                 key = None
             else:
-                keys = [k for k in self.dict.keys() if not k.startswith('_')]
+                keys = self.keys()
                 assert len(keys) == 1, 'multiple keys exist - cannot ignore!'
                 key = keys[0]
         elif key is None:
