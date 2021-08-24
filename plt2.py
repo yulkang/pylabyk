@@ -1299,14 +1299,14 @@ def plot_binned_ch(x0, ch, n_bin=9, **kw):
 def ____Stats_Probability____():
     pass
 
-def ecdf(x0, *args, w=None, **kw):
+def ecdf(x0, *args, w=None, **kw) -> List[plt.Line2D]:
     """
-
+    See also np2.ecdf()
     :param x0:
     :param args:
     :param w: weight
     :param kw:
-    :return:
+    :return: list of lines
     """
     n = len(x0)
     if w is None:
