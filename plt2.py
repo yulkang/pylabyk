@@ -1070,6 +1070,9 @@ def colorbar(
     :param width: relative to the axes
     :param height: relative to the axes
     :param borderpad: relative to the fontsize of the axes.
+        When loc='right',
+            0 aligns the right edges of the colorbar and the parent axis.
+            Negative value pushes the colorbar to the right.
     :param kw_inset:
     :param kw_cbar:
     :return:
