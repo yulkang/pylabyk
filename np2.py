@@ -271,6 +271,14 @@ def permute2en(v, ndim_st=1):
 p2en = permute2en
 
 
+def append_dim(v: np.ndarray, ndim=1) -> np.ndarray:
+    return v.reshape(v.shape + (1,) * ndim)
+
+
+def prepend_dim(v: np.ndarray, ndim=1) -> np.ndarray:
+    return v.reshape((1,) * ndim + v.shape)
+
+
 def ____COPY____():
     pass
 
