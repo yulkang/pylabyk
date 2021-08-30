@@ -111,6 +111,9 @@ def ____TYPE____():
     pass
 
 
+TensorLike = Union[torch.Tensor, np.ndarray]
+
+
 def float(v):
     return v.type(torch.get_default_dtype())
 
