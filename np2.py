@@ -164,12 +164,16 @@ def filt_dict(d: dict, incl: np.ndarray,
     @type incl: np.ndarray
     @rtype: dict
     """
+    assert np.issubdtype(incl.dtype, np.bool)
+
     if copy:
         if ignore_diff_len:
             return {
-                k: (deepcopy(v[incl]) if (isinstance(v, np.ndarray)
-                                          and v.shape[0] == incl.shape[0])
-                    else deepcopy(v))
+                k: (deepcopy(v[incl]) if (
+                    (isinstance(v, np.ndarray)
+                     or isinstance(v, torch.Tensor))
+                    and v.shape[0] == incl.shape[0]
+                ) else deepcopy(v))
                 for k, v in d.items()
             }
         else:
@@ -177,9 +181,11 @@ def filt_dict(d: dict, incl: np.ndarray,
     else:
         if ignore_diff_len:
             return {
-                k: (v[incl] if (isinstance(v, np.ndarray)
-                                          and v.shape[0] == incl.shape[0])
-                    else v)
+                k: (v[incl] if (
+                    (isinstance(v, np.ndarray)
+                     or isinstance(v, torch.Tensor))
+                    and v.shape[0] == incl.shape[0]
+                ) else v)
                 for k, v in d.items()
             }
         else:
