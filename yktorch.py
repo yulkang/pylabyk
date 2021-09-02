@@ -99,7 +99,8 @@ class OverriddenParameter(nn.Module):
 
 class BoundedParameter(OverriddenParameter):
     def __init__(self, data, lb=0., ub=1., skip_loading_lbub=False,
-                 requires_grad=True, **kwargs):
+                 requires_grad=True, randomize=False,
+                 **kwargs):
         """
 
         :param data:
@@ -113,6 +114,10 @@ class BoundedParameter(OverriddenParameter):
         self.lb = None if lb == -np.inf else npt.tensor(lb)
         self.ub = None if ub == np.inf else npt.tensor(ub)
         self.skip_loading_lbub = skip_loading_lbub
+        if randomize:
+            data = (
+                       torch.rand_like(npt.tensor(enforce_float_tensor(data)))
+            ) * (self.ub - self.lb) + self.lb
         self._param = nn.Parameter(self.data2param(data),
                                    requires_grad=requires_grad)
         if self._param.ndim == 0:
