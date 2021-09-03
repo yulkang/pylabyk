@@ -643,7 +643,7 @@ def ____Algebra____():
     pass
 
 
-def sumto1(v, dim=None, axis=None, keepdim=True):
+def sumto1(v: torch.Tensor, dim=None, axis=None, keepdim=True) -> torch.Tensor:
     """
     Make v sum to 1 across dim, i.e., make dim conditioned on the rest.
     dim can be a tuple.
