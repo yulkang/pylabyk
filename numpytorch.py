@@ -225,6 +225,9 @@ def npys(*args):
 
 
 def dclone(v: torch.Tensor):
+    """
+    Returns a new tensor that is detached, cloned, and does not require gradient
+    """
     return v.detach().clone()
 
 
