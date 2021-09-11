@@ -144,22 +144,24 @@ class GridAxes:
 
     @property
     def w(self) -> np.array:
+        """left, width[0], wspace[0], width[1], ..., right (inches)"""
         w = [0.]
         for ax in self.axs[0, :]:
             bounds = ax.get_position().bounds
             w += [bounds[0], bounds[0] + bounds[2]]
         w.append(1.)
-        return np.diff(w)
+        return np.diff(w) * self.figure.get_size_inches()[0]
 
     @property
     def h(self) -> np.array:
+        """top, height[0], hspace[0], height[1], ..., bottom (inches)"""
         h = [0.]
-        for ax in self.axs[:, 0]:
+        for ax in np.flip(self.axs[:, 0]):
             bounds = ax.get_position().bounds
             h += [bounds[1], bounds[1] + bounds[3]]
         h.append(1.)
         # coord from the top
-        return np.flip(np.diff(h))
+        return np.flip(np.diff(h)) * self.figure.get_size_inches()[1]
 
     def copy(self):
         gridaxes = copy(self)
@@ -247,11 +249,24 @@ class GridAxes:
         return self.supxy(xprop=1)[0] - self.supxy(xprop=0)[0]
 
     def suptitle(self, txt: str,
-                 xprop=0.5, pad=0.05, fontsize=12, yprop=None,
+                 xprop=0.5, pad=0.5, fontsize=12, yprop=None,
                  va='bottom', ha='center',
                  **kwargs):
+        """
+
+        :param txt:
+        :param xprop:
+        :param pad: inches
+        :param fontsize:
+        :param yprop:
+        :param va:
+        :param ha:
+        :param kwargs:
+        :return:
+        """
         if yprop is None:
-            yprop = 1. + pad
+            height_axes = np.sum(self.h[1:-1])
+            yprop = 1. + pad / height_axes
 
         return plt.figtext(
             *self.supxy(xprop=xprop, yprop=yprop), txt,
