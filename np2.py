@@ -112,7 +112,7 @@ def mat2list(m: np.ndarray) -> List[np.ndarray]:
     return [v for v in m]
 
 
-def dict_shapes(d, verbose=True):
+def dict_shapes(d, verbose=True, return_shape=False):
     if not isinstance(d, dict):
         assert is_iter(d)
         d = {k: v for k, v in enumerate(d)}
@@ -152,7 +152,8 @@ def dict_shapes(d, verbose=True):
                     str_compo = '[' + compo.__str__() + ']'
             print('%15s: %s %s%s' % (k, sh1, type(v).__name__, str_compo))
 
-    return sh
+    if return_shape:
+        return sh
 
 
 def filt_dict(d: dict, incl: np.ndarray,
