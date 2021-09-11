@@ -1636,7 +1636,7 @@ def conc2pconc(conc):
     return conc / (1. + conc)
 
 
-def vmpdf_prad_pconc(prad, ploc, pconc, normalize=True):
+def vmpdf_prad_pconc(prad, ploc, pconc, normalize=True, dim=None):
     """
     :param prad: 0 to 1 maps to 0 to 2*pi radians
     :param ploc: 0 to 1 maps to 0 to 2*pi radians
@@ -1646,7 +1646,7 @@ def vmpdf_prad_pconc(prad, ploc, pconc, normalize=True):
     return vmpdf(prad2unitvec(prad),
                  prad2unitvec(ploc),
                  pconc2conc(pconc),
-                 normalize=normalize)
+                 normalize=normalize, dim=None)
 
 
 def vmpdf_a_given_b(a_prad, b_prad, pconc):
@@ -1669,7 +1669,7 @@ def vmpdf_a_given_b(a_prad, b_prad, pconc):
     ).reshape([a_prad.numel(), b_prad.numel()]), 1)
 
 
-def vmpdf(x, mu, scale=None, normalize=True):
+def vmpdf(x, mu, scale=None, normalize=True, dim=None):
     """
 
     :param x:
@@ -1692,7 +1692,10 @@ def vmpdf(x, mu, scale=None, normalize=True):
     # if scale == 0.:
     #     p = torch.ones_like(p) / p.shape[0]
     if normalize:
-        p = sumto1(p)
+        if dim is None:
+            p = sumto1(p)
+        else:
+            p = sumto1(p, dim)
     return p
 
 
