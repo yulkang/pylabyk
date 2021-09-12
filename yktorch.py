@@ -470,15 +470,17 @@ class BoundedModule(nn.Module):
 
     # Get/set
     def __getattr__(self, item):
-        if item[0] == '_':
-            return super().__getattribute__(item)
+        # if item[0] == '_':
+        #     return super().__getattribute__(item)
 
-        # if item in ['_modules', '_params_bounded', '_params_probability',
-        #             '_params_circular']:
-        #     try:
-        #         return super(BoundedModule, self).__getattribute__(item)
-        #     except:
-        #         return {}
+        # DEBUGGED: being specific about escaped item allows using
+        #  parameter names starting with '_'
+        if item in ['_modules', '_params_bounded', '_params_probability',
+                    '_params_circular']:
+            try:
+                return super(BoundedModule, self).__getattribute__(item)
+            except:
+                return {}
 
         if hasattr(self, '_params_bounded'):
             _params = self.__dict__['_params_bounded']
