@@ -49,6 +49,7 @@ class OverriddenParameter(nn.Module):
     def __init__(self, epsilon=1e-6, *args, **kwargs):
         super().__init__()
         self.epsilon = epsilon
+        self.skip_loading_lbub = None
 
     @property
     def v(self):
@@ -96,6 +97,42 @@ class OverriddenParameter(nn.Module):
         else:
             return 0
 
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        state_dict = super().state_dict(
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
+        state_dict.update({
+            prefix + '_lb': self.lb,
+            prefix + '_ub': self.ub,
+            prefix + '_data': self.v
+        })
+        return state_dict
+
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict,
+            missing_keys, unexpected_keys, error_msgs):
+        lb_name = prefix + '_lb'
+        ub_name = prefix + '_ub'
+        param_name = prefix + '_param'
+        data_name = prefix + '_data'
+        if self.skip_loading_lbub:
+            if lb_name in state_dict:
+                state_dict.pop(lb_name)
+            if ub_name in state_dict:
+                state_dict.pop(ub_name)
+        else:
+            if lb_name in state_dict:
+                self.lb = npt.tensor(state_dict.pop(lb_name))
+            if ub_name in state_dict:
+                self.ub = npt.tensor(state_dict.pop(ub_name))
+        if data_name in state_dict:
+            state_dict[param_name] = self.data2param(
+                state_dict.pop(data_name).detach().clone().to(npt.get_device()))
+        elif param_name in state_dict:
+            state_dict[param_name] = npt.tensor(state_dict[param_name])
+        return super()._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict,
+            missing_keys, unexpected_keys, error_msgs)
+
 
 class BoundedParameter(OverriddenParameter):
     def __init__(self, data, lb=0., ub=1., skip_loading_lbub=False,
@@ -104,15 +141,17 @@ class BoundedParameter(OverriddenParameter):
         """
 
         :param data:
-        :param lb:
-        :param ub:
+        :param lb: None or -np.inf to skip
+        :param ub: None or np.inf to skip
         :param skip_loading_lbub:
         :param requires_grad:
+        :param randomize: True to randomize within lb and ub.
+            Doesn't work when lb or ub is not given.
         :param kwargs:
         """
         super().__init__(**kwargs)
-        self.lb = None if lb == -np.inf else npt.tensor(lb)
-        self.ub = None if ub == np.inf else npt.tensor(ub)
+        self.lb = None if lb == -np.inf or lb is None else npt.tensor(lb)
+        self.ub = None if ub == np.inf or ub is None else npt.tensor(ub)
         self.skip_loading_lbub = skip_loading_lbub
         if randomize:
             data = (
@@ -194,16 +233,6 @@ class BoundedParameter(OverriddenParameter):
         else:
             return (1 / (1 + torch.exp(-param))) * (ub - lb) + lb  # noqa
 
-    def state_dict(self, destination=None, prefix='', keep_vars=False):
-        state_dict = super().state_dict(
-            destination=destination, prefix=prefix, keep_vars=keep_vars)
-        state_dict.update({
-            prefix + '_lb': self.lb,
-            prefix + '_ub': self.ub,
-            prefix + '_data': self.v
-        })
-        return state_dict
-
     def get_n_free_param(self) -> int:
         """Number of free parameters"""
         if not self._param.requires_grad:
@@ -232,32 +261,6 @@ class BoundedParameter(OverriddenParameter):
     #     return super().load_state_dict(state_dict=state_dict,
     #                                    strict=strict)
 
-    def _load_from_state_dict(
-            self, state_dict, prefix, local_metadata, strict,
-            missing_keys, unexpected_keys, error_msgs):
-        lb_name = prefix + '_lb'
-        ub_name = prefix + '_ub'
-        param_name = prefix + '_param'
-        data_name = prefix + '_data'
-        if self.skip_loading_lbub:
-            if lb_name in state_dict:
-                state_dict.pop(lb_name)
-            if ub_name in state_dict:
-                state_dict.pop(ub_name)
-        else:
-            if lb_name in state_dict:
-                self.lb = npt.tensor(state_dict.pop(lb_name))
-            if ub_name in state_dict:
-                self.ub = npt.tensor(state_dict.pop(ub_name))
-        if data_name in state_dict:
-            state_dict[param_name] = self.data2param(
-                state_dict.pop(data_name).detach().clone().to(npt.get_device()))
-        elif param_name in state_dict:
-            state_dict[param_name] = npt.tensor(state_dict[param_name])
-        return super()._load_from_state_dict(
-            state_dict, prefix, local_metadata, strict,
-            missing_keys, unexpected_keys, error_msgs)
-
 
 class ProbabilityParameter(OverriddenParameter):
     def __init__(self, prob, probdim=0, **kwargs):
@@ -276,6 +279,7 @@ class ProbabilityParameter(OverriddenParameter):
             raise Warning('Use ndim>0 to allow consistent use of [:]. '
                           'If ndim=0, use paramname.v to access the '
                           'value.')
+        self.skip_loading_lbub = True
 
     def data2param(self, prob):
         probdim = self.probdim
@@ -307,6 +311,7 @@ class CircularParameter(OverriddenParameter):
             raise Warning('Use ndim>0 to allow consistent use of [:]. '
                           'If ndim=0, use paramname.v to access the '
                           'value.')
+        self.skip_loading_lbub = True
 
     def data2param(self, data):
         data = enforce_float_tensor(data)
