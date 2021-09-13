@@ -1537,7 +1537,7 @@ def meshgridflat(*args, copy=False):
 def vectorize_par(f: Callable, inputs: Iterable,
                   pool: Pool = None, processes=None, chunksize=1,
                   nout=None, otypes: Union[Sequence[Type], Type] = None,
-                  use_starmap=True,
+                  use_starmap=True, meshgrid_input=True,
                   ) -> Sequence[np.ndarray]:
     """
     Run f in parallel with meshgrid of inputs along each input's first dimension
@@ -1571,15 +1571,24 @@ def vectorize_par(f: Callable, inputs: Iterable,
         If False, an iterable containing all inputs is given as one argument
         to f.
         Ignored if processes=1 and multiprocessing is not used.
+    :param meshgrid_input: if True (default), use np.meshgrid(indexing='ij')
+            to take the factorial combination of inputs
+        if False, use np.broadcast() across inputs
     :return: (iterable of) outputs from f.
     """
-    inputs = [inp if (isinstance(inp, np.ndarray) and type(inp[0]) is np.object)
-              else (arrayobj1d(inp) if is_iter(inp)
-                    else arrayobj1d([inp]))
-              for inp in inputs]
-    lengths = [len(inp) for inp in inputs]
-    mesh_inputs = np.meshgrid(*inputs, indexing='ij')  # type: Iterable[np.ndarray]
+    if meshgrid_input:
+        inputs = [
+            inp if (isinstance(inp, np.ndarray) and type(inp[0]) is np.object)
+            else (arrayobj1d(inp) if is_iter(inp)
+                  else arrayobj1d([inp]))
+            for inp in inputs]
+        shape0 = [len(inp) for inp in inputs]
+        mesh_inputs = np.meshgrid(*inputs, indexing='ij')  # type: Iterable[np.ndarray]
+    else:
+        shape0 = np.broadcast_shapes(*[v.shape for v in inputs])
+        mesh_inputs = [np.broadcast_to(v, shape0) for v in inputs]
     mesh_inputs = [m.flatten() for m in mesh_inputs]
+
     m = zip(*mesh_inputs)
     m = [m1 for m1 in m]
 
@@ -1593,7 +1602,7 @@ def vectorize_par(f: Callable, inputs: Iterable,
         # NOTE: this doesn't seem to work well, unlike chunksize=1.
         #   Need further experiment.
         chunksize = np.max([
-            int(np.floor(np.prod(lengths) / pool._processes)),
+            int(np.floor(np.prod(shape0) / pool._processes)),
             1
         ])
 
@@ -1628,7 +1637,7 @@ def vectorize_par(f: Callable, inputs: Iterable,
 
     # --- outs2: reshape to inputs' dimensions
     # DEF: outs2[argout][i_input1, i_input2, ...]
-    outs2 = [arrayobj1d(out).reshape(lengths) for out in outs1]
+    outs2 = [arrayobj1d(out).reshape(shape0) for out in outs1]
 
     # --- outs3: set to a correct otype
     # DEF: outs3[argout][i_input1, i_input2, ...]
