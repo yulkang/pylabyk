@@ -875,7 +875,7 @@ def weighted_median_split(
     m = ws.numpy_weighted_median(v, w)
 
     if to_sample:
-        # NOW: permute order among whose values equal the median,
+        # TODO: permute order among whose values equal the median,
         #  and cut at where the cdf equals 0.5
         #  (Assign i randomly if cumsum(p[:i]) < 0.5 and cumsum(p[:(i+1)]) > 0.5)
 
@@ -948,7 +948,7 @@ def weighted_crosstab(w: np.ndarray, v: np.ndarray, n_sample=0) -> np.ndarray:
         v = av[:, 1:]
     else:
         assert n_sample > 0
-        # NOW: add n_sample>0 (=0 is the same as now; default to n_sample=100)
+        # TODO: add n_sample>0 (=0 is the same as now; default to n_sample=100)
         #   among outputs, I only need n_jt
         raise NotImplementedError()
 
