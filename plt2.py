@@ -1576,6 +1576,11 @@ def subfigs(
         width_column_cm = [width_column_cm]
     elif len(width_column_cm) > ncol:
         width_column_cm = width_column_cm[:ncol]
+    elif len(width_column_cm) < ncol:
+        width_column_cm = (
+                list(width_column_cm)
+                * int(np.ceil(ncol / len(width_column_cm)))
+        )[:ncol]
     width_column_cm = np.array(width_column_cm)
 
     if width_document is None:
@@ -1651,7 +1656,7 @@ def subfigs(
                     doc.append(ltx.Command('centering'))
                     if subcaption_on_top and subcaptions is not None:
                         subfig.add_caption(subcaptions[row, col])
-                    subfig.add_image(file, width=width_column_cm[col])
+                    subfig.add_image(file, width='%f cm' % width_column_cm[col])
                     if (not subcaption_on_top) and subcaptions is not None:
                         subfig.add_caption(subcaptions[row, col])
                     doc.append(ltx.VerticalSpace(hspace))
