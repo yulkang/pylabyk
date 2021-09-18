@@ -12,14 +12,14 @@ from typing import List, Callable, Sequence, Mapping, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from matplotlib import patches
+from matplotlib import patches, pyplot as plt
 from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
 from copy import copy
 
 import numpy_groupies as npg
 
-from . import np2
+from . import np2, plt_network as pltn
 from .cacheutil import mkdir4file
 
 
@@ -1742,3 +1742,42 @@ def subfigs_from_template(
         subcaptions=subcaptions,
         **kwargs
     )
+
+
+def plot_bipartite_recovery(mean_losses, model_labels=None, ax=None):
+    """
+
+    :param mean_losses: [subj, model_sim, model_fit]
+    :param model_labels: [model]
+    :return: axs
+    """
+    n_model = mean_losses.shape[1]
+    if model_labels is None:
+        model_labels = [('model %d' % i) for i in range(n_model)]
+
+    best_model_recovered = np.argmin(mean_losses, -1)
+    adj = np.zeros([n_model, n_model])
+    for src in range(n_model):
+        for dst in range(n_model):
+            adj[src, dst] = np.sum(best_model_recovered[:, src] == dst)
+
+    # === Recovery confusion plot
+    if ax is None:
+        axs = GridAxes(1, 1, widths=2, heights=2, left=2)
+        ax = axs[0, 0]
+
+    plt.sca(ax)
+    G, pos = pltn.draw_bipartite(adj)
+    ax.tick_params(
+        axis="both",
+        which="both",
+        bottom=False,
+        left=False,
+        labelbottom=False,
+        labelleft=True,
+    )
+    yticks = np.linspace(-1, 1, n_model)
+    node_ys = [pos[k][1] for k in range(n_model)]
+    labels = [model_labels[node_ys.index(y)] for y in yticks]
+    plt.yticks([-1, 1], labels)
+    return ax
