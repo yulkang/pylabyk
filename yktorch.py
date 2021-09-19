@@ -47,7 +47,7 @@ class OverriddenParameter(nn.Module):
     """
 
     def __init__(self, epsilon=1e-6, *args, **kwargs):
-        super().__init__()
+        super().__init__(*args, **kwargs)
         self.epsilon = epsilon
         self.skip_loading_lbub = None
 
@@ -263,7 +263,8 @@ class BoundedParameter(OverriddenParameter):
 
 
 class ProbabilityParameter(OverriddenParameter):
-    def __init__(self, prob, probdim=0, **kwargs):
+    def __init__(self, prob, probdim=0, requires_grad=True, randomize=False,
+                 **kwargs):
         """
 
         :param prob:
@@ -274,7 +275,15 @@ class ProbabilityParameter(OverriddenParameter):
         self.probdim = probdim
         self.lb = npt.zeros(1)
         self.ub = npt.ones(1)
-        self._param = nn.Parameter(self.data2param(prob))
+
+        if randomize:
+            prob1 = np.swapaxes(npy(prob), probdim, -1)
+            prob = np.swapaxes(npy(torch.distributions.Dirichlet(
+                npt.ones_like(prob)
+            ).sample()), probdim, -1)
+        prob = npt.tensor(enforce_float_tensor(prob))
+
+        self._param = nn.Parameter(self.data2param(prob), requires_grad=requires_grad)
         if self._param.ndim == 0:
             raise Warning('Use ndim>0 to allow consistent use of [:]. '
                           'If ndim=0, use paramname.v to access the '
@@ -300,18 +309,9 @@ class ProbabilityParameter(OverriddenParameter):
         return int(self._param.numel()) // len_probdim * (len_probdim - 1)
 
 
-class CircularParameter(OverriddenParameter):
+class CircularParameter(BoundedParameter):
     def __init__(self, data, lb=0., ub=1., **kwargs):
-        super().__init__(**kwargs)
-        data = enforce_float_tensor(data)
-        self.lb = lb
-        self.ub = ub
-        self._param = nn.Parameter(self.data2param(data))
-        if self._param.ndim == 0:
-            raise Warning('Use ndim>0 to allow consistent use of [:]. '
-                          'If ndim=0, use paramname.v to access the '
-                          'value.')
-        self.skip_loading_lbub = True
+        super().__init__(data, lb=lb, ub=ub, **kwargs)
 
     def data2param(self, data):
         data = enforce_float_tensor(data)
