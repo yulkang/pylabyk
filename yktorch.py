@@ -939,6 +939,20 @@ def print_grad(model):
     pprint({k: v.grad for k, v in model.named_parameters()})
 
 
+def flatten_dict(
+        d: Dict[str, Union[torch.Tensor, np.ndarray]]
+) -> Dict[str, float]:
+    d1 = {}
+    for k, v in d.items():
+        v = npy(v)
+        for i1, v1 in enumerate(v.flatten()):
+            k1 = ('%s[%s]'
+               % (k, ','.join([('%d' % v11)
+                               for v11 in np.unravel_index(i1, v.shape)])))
+            d1[k1] = v1
+    return d1
+
+
 # def plot_params(
 #         params: Union[torch.nn.Module,
 #                       Iterable[Tuple[str, torch.nn.Parameter]]],
