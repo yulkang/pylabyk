@@ -28,8 +28,8 @@ from . import plt2, numpytorch as npt
 from .numpytorch import npy, freeze
 from .cacheutil import mkdir4file
 
-# default_device = torch.device('cpu')  # CHECKING
-default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+default_device = torch.device('cpu')  # CHECKING
+# default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 #%% Bounded parameters (under construction)
 # this is for better autocompletion, etc.
@@ -279,7 +279,7 @@ class ProbabilityParameter(OverriddenParameter):
         if randomize:
             prob1 = np.swapaxes(npy(prob), probdim, -1)
             prob = np.swapaxes(npy(torch.distributions.Dirichlet(
-                npt.ones_like(prob)
+                npt.tensor(np.ones_like(prob1))
             ).sample()), probdim, -1)
         prob = npt.tensor(enforce_float_tensor(prob))
 
