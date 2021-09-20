@@ -287,7 +287,7 @@ def nanmean(v: torch.Tensor, *args, allnan=np.nan, **kwargs) -> torch.Tensor:
     else:
         sum_nonnan = v.sum(*args, **kwargs)
         n_nonnan = float(~is_nan).sum(*args, **kwargs)
-        mean_nonnan = torch.zeros_like(sum_nonnan) + allnan
+        mean_nonnan = zeros_like(sum_nonnan) + allnan
         any_nonnan = n_nonnan > 1
         mean_nonnan[any_nonnan] = (
                 sum_nonnan[any_nonnan] / n_nonnan[any_nonnan])
@@ -375,7 +375,7 @@ def repeat_all(*args, shape=None, use_expand=False):
     of each dim. Give -1 at dims where the max shape is desired.
     """
     ndim = args[0].ndimension()
-    max_shape = torch.ones(ndim, dtype=torch.long)
+    max_shape = ones(ndim, dtype=torch.long)
     for arg in args:
         max_shape, _ = torch.max(torch.cat([
             tensor(arg.shape)[None, :], max_shape[None, :]],
@@ -432,7 +432,7 @@ def repeat_dim(tensor, repeat, dim):
     :type repeat: int
     :type dim: int
     """
-    rep = torch.ones(tensor.dim(), dtype=torch.long)
+    rep = ones(tensor.dim(), dtype=torch.long)
     rep[dim] = repeat
     return tensor.repeat(torch.Size(rep))
 
@@ -515,7 +515,7 @@ def expand_upto_dim(args, dim, to_expand_left=True):
             # Nothing to expand - return
             return tuple(args)
 
-        max_shape = torch.zeros(ndim_expand, dtype=torch.long)
+        max_shape = zeros(ndim_expand, dtype=torch.long)
         for o1 in out1:
             max_shape, _ = torch.max(torch.cat([
                 max_shape[None,:],
@@ -528,7 +528,7 @@ def expand_upto_dim(args, dim, to_expand_left=True):
                 int(a) for a in torch.cat([
                     max_shape / tensor(o1.shape[:dim],
                                               dtype=torch.long),
-                    torch.ones(ndim_kept, dtype=torch.long)
+                    ones(ndim_kept, dtype=torch.long)
                 ], 0)
             ]))
     else:
@@ -694,8 +694,8 @@ def scatter_add(subs, val, dim=0, shape=None):
     """
     if shape is None:
         shape = [(np.amax(sub) + 1) for sub in subs]
-    idx = torch.LongTensor(np.ravel_multi_index(subs, shape))
-    return torch.zeros(np.prod(shape).astype(np.long)).scatter_add(
+    idx = tensor(np.ravel_multi_index(subs, shape), dtype=torch.long)
+    return zeros(np.prod(shape).astype(np.long)).scatter_add(
         dim=dim, index=idx, src=val
     ).reshape(shape)
 
@@ -804,7 +804,7 @@ def shiftdim(v: torch.Tensor, shift: torch.Tensor, dim=0, pad='repeat'):
             if pad == 'repeat':
                 vpad = v[0].expand((shift,) + v.shape[1:])
             else:
-                vpad = torch.zeros((shift,) + v.shape[1:])
+                vpad = zeros((shift,) + v.shape[1:])
 
             v = torch.cat([
                 vpad,
@@ -814,7 +814,7 @@ def shiftdim(v: torch.Tensor, shift: torch.Tensor, dim=0, pad='repeat'):
             if pad == 'repeat':
                 vpad = v[-1].expand((-shift,) + v.shape[1:])
             else:
-                vpad = torch.zeros((-shift,) + v.shape[1:])
+                vpad = zeros((-shift,) + v.shape[1:])
 
             v = torch.cat([
                 v[-shift:],
@@ -1050,14 +1050,14 @@ def softmax_bias(p, slope, bias):
 
 
 def test_softmax_bias():
-    p = torch.linspace(1e-4, 1 - 1e-4, 100);
+    p = linspace(1e-4, 1 - 1e-4, 100);
     q = softmax_bias(p, tensor(1.), p)
     plt.subplot(2, 3, 1)
     plt.plot(*npys(p, q))
     plt.xlabel('bias \& p')
 
     plt.subplot(2, 3, 2)
-    biases = torch.linspace(1e-6, 1 - 1e-6, 5)
+    biases = linspace(1e-6, 1 - 1e-6, 5)
     for bias in biases:
         q = softmax_bias(p, tensor(1.), bias)
         plt.plot(*npys(p, q))
@@ -1098,7 +1098,7 @@ def brownian_bridge(n_step, sample_shape=()) -> torch.Tensor:
     else:
         sample_shape = tuple(sample_shape)
         to_squeeze = len(sample_shape) == 0
-    t = torch.linspace(0., 1., n_step)
+    t = linspace(0., 1., n_step)
 
     # DEF: r[step, sample_shape]
     r = normrnd(0., 1.,
@@ -1191,7 +1191,7 @@ def inv_gaussian_pmf_mean_stdev(
     # --- Most robust against NaN; least valid
     if algo == 'dx':
         x, mu, std = expand_all(x, mu, std)
-        p = torch.zeros_like(x)
+        p = zeros_like(x)
         incl = x > 0
         p[incl] = inv_gaussian_pdf(
             x[incl], mu[incl],
@@ -1203,7 +1203,7 @@ def inv_gaussian_pmf_mean_stdev(
         # --- Least robust against NaN; most valid
         x = torch.cat([x, x[[-1]] + dx], dim=0)
         x, mu, std = expand_all(x, mu, std)
-        c = torch.zeros_like(x)
+        c = zeros_like(x)
         incl = x > 0
         c[incl] = inv_gaussian_cdf(
             x[incl], mu[incl],
@@ -1221,7 +1221,7 @@ def inv_gaussian_pmf_mean_stdev(
 
     elif algo == 'norm_w_cdf':
         x, mu, std = expand_all(x, mu, std)
-        p = torch.zeros_like(x)
+        p = zeros_like(x)
         incl = x > 0
         p[incl] = inv_gaussian_pdf(
             x[incl], mu[incl],
@@ -1265,7 +1265,7 @@ def lognorm_pmf(x: torch.Tensor, mean: torch.Tensor, stdev: torch.Tensor,
     dx = x[[1]] - x[[0]]
     x = torch.cat([x, x[[-1]] + dx], dim=0)
     x, mu, sigma = expand_all(x, mu, sigma)
-    c = torch.zeros_like(x)
+    c = zeros_like(x)
     incl = x > 0
     c[incl] = torch.distributions.LogNormal(mu[incl], sigma[incl]).cdf(
         x[incl]
@@ -1352,15 +1352,15 @@ def mvnpdf_log(x, mu=None, sigma=None) -> torch.Tensor:
     if mu is None:
         mu = tensor([0.])
     if sigma is None:
-        sigma = torch.eye(len(mu))
+        sigma = eye(len(mu))
     d = MultivariateNormal(loc=mu,
                            covariance_matrix=sigma)
     return d.log_prob(x)
 
 
-def bootstrap(fun, samp, n_boot=100):
+def bootstrap(fun, samp: torch.Tensor, n_boot=100):
     n_samp = len(samp)
-    ix = torch.randint(n_samp, (n_boot, n_samp))
+    ix = torch.randint(n_samp, (n_boot, n_samp), device=samp.device)
     res = []
     for i_boot in range(n_boot):
         samp1 = [samp[s] for s in ix[i_boot,:]]
@@ -1458,7 +1458,7 @@ def get_jacobian(net, x, noutputs):
     x = x.repeat(noutputs, 1)
     x.requires_grad_(True)
     y = net(x)
-    y.backward(torch.eye(noutputs))
+    y.backward(eye(noutputs))
     return x.grad.data
 
 def kron(a, b):
@@ -1469,7 +1469,7 @@ def kron(a, b):
     :type b: torch.Tensor
     :rtype: torch.Tensor
     """
-    siz1 = torch.Size(tensor(a.shape[-2:]) * tensor(b.shape[-2:]))
+    siz1 = torch.SIize(tensor(a.shape[-2:]) * tensor(b.shape[-2:]))
     res = a.unsqueeze(-1).unsqueeze(-3) * b.unsqueeze(-2).unsqueeze(-4)
     siz0 = res.shape[:-4]
     return res.reshape(siz0 + siz1)
@@ -1493,11 +1493,11 @@ def block_diag_irregular(matrices):
 
     matrices = [p2st(m, 2) for m in matrices]
 
-    ns = torch.LongTensor([m.shape[0] for m in matrices])
+    ns = tensor([m.shape[0] for m in matrices], dtype=torch.long)
     n = torch.sum(ns)
     batch_shape = matrices[0].shape[2:]
 
-    v = torch.zeros(torch.Size([n, n]) + batch_shape)
+    v = zeros(torch.Size([n, n]) + batch_shape)
     for ii, m1 in enumerate(matrices):
         st = torch.sum(ns[:ii])
         en = torch.sum(ns[:(ii + 1)])
@@ -1536,8 +1536,8 @@ def block_diag(m):
     siz0 = m.shape[:-3]
     siz1 = m.shape[-2:]
     m2 = m.unsqueeze(-2)
-    eye = attach_dim(torch.eye(n).unsqueeze(-2), d - 3, 1)
-    return (m2 * eye).reshape(
+    eye1 = attach_dim(eye(n).unsqueeze(-2), d - 3, 1)
+    return (m2 * eye1).reshape(
         siz0 + torch.Size(tensor(siz1) * n)
     )
 
@@ -1559,7 +1559,7 @@ def unblock_diag(m, n=None, size_block=None):
         raise ValueError('n or size_block must be given!')
     m = p2st(m, 2)
 
-    res = torch.zeros(torch.Size([n]) + size_block + m.shape[2:])
+    res = zeros(torch.Size([n]) + size_block + m.shape[2:])
     for i_block in range(n):
         st_row = size_block[0] * i_block
         en_row = size_block[0] * (i_block + 1)
@@ -1582,14 +1582,14 @@ def crossvalincl(n_tr, i_fold, n_fold=10, mode='consec'):
     :return: boolean (Byte) tensor
     """
     if n_fold == 1:
-        return torch.ones(n_tr, dtype=torch.bool)
+        return ones(n_tr, dtype=torch.bool)
     elif n_fold < 1:
         raise ValueError('n_fold must be >= 1')
 
     if mode == 'mod':
-        return (torch.arange(n_tr) % n_fold) == i_fold
+        return (arange(n_tr) % n_fold) == i_fold
     elif mode == 'consec':
-        ix = (torch.arange(n_tr, dtype=torch.double) / n_tr *
+        ix = (arange(n_tr, dtype=torch.double) / n_tr *
               n_fold).long()
         return ix == i_fold
     else:
