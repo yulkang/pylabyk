@@ -150,8 +150,10 @@ class BoundedParameter(OverriddenParameter):
         :param kwargs:
         """
         super().__init__(**kwargs)
-        self.lb = None if lb == -np.inf or lb is None else npt.tensor(lb)
-        self.ub = None if ub == np.inf or ub is None else npt.tensor(ub)
+        self.lb = None if lb is None else npt.tensor(lb)  # lb == -np.inf doesn't allow for non-scalar lb
+        self.ub = None if ub is None else npt.tensor(ub)
+        # self.lb = None if lb == -np.inf or lb is None else npt.tensor(lb)
+        # self.ub = None if ub == np.inf or ub is None else npt.tensor(ub)
         self.skip_loading_lbub = skip_loading_lbub
         if randomize:
             data = (
@@ -165,6 +167,8 @@ class BoundedParameter(OverriddenParameter):
                           'value.')
 
     def data2param(self, data) -> torch.Tensor:
+        # TODO: allow for non-scalar lb and ub
+        #  to have -np.inf and np.inf elements.
         lb = npt.tensor(self.lb)
         ub = npt.tensor(self.ub)
         data = npt.tensor(enforce_float_tensor(data))
