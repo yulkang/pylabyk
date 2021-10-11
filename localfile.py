@@ -134,6 +134,9 @@ class LocalFile(object):
         :type cache_kind: str
         :type d: Union[Iterable[tuple], dict, odict, None]
         """
+        if subdir is None and self.kind2subdir:
+            subdir = 'cache=%s' % cache_kind
+
         file = self.get_file(
             filekind='cache', kind=cache_kind,
             d=d, ext='.zpkl', subdir=subdir
