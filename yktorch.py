@@ -142,7 +142,7 @@ class OverriddenParameter(nn.Module):
             state_dict[param_name] = npt.tensor(state_dict[param_name])
 
         if shape_name in state_dict:
-            self.shape = state_dict[shape_name]
+            self.shape = state_dict.pop(shape_name)
 
         self.update_is_fixed()
 
@@ -170,14 +170,14 @@ class BoundedParameter(OverriddenParameter):
         :param kwargs:
         """
         super().__init__(**kwargs)
-        self.lb = None if lb is None else npt.tensor(lb)  # lb == -np.inf doesn't allow for non-scalar lb
-        self.ub = None if ub is None else npt.tensor(ub)
+        self.lb = None if lb is None else enforce_float_tensor(lb)  # lb == -np.inf doesn't allow for non-scalar lb
+        self.ub = None if ub is None else enforce_float_tensor(ub)
         # self.lb = None if lb == -np.inf or lb is None else npt.tensor(lb)
         # self.ub = None if ub == np.inf or ub is None else npt.tensor(ub)
         self.skip_loading_lbub = skip_loading_lbub
         if randomize:
             data = (
-                       torch.rand_like(npt.tensor(enforce_float_tensor(data)))
+                       torch.rand_like(enforce_float_tensor(data))
             ) * (self.ub - self.lb) + self.lb
         else:
             data = enforce_float_tensor(data)
