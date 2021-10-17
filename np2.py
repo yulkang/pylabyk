@@ -753,6 +753,19 @@ def info_criterion(nll, n_trial, n_param, kind='BIC'):
         raise ValueError()
 
 
+def thres_info_criterion(loss_kind) -> float:
+    # See np2.information_criterion() for how these losses are computed
+    if loss_kind.startswith('NLL'):
+        thres = np.log(10)  # >="Strong" (Jeffreys 1961; Kass & Raftery 1995)
+    elif loss_kind.startswith('BIC') or loss_kind.startswith('AIC'):
+        thres = 6  # (Kass & Raftery 1995))
+    elif loss_kind.startswith('nBIC') or loss_kind.startswith('nAIC'):
+        thres = 3  # (Kass & Raftery 1995))
+    else:
+        thres = None
+    return thres
+
+
 def dkl(a: np.ndarray, b: np.ndarray, axis=None) -> np.ndarray:
     """
     DKL[a || b]
