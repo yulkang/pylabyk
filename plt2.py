@@ -1804,7 +1804,9 @@ def imshow_costs_by_subj_model(
         thres_colorbar: float = None,
         axs: GridAxes = None,
         size_per_cell: float = 0.35,
-        subtract_min_in_row = True
+        subtract_min_in_row = True,
+        offset=(0., 0.),
+        # offset=(0.025, -0.004),
 ) -> (GridAxes, mpl.colorbar.Colorbar):
     """
 
@@ -1839,7 +1841,7 @@ def imshow_costs_by_subj_model(
         xticklabel_top(ax, model_names)
     for row, loss_subj in enumerate(costs_by_subj_model):
         best_model = np.argmin(loss_subj)
-        plt.text(best_model + 0.025, row - 0.04,
+        plt.text(best_model + offset[0], row + offset[1],
                  '*', color='w', zorder=2, fontsize=16,
                  ha='center', va='center')
     cb = colorbar(
