@@ -1799,7 +1799,7 @@ def plot_bipartite_recovery(mean_losses, model_labels=None, ax=None):
 def imshow_costs_by_subj_model(
         costs_by_subj_model: np.ndarray,
         model_names: Sequence[str] = None,
-        subjs: Sequence[str] = None,
+        subjs: Union[Sequence[int], Sequence[str]] = None,
         label_colorbar: str = None,
         thres_colorbar: float = None,
         axs=None,
