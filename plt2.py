@@ -1802,9 +1802,10 @@ def imshow_costs_by_subj_model(
         subjs: Union[Sequence[int], Sequence[str]] = None,
         label_colorbar: str = None,
         thres_colorbar: float = None,
-        axs=None,
-        size_per_cell=0.35,
-) -> GridAxes:
+        axs: GridAxes = None,
+        size_per_cell: float = 0.35,
+        subtract_min_in_row = True
+) -> (GridAxes, mpl.colorbar.Colorbar):
     """
 
     :param costs_by_subj_model: [subj, model] = cost
@@ -1812,8 +1813,14 @@ def imshow_costs_by_subj_model(
     :param subjs:
     :param label_colorbar:
     :param thres_colorbar:
-    :return:
+    :param size_per_cell: in inches
+    :param subtract_min_in_row:
+    :return: (axs, colorbar)
     """
+    if subtract_min_in_row:
+        costs_by_subj_model = (
+                costs_by_subj_model
+                - np.amin(costs_by_subj_model, -1, keepdims=True))
     n_subj1, n_model1 = costs_by_subj_model.shape
     if axs is None:
         axs = GridAxes(
@@ -1826,6 +1833,8 @@ def imshow_costs_by_subj_model(
     ax = axs[0, 0]
     plt.sca(ax)
     im = plt.imshow(costs_by_subj_model, zorder=0)
+    if subjs is not None:
+        plt.yticks(np.arange(n_subj1), subjs)
     if model_names is not None:
         xticklabel_top(ax, model_names)
     for row, loss_subj in enumerate(costs_by_subj_model):
@@ -1841,9 +1850,8 @@ def imshow_costs_by_subj_model(
         cb.set_label(label_colorbar)
     if thres_colorbar is not None:
         cb.ax.axhline(thres_colorbar, color='w')
-    if subjs is not None:
-        plt.yticks(np.arange(n_subj1), subjs)
-    return axs
+    plt.sca(ax)
+    return axs, cb
 
 
 def xticklabel_top(ax: plt.Axes, xtick_labels: Sequence[str]):
