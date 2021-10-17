@@ -1526,6 +1526,10 @@ class Animator:
         return files
 
 
+def ____COMPOSITE_FIGURES____():
+    pass
+
+
 def subfigs(
         files: Union[Sequence, np.ndarray], file_out: str,
         width_document=None,
@@ -1749,6 +1753,10 @@ def subfigs_from_template(
     )
 
 
+def ____MODEL_COMPARISON_PLOTS____():
+    pass
+
+
 def plot_bipartite_recovery(mean_losses, model_labels=None, ax=None):
     """
 
@@ -1786,3 +1794,67 @@ def plot_bipartite_recovery(mean_losses, model_labels=None, ax=None):
     labels = [model_labels[node_ys.index(y)] for y in yticks]
     plt.yticks([-1, 1], labels)
     return ax
+
+
+def imshow_costs_by_subj_model(
+        costs_by_subj_model: np.ndarray,
+        model_names: Sequence[str] = None,
+        subjs: Sequence[str] = None,
+        label_colorbar: str = None,
+        thres_colorbar: float = None,
+        axs=None,
+        size_per_cell=0.35,
+) -> GridAxes:
+    """
+
+    :param costs_by_subj_model: [subj, model] = cost
+    :param model_names:
+    :param subjs:
+    :param label_colorbar:
+    :param thres_colorbar:
+    :return:
+    """
+    n_subj1, n_model1 = costs_by_subj_model.shape
+    if axs is None:
+        axs = GridAxes(
+            1, 1,
+            widths=[size_per_cell * n_model1],
+            heights=[size_per_cell * n_subj1],
+            right=1.5, top=1.5,
+            bottom=0.1,
+        )
+    ax = axs[0, 0]
+    plt.sca(ax)
+    im = plt.imshow(costs_by_subj_model, zorder=0)
+    if model_names is not None:
+        xticklabel_top(ax, model_names)
+    for row, loss_subj in enumerate(costs_by_subj_model):
+        best_model = np.argmin(loss_subj)
+        plt.text(best_model + 0.025, row - 0.04,
+                 '*', color='w', zorder=2, fontsize=16,
+                 ha='center', va='center')
+    cb = colorbar(
+        ax, im, height='%d%%' % int(3 / n_subj1 * 100),
+        borderpad=-2
+    )
+    if label_colorbar is not None:
+        cb.set_label(label_colorbar)
+    if thres_colorbar is not None:
+        cb.ax.axhline(thres_colorbar, color='w')
+    if subjs is not None:
+        plt.yticks(np.arange(n_subj1), subjs)
+    return axs
+
+
+def xticklabel_top(ax: plt.Axes, xtick_labels: Sequence[str]):
+    """
+
+    :param ax:
+    :param xtick_labels:
+    :return:
+    """
+    ax.xaxis.tick_top()
+    _, ticklabels = plt.xticks(np.arange(len(xtick_labels)), xtick_labels)
+    for ticklabel in ticklabels:
+        ticklabel.set_rotation(30)
+        ticklabel.set_ha('left')
