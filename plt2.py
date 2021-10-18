@@ -1806,6 +1806,7 @@ def imshow_costs_by_subj_model(
         size_per_cell: float = 0.35,
         subtract_min_in_row = True,
         offset=(0., 0.),
+        to_add_colorbar=True,
         # offset=(0.025, -0.004),
 ) -> (GridAxes, mpl.colorbar.Colorbar):
     """
@@ -1844,14 +1845,17 @@ def imshow_costs_by_subj_model(
         plt.text(best_model + offset[0], row + offset[1],
                  '*', color='w', zorder=2, fontsize=16,
                  ha='center', va='center')
-    cb = colorbar(
-        ax, im, height='%d%%' % int(3 / n_subj1 * 100),
-        borderpad=-2
-    )
-    if label_colorbar is not None:
-        cb.set_label(label_colorbar)
-    if thres_colorbar is not None:
-        cb.ax.axhline(thres_colorbar, color='w')
+    if to_add_colorbar:
+        cb = colorbar(
+            ax, im, height='%d%%' % int(3 / n_subj1 * 100),
+            borderpad=-2
+        )
+        if label_colorbar is not None:
+            cb.set_label(label_colorbar)
+        if thres_colorbar is not None:
+            cb.ax.axhline(thres_colorbar, color='w')
+    else:
+        cb = None
     plt.sca(ax)
     return axs, cb
 
