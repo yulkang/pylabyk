@@ -1565,6 +1565,7 @@ def subfigs(
                 files_rel[row, col] = None
                 files_abs[row, col] = None
                 continue
+            # NOTE: consider using os.path.relpath()
             file_name1 = 'row%dcol%d%s' % (row, col, os.path.splitext(file0)[1])
             files_rel[row, col] = os.path.join(temp_dir_rel, file_name1)
             files_abs[row, col] = os.path.join(temp_dir_abs, file_name1)
