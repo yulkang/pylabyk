@@ -12,14 +12,14 @@ from typing import List, Callable, Sequence, Mapping, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from matplotlib import patches
+from matplotlib import patches, pyplot as plt
 from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
 from copy import copy
 
 import numpy_groupies as npg
 
-from . import np2
+from . import np2, plt_network as pltn
 from .cacheutil import mkdir4file
 
 
@@ -144,22 +144,24 @@ class GridAxes:
 
     @property
     def w(self) -> np.array:
+        """left, width[0], wspace[0], width[1], ..., right (inches)"""
         w = [0.]
         for ax in self.axs[0, :]:
             bounds = ax.get_position().bounds
             w += [bounds[0], bounds[0] + bounds[2]]
         w.append(1.)
-        return np.diff(w)
+        return np.diff(w) * self.figure.get_size_inches()[0]
 
     @property
     def h(self) -> np.array:
+        """top, height[0], hspace[0], height[1], ..., bottom (inches)"""
         h = [0.]
-        for ax in self.axs[:, 0]:
+        for ax in np.flip(self.axs[:, 0]):
             bounds = ax.get_position().bounds
             h += [bounds[1], bounds[1] + bounds[3]]
         h.append(1.)
         # coord from the top
-        return np.flip(np.diff(h))
+        return np.flip(np.diff(h)) * self.figure.get_size_inches()[1]
 
     def copy(self):
         gridaxes = copy(self)
@@ -247,11 +249,24 @@ class GridAxes:
         return self.supxy(xprop=1)[0] - self.supxy(xprop=0)[0]
 
     def suptitle(self, txt: str,
-                 xprop=0.5, pad=0.05, fontsize=12, yprop=None,
+                 xprop=0.5, pad=0.5, fontsize=12, yprop=None,
                  va='bottom', ha='center',
                  **kwargs):
+        """
+
+        :param txt:
+        :param xprop:
+        :param pad: inches
+        :param fontsize:
+        :param yprop:
+        :param va:
+        :param ha:
+        :param kwargs:
+        :return:
+        """
         if yprop is None:
-            yprop = 1. + pad
+            height_axes = np.sum(self.h[1:-1])
+            yprop = 1. + pad / height_axes
 
         return plt.figtext(
             *self.supxy(xprop=xprop, yprop=yprop), txt,
@@ -1302,9 +1317,22 @@ def plot_binned_ch(x0, ch, n_bin=9, **kw):
 def ____Stats_Probability____():
     pass
 
-def ecdf(x0, *args, **kw):
+def ecdf(x0, *args, w=None, **kw) -> List[plt.Line2D]:
+    """
+    See also np2.ecdf()
+    :param x0:
+    :param args:
+    :param w: weight
+    :param kw:
+    :return: list of lines
+    """
     n = len(x0)
-    p = np.linspace(0, 1, n + 1)[:-1]
+    if w is None:
+        w = np.ones(n) / n
+    else:
+        w = w / np.sum(w)
+    p = np.cumsum(np.r_[[0], w])[:-1]
+    # p = np.linspace(0, 1, n + 1)[:-1]
     x = np.sort(x0)
     return plt.step(np.concatenate([x[:1], x, x[-1:]], 0),
                     np.concatenate([np.array([0.]), p, np.array([1.])
@@ -1501,10 +1529,14 @@ class Animator:
         return files
 
 
+def ____COMPOSITE_FIGURES____():
+    pass
+
+
 def subfigs(
         files: Union[Sequence, np.ndarray], file_out: str,
         width_document=None,
-        width_column='2cm',
+        width_column_cm=(2,),
         hspace='0pt',
         ncol: int = None,
         clean_tex=True,
@@ -1512,13 +1544,16 @@ def subfigs(
         subcaptions: Union[Sequence, np.ndarray] = None,
         caption_on_top=False,
         subcaption_on_top=None,
+        suptitle='',
 ):
     """
 
-    :param files: 1D or 2D array of strings. Path relative to file_out.
+    :param files: 1D or 2D array of strings.
+        if 2D, [row, col] = file path relative to file_out's folder,
+        or absolute path as obtained from os.path.abspath()
     :param file_out:
     :param width_document:
-    :param width_column:
+    :param width_column_cm:
     :param hspace: space between rows
     :param ncol: defaults to files.shape[1] if it is an array;
         makes the array close to square otherwise
@@ -1544,8 +1579,19 @@ def subfigs(
             reshape_ragged(subcaptions, files.shape[1])
         else:
             assert files.shape == subcaptions.shape
+    if np.isscalar(width_column_cm):
+        width_column_cm = [width_column_cm]
+    elif len(width_column_cm) > ncol:
+        width_column_cm = width_column_cm[:ncol]
+    elif len(width_column_cm) < ncol:
+        width_column_cm = (
+                list(width_column_cm)
+                * int(np.ceil(ncol / len(width_column_cm)))
+        )[:ncol]
+    width_column_cm = np.array(width_column_cm)
+
     if width_document is None:
-        width_document = 'varwidth=%dcm' % (int(width_column[0]) * ncol)
+        width_document = 'varwidth=%fcm' % (width_column_cm[0] * ncol)
     if subcaption_on_top is None:
         subcaption_on_top = caption_on_top
 
@@ -1600,6 +1646,11 @@ def subfigs(
         ltx.Command('abovecaptionskip'), '0pt']))
     doc.append( ltx.Command('setlength', [
         ltx.Command('belowcaptionskip'), '0pt']))
+
+    if len(suptitle) > 0:
+        doc.preamble.append(ltx.Command('title', 'Awesome Title'))
+        doc.append(ltx.Command(r'\maketitle'))
+
     with doc.create(ltx.Figure()) as fig:
         if caption_on_top and caption is not None:
             fig.add_caption(caption)
@@ -1608,12 +1659,12 @@ def subfigs(
                 file = files_rel[row, col]
                 if file is None:
                     continue
-                with doc.create(ltx.SubFigure(width_column)
+                with doc.create(ltx.SubFigure('%fcm' % width_column_cm[col])
                                 ) as subfig:
                     doc.append(ltx.Command('centering'))
                     if subcaption_on_top and subcaptions is not None:
                         subfig.add_caption(subcaptions[row, col])
-                    subfig.add_image(file, width=width_column)
+                    subfig.add_image(file, width='%f cm' % width_column_cm[col])
                     if (not subcaption_on_top) and subcaptions is not None:
                         subfig.add_caption(subcaptions[row, col])
                     doc.append(ltx.VerticalSpace(hspace))
@@ -1704,3 +1755,124 @@ def subfigs_from_template(
         subcaptions=subcaptions,
         **kwargs
     )
+
+
+def ____MODEL_COMPARISON_PLOTS____():
+    pass
+
+
+def plot_bipartite_recovery(mean_losses, model_labels=None, ax=None):
+    """
+
+    :param mean_losses: [subj, model_sim, model_fit]
+    :param model_labels: [model]
+    :return: axs
+    """
+    n_model = mean_losses.shape[1]
+    if model_labels is None:
+        model_labels = [('model %d' % i) for i in range(n_model)]
+
+    best_model_recovered = np.argmin(mean_losses, -1)
+    adj = np.zeros([n_model, n_model])
+    for src in range(n_model):
+        for dst in range(n_model):
+            adj[src, dst] = np.sum(best_model_recovered[:, src] == dst)
+
+    # === Recovery confusion plot
+    if ax is None:
+        axs = GridAxes(1, 1, widths=2, heights=2, left=2)
+        ax = axs[0, 0]
+
+    plt.sca(ax)
+    G, pos = pltn.draw_bipartite(adj)
+    ax.tick_params(
+        axis="both",
+        which="both",
+        bottom=False,
+        left=False,
+        labelbottom=False,
+        labelleft=True,
+    )
+    yticks = np.linspace(-1, 1, n_model)
+    node_ys = [pos[k][1] for k in range(n_model)]
+    labels = [model_labels[node_ys.index(y)] for y in yticks]
+    plt.yticks([-1, 1], labels)
+    return ax
+
+
+def imshow_costs_by_subj_model(
+        costs_by_subj_model: np.ndarray,
+        model_names: Sequence[str] = None,
+        subjs: Union[Sequence[int], Sequence[str]] = None,
+        label_colorbar: str = None,
+        thres_colorbar: float = None,
+        axs: GridAxes = None,
+        size_per_cell: float = 0.35,
+        subtract_min_in_row = True,
+        offset=(0., 0.),
+        to_add_colorbar=True,
+        # offset=(0.025, -0.004),
+) -> (GridAxes, mpl.colorbar.Colorbar):
+    """
+
+    :param costs_by_subj_model: [subj, model] = cost
+    :param model_names:
+    :param subjs:
+    :param label_colorbar:
+    :param thres_colorbar:
+    :param size_per_cell: in inches
+    :param subtract_min_in_row:
+    :return: (axs, colorbar)
+    """
+    if subtract_min_in_row:
+        costs_by_subj_model = (
+                costs_by_subj_model
+                - np.amin(costs_by_subj_model, -1, keepdims=True))
+    n_subj1, n_model1 = costs_by_subj_model.shape
+    if axs is None:
+        axs = GridAxes(
+            1, 1,
+            widths=[size_per_cell * n_model1],
+            heights=[size_per_cell * n_subj1],
+            right=1.5, top=1.5,
+            bottom=0.1,
+        )
+    ax = axs[0, 0]
+    plt.sca(ax)
+    im = plt.imshow(costs_by_subj_model, zorder=0)
+    if subjs is not None:
+        plt.yticks(np.arange(n_subj1), subjs)
+    if model_names is not None:
+        xticklabel_top(ax, model_names)
+    for row, loss_subj in enumerate(costs_by_subj_model):
+        best_model = np.argmin(loss_subj)
+        plt.text(best_model + offset[0], row + offset[1],
+                 '*', color='w', zorder=2, fontsize=16,
+                 ha='center', va='center')
+    if to_add_colorbar:
+        cb = colorbar(
+            ax, im, height='%d%%' % int(3 / n_subj1 * 100),
+            borderpad=-2
+        )
+        if label_colorbar is not None:
+            cb.set_label(label_colorbar)
+        if thres_colorbar is not None:
+            cb.ax.axhline(thres_colorbar, color='w')
+    else:
+        cb = None
+    plt.sca(ax)
+    return axs, cb
+
+
+def xticklabel_top(ax: plt.Axes, xtick_labels: Sequence[str]):
+    """
+
+    :param ax:
+    :param xtick_labels:
+    :return:
+    """
+    ax.xaxis.tick_top()
+    _, ticklabels = plt.xticks(np.arange(len(xtick_labels)), xtick_labels)
+    for ticklabel in ticklabels:
+        ticklabel.set_rotation(30)
+        ticklabel.set_ha('left')

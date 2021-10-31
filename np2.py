@@ -9,6 +9,7 @@ Created on Mon Mar 12 10:28:15 2018
 
 import numpy as np
 import torch
+import weightedstats as ws
 from scipy import interpolate
 from scipy import stats
 import numpy_groupies as npg
@@ -111,7 +112,7 @@ def mat2list(m: np.ndarray) -> List[np.ndarray]:
     return [v for v in m]
 
 
-def dict_shapes(d, verbose=True):
+def dict_shapes(d, verbose=True, return_shape=False):
     if not isinstance(d, dict):
         assert is_iter(d)
         d = {k: v for k, v in enumerate(d)}
@@ -151,7 +152,8 @@ def dict_shapes(d, verbose=True):
                     str_compo = '[' + compo.__str__() + ']'
             print('%15s: %s %s%s' % (k, sh1, type(v).__name__, str_compo))
 
-    return sh
+    if return_shape:
+        return sh
 
 
 def filt_dict(d: dict, incl: np.ndarray,
@@ -163,12 +165,16 @@ def filt_dict(d: dict, incl: np.ndarray,
     @type incl: np.ndarray
     @rtype: dict
     """
+    assert np.issubdtype(incl.dtype, np.bool)
+
     if copy:
         if ignore_diff_len:
             return {
-                k: (deepcopy(v[incl]) if (isinstance(v, np.ndarray)
-                                          and v.shape[0] == incl.shape[0])
-                    else deepcopy(v))
+                k: (deepcopy(v[incl]) if (
+                    (isinstance(v, np.ndarray)
+                     or isinstance(v, torch.Tensor))
+                    and v.shape[0] == incl.shape[0]
+                ) else deepcopy(v))
                 for k, v in d.items()
             }
         else:
@@ -176,9 +182,11 @@ def filt_dict(d: dict, incl: np.ndarray,
     else:
         if ignore_diff_len:
             return {
-                k: (v[incl] if (isinstance(v, np.ndarray)
-                                          and v.shape[0] == incl.shape[0])
-                    else v)
+                k: (v[incl] if (
+                    (isinstance(v, np.ndarray)
+                     or isinstance(v, torch.Tensor))
+                    and v.shape[0] == incl.shape[0]
+                ) else v)
                 for k, v in d.items()
             }
         else:
@@ -268,6 +276,21 @@ def permute2en(v, ndim_st=1):
     nd = v.ndim
     return v.transpose([*range(ndim_st, nd)] + [*range(ndim_st)])
 p2en = permute2en
+
+
+def attach_dim(v: np.ndarray, n_dim_to_prepend=0, n_dim_to_append=0
+               ) -> np.ndarray:
+    return v.reshape((1,) * n_dim_to_prepend
+                     + v.shape
+                     + (1,) * n_dim_to_append)
+
+
+def append_dim(v: np.ndarray, ndim=1) -> np.ndarray:
+    return v.reshape(v.shape + (1,) * ndim)
+
+
+def prepend_dim(v: np.ndarray, ndim=1) -> np.ndarray:
+    return v.reshape((1,) * ndim + v.shape)
 
 
 def ____COPY____():
@@ -730,6 +753,19 @@ def info_criterion(nll, n_trial, n_param, kind='BIC'):
         raise ValueError()
 
 
+def thres_info_criterion(loss_kind) -> float:
+    # See np2.information_criterion() for how these losses are computed
+    if loss_kind.startswith('NLL'):
+        thres = np.log(10)  # >="Strong" (Jeffreys 1961; Kass & Raftery 1995)
+    elif loss_kind.startswith('BIC') or loss_kind.startswith('AIC'):
+        thres = 6  # (Kass & Raftery 1995))
+    elif loss_kind.startswith('nBIC') or loss_kind.startswith('nAIC'):
+        thres = 3  # (Kass & Raftery 1995))
+    else:
+        thres = None
+    return thres
+
+
 def dkl(a: np.ndarray, b: np.ndarray, axis=None) -> np.ndarray:
     """
     DKL[a || b]
@@ -757,6 +793,187 @@ def wsum_rvs(mu: np.ndarray, sigma: np.ndarray, w: np.ndarray
     sigma1 = (sigma *  (w[..., None] * w[..., None, :])
               ).sum(axis=ndim).sum(axis=ndim - 1)
     return mu1, sigma1
+
+
+def bonferroni_holm(p: np.ndarray, alpha=0.05, dim=None) -> np.ndarray:
+    """
+
+    :param p:
+    :return: h: same shape as p. 1 if signifiant after correction
+    """
+    # TODO: make it work with multidimensional arrays by updating how indexing
+    #   works.. use ravel/unravel, since ix_sort is only along dim,
+    #   and other indices should be preserved
+    ix_sort = np.argsort(p, axis=dim)
+    rev_ix_sort = np.argsort(ix_sort, axis=dim)
+    p_sort = p[ix_sort]
+    p_corr_sort = p_sort * np.cumsum(np.ones(p.shape), axis=dim)
+    h_sort = p_corr_sort < alpha
+    h_cum_sort = (
+            np.cumsum(h_sort, axis=dim)
+            >= np.cumsum(np.ones(p.shape), axis=dim))
+    h = h_cum_sort[rev_ix_sort]
+    return h
+
+
+#%% Weighted stats
+def ____WEIGHTED_STATS____():
+    pass
+
+
+def wmean(values: np.ndarray, weights: np.ndarray,
+          axis=None, keepdim=False) -> np.ndarray:
+    return (values * weights).sum(
+        axis=axis, keepdims=keepdim
+    ) / weights.sum(axis, keepdims=keepdim)
+
+
+def wstd(values: np.ndarray, weights: np.ndarray,
+         axis=None, keepdim=False) -> np.ndarray:
+    """
+    Return the weighted average and standard deviation.
+
+    from: https://stackoverflow.com/a/2415343/2565317
+
+    values, weights -- Numpy ndarrays with the same shape.
+    """
+    sum_wt = weights.sum(axis=axis, keepdims=True)
+    avg = (values * weights).sum(axis=axis, keepdims=True) / sum_wt
+    var = ((values - avg) ** 2 * weights).sum(axis=axis, keepdims=True) / sum_wt
+    if not keepdim:
+        var = np.squeeze(var, axis=axis)
+    return np.sqrt(var)
+
+
+def wstandardize(values: np.ndarray, weights: np.ndarray,
+                 axis=None) -> np.ndarray:
+    """
+    Standardization using weighted mean and stdev
+    :param values:
+    :param weights:
+    :param axis:
+    :return: values_standardized
+    """
+    return (
+            values - wmean(values, weights, axis, keepdim=True)
+    ) / wstd(values, weights, axis, keepdim=True)
+
+
+def weighted_median_split(
+        w: np.ndarray, v: np.ndarray, d: np.ndarray = None, to_sample=False
+) -> (np.ndarray, np.ndarray, np.ndarray, float, np.ndarray):
+    """
+    Splits weights & values when multiple cells may equal the median
+    :param w: [cell]: weight
+    :param v: [cell]: floats that determine the median
+    :param d: [cell]: data to be duplicated & split along with w & v
+    :param to_sample: if True, randomly assign elements that equals median.
+    :return: is_above_median[cell_new], w[cell_new], v[cell_new], v_median,
+        d[cell_new]
+    """
+    # NOTE:
+    #  ◦ split cells where value1 == median1 into two
+    # 		‣ such that left half is assigned
+    # 			• 0.5 - P(value1 < median1)
+    # 		‣ right half is assigned
+    # 			• 0.5 - P(value1 > median1)
+    # 	◦ when splitting, what we care about is gtm, weight, value1, value2
+    # 		‣ 1. assign sgn1 := sign( value1 - median1 )
+    # 		‣ 2. then perform splitting for instances with sgn1 == 0
+    # 			• replace sgn1 == 0 with sgn1 == -1 or 1, depending on the above criteria
+    # 			• at the same time, replace weights as above
+    w_sum = w.sum()
+    w = sumto1(w)
+
+    m = ws.numpy_weighted_median(v, w)
+
+    if to_sample:
+        # TODO: permute order among whose values equal the median,
+        #  and cut at where the cdf equals 0.5
+        #  (Assign i randomly if cumsum(p[:i]) < 0.5 and cumsum(p[:(i+1)]) > 0.5)
+
+        raise NotImplementedError()
+    else:
+        a = v > m  # Assignment: 0=lt, 1=gt
+
+        # Keep a copy of the old values before concatenation for debugging
+        # a0 = a.copy()
+        w0 = w.copy()
+        # v0 = v.copy()
+        # m0 = m + 0
+        # d0 = d.copy()
+
+        # Prepare split into lesser & greater half
+        to_split = v == m
+        p_lt = w[v < m].sum()
+        p_gt = w[v > m].sum()
+
+        p_split_lt = 0.5 - p_lt
+        p_split_gt = 0.5 - p_gt
+        p_split_sum = p_split_lt + p_split_gt
+
+        # Append weight of the greater half,
+        # and replace w[sgn0] with the lesser half's weight
+        w_gt = w0[to_split] * (p_split_gt / p_split_sum)  # weight of the greater half to append
+        w[to_split] = w0[to_split] * (p_split_lt / p_split_sum)  # weight of the lesser half: replace original
+        w = np.r_[w, w_gt]
+
+        # Concatenate original with the greater half (duplicate)
+        v_gt = v[to_split]
+        v = np.r_[v, v_gt]
+
+        a_gt = np.ones([to_split.sum()], bool)
+        a = np.r_[a, a_gt]
+
+        if d is not None:
+            d1 = d[to_split]
+            d = np.r_[d, d1]
+
+        # Check that a is indeed a median split
+        assert np.abs(w[:len(w0)][to_split].sum() + w_gt.sum() - p_split_sum) < 1e-6
+        assert np.abs(w[a].sum() - 0.5) < 1e-6
+        assert np.abs(w[~a].sum() - 0.5) < 1e-6
+        assert np.all(v[a] >= m)
+        assert np.all(v[~a] <= m)
+
+        w = w * w_sum
+    return a, w, v, m, d
+
+
+def weighted_crosstab(w: np.ndarray, v: np.ndarray, n_sample=0) -> np.ndarray:
+    """
+
+    :param w: [cell]: weight
+    :param v: [cell, (v1, v2)]
+    :param n_sample: if 0, split continuously.
+        If >0, repeat randomly sampling assignments for the elements that equal
+        median.
+    :return: n_jt[is_above_median1, is_above_median2] = sum of w,
+        a[cell_new, (v1, v2)], w[cell_new], v[cell_new, (v1, v2)]
+    """
+    assert v.ndim == 2
+    assert v.shape[1] == 2  # more general form not implemented yet
+    if n_sample == 0:
+        a0, w, _, _, v = weighted_median_split(w, v[:, 0], v)
+        a1, w, _, _, av = weighted_median_split(
+            w, v[:, 1], np.concatenate([a0[:, None], v], -1))
+        a = np.concatenate([av[:, :1], a1[:, None]], 1).astype(int)
+        v = av[:, 1:]
+    else:
+        assert n_sample > 0
+        # TODO: add n_sample>0 (=0 is the same as now; default to n_sample=100)
+        #   among outputs, I only need n_jt
+        raise NotImplementedError()
+
+    # # more general form for v.shape[1] > 2: not implemented yet
+    # i = 0
+    # while i < v.shape[-1]:
+    #     i += 1
+    #     a1, w, _, _, v = weighted_median_split(w, v[:, i], v)
+
+    nj = npg.aggregate(a.T, w, 'sum', [2] * v.shape[1])
+    # pj = sumto1(nj)
+    return nj, a, w, v
 
 
 #%% Distribution
@@ -938,8 +1155,10 @@ def ____TRANSFORM____():
     pass
 
 
-def logit(v):
+def logit(v, epsilon=0.):
     """logit function"""
+    if epsilon != 0:
+        v = (v * (1 - epsilon)) + epsilon / 2
     return np.log(v) - np.log(1 - v)
 
 
@@ -1331,7 +1550,7 @@ def meshgridflat(*args, copy=False):
 def vectorize_par(f: Callable, inputs: Iterable,
                   pool: Pool = None, processes=None, chunksize=1,
                   nout=None, otypes: Union[Sequence[Type], Type] = None,
-                  use_starmap=True,
+                  use_starmap=True, meshgrid_input=True,
                   ) -> Sequence[np.ndarray]:
     """
     Run f in parallel with meshgrid of inputs along each input's first dimension
@@ -1365,15 +1584,24 @@ def vectorize_par(f: Callable, inputs: Iterable,
         If False, an iterable containing all inputs is given as one argument
         to f.
         Ignored if processes=1 and multiprocessing is not used.
+    :param meshgrid_input: if True (default), use np.meshgrid(indexing='ij')
+            to take the factorial combination of inputs
+        if False, use np.broadcast() across inputs
     :return: (iterable of) outputs from f.
     """
-    inputs = [inp if (isinstance(inp, np.ndarray) and type(inp[0]) is np.object)
-              else (arrayobj1d(inp) if is_iter(inp)
-                    else arrayobj1d([inp]))
-              for inp in inputs]
-    lengths = [len(inp) for inp in inputs]
-    mesh_inputs = np.meshgrid(*inputs, indexing='ij')  # type: Iterable[np.ndarray]
+    if meshgrid_input:
+        inputs = [
+            inp if (isinstance(inp, np.ndarray) and type(inp[0]) is np.object)
+            else (arrayobj1d(inp) if is_iter(inp)
+                  else arrayobj1d([inp]))
+            for inp in inputs]
+        shape0 = [len(inp) for inp in inputs]
+        mesh_inputs = np.meshgrid(*inputs, indexing='ij')  # type: Iterable[np.ndarray]
+    else:
+        shape0 = np.broadcast_shapes(*[v.shape for v in inputs])
+        mesh_inputs = [np.broadcast_to(v, shape0) for v in inputs]
     mesh_inputs = [m.flatten() for m in mesh_inputs]
+
     m = zip(*mesh_inputs)
     m = [m1 for m1 in m]
 
@@ -1387,7 +1615,7 @@ def vectorize_par(f: Callable, inputs: Iterable,
         # NOTE: this doesn't seem to work well, unlike chunksize=1.
         #   Need further experiment.
         chunksize = np.max([
-            int(np.floor(np.prod(lengths) / pool._processes)),
+            int(np.floor(np.prod(shape0) / pool._processes)),
             1
         ])
 
@@ -1422,7 +1650,7 @@ def vectorize_par(f: Callable, inputs: Iterable,
 
     # --- outs2: reshape to inputs' dimensions
     # DEF: outs2[argout][i_input1, i_input2, ...]
-    outs2 = [arrayobj1d(out).reshape(lengths) for out in outs1]
+    outs2 = [arrayobj1d(out).reshape(shape0) for out in outs1]
 
     # --- outs3: set to a correct otype
     # DEF: outs3[argout][i_input1, i_input2, ...]

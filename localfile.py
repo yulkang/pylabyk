@@ -54,11 +54,13 @@ class LocalFile(object):
             subdir_default='',
             cache_dir='cache',
             ext_fig='.png',  # .png is much faster than .pdf (~5x)
+            kind2subdir=False,
     ):
         self.pth_root = pth_root
         self.subdir_default = subdir_default
         self.cache_dir = cache_dir
         self.ext_fig = ext_fig
+        self.kind2subdir=kind2subdir
 
     def get_pth_out(self, subdir=None):
         if subdir is None:
@@ -132,6 +134,9 @@ class LocalFile(object):
         :type cache_kind: str
         :type d: Union[Iterable[tuple], dict, odict, None]
         """
+        if subdir is None and self.kind2subdir:
+            subdir = 'cache=%s' % cache_kind
+
         file = self.get_file(
             filekind='cache', kind=cache_kind,
             d=d, ext='.zpkl', subdir=subdir
@@ -148,6 +153,8 @@ class LocalFile(object):
         """
         if ext is None:
             ext = self.ext_fig
+        if self.kind2subdir and subdir is None:
+            subdir = 'plt=' + fig_kind
         return self.get_file('plt', fig_kind, d=d, ext=ext, subdir=subdir)
 
 
