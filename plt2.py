@@ -1542,11 +1542,12 @@ class SimplifyFilenames:
         :param files:
         """
         if not isinstance(files, np.ndarray):
-            files = np.array(files)
+            files = np.array([files])
         if files.ndim == 1:
             files = files[None]
-        else:
-            assert files.ndim == 2
+        elif files.ndim == 3:
+            files = files[0]
+        assert files.ndim == 2
         self.files = files
         self.file_out = file_out
         self.files_abs = None
@@ -1560,8 +1561,13 @@ class SimplifyFilenames:
         files = self.files
         file_out = self.file_out
 
+        files_all = file_out + '\n'.join([
+            ('' if v is None else v)
+            for v in files.flatten()
+        ])
+
         import shutil, hashlib
-        temp_name = hashlib.md5(file_out.encode('utf-8')).hexdigest()
+        temp_name = hashlib.md5(files_all.encode('utf-8')).hexdigest()
         temp_dir_rel = '_temp_subfig' + temp_name
         temp_dir_abs = os.path.join(os.path.dirname(file_out), temp_dir_rel)
         mkdir4file(os.path.join(temp_dir_abs, 'temp'))
@@ -1587,8 +1593,9 @@ class SimplifyFilenames:
         print('Saved original paths to %s' % file_csv)
 
         self.files_abs = files_abs
+        self.files_rel = files_rel
         self.temp_dir_abs = temp_dir_abs
-        return files_rel
+        return self
 
     def __exit__(self, exc_type=None, exc_value=None, exc_traceback=None):
         from send2trash import send2trash
@@ -1597,18 +1604,32 @@ class SimplifyFilenames:
         files_abs = self.files_abs
         temp_dir_abs = self.temp_dir_abs
 
-        for row in range(files_abs.shape[0]):
-            for col in range(files_abs.shape[1]):
-                file0 = files[row, col]
-                file1 = files_abs[row, col]
-                if file1 is not None and file0 != file1:
-                    send2trash(file1)
-        os.rmdir(temp_dir_abs)
+        for file0, file1 in zip(files.flatten(), files_abs.flatten()):
+            if (
+                file1 is not None and file0 != file1 and
+                os.path.exists(file1)
+            ):
+                send2trash(file1)
+        if os.path.exists(temp_dir_abs):
+            os.rmdir(temp_dir_abs)
 
         if exc_type is not None:
             import traceback
             traceback.print_exception(exc_type, exc_value, exc_traceback)
             raise RuntimeError('An exception occurred!')
+
+
+def get_pdf_size(file) -> (float, float):
+    """
+    :param file:
+    :return: width_point, height_point
+    """
+    from PyPDF2 import PdfFileReader
+    input1 = PdfFileReader(open(file, 'rb'))
+    rect = input1.getPage(0).mediaBox
+    width_document = rect[2]
+    height_document = rect[3]
+    return width_document, height_document
 
 
 class LatexDoc(ltx.Document, np2.ContextManager):
@@ -1631,6 +1652,8 @@ class LatexDoc(ltx.Document, np2.ContextManager):
         )
         self.file_out = file_out
         self.width_document_cm = width_document_cm
+
+        self.n_row = 0
 
         doc = self
         doc.packages.append(ltx.Package('subcaption'))
@@ -1710,15 +1733,14 @@ class LatexDoc(ltx.Document, np2.ContextManager):
                 * int(np.ceil(ncol / len(width_column_cm)))
             )[:ncol]
         width_column_cm = np.array(width_column_cm)
+        assert width_column_cm.ndim == 1
 
         if subcaption_on_top is None:
             subcaption_on_top = caption_on_top
 
         doc = self
-        if width_column_cm is None:
-            width_column_cm = self.width_document_cm / files_rel.shape[1]
-
         with doc.create(ltx.Figure()) as fig:
+            doc.append(ltx.Command('centering'))
             if caption_on_top and caption is not None:
                 fig.add_caption(caption)
             for row in range(files_rel.shape[0]):
@@ -1727,7 +1749,7 @@ class LatexDoc(ltx.Document, np2.ContextManager):
                     if file is None or file == '':
                         continue
                     with doc.create(
-                        ltx.SubFigure('%fcm' % width_column_cm[col])
+                        ltx.SubFigure('%f cm' % width_column_cm[col])
                     ) as subfig:
                         doc.append(ltx.Command('centering'))
                         if subcaption_on_top and subcaptions is not None:
@@ -1749,6 +1771,26 @@ class LatexDoc(ltx.Document, np2.ContextManager):
                 file_out = file_out[:-4]
             self.generate_pdf(file_out, **kwargs)
         super().__exit__(*args)
+
+
+def convert_unit(src, src_unit, dst_unit):
+    if src_unit == 'pt':
+        inch = src / 72.
+    elif src_unit == 'in':
+        inch = src
+    elif src_unit == 'cm':
+        inch = src * 2.54
+    else:
+        raise NotImplementedError()
+    if dst_unit == 'cm':
+        dst = inch / 2.54
+    elif dst_unit == 'in':
+        dst = inch
+    elif dst_unit == 'pt':
+        dst = inch * 72
+    else:
+        raise NotImplementedError()
+    return dst
 
 
 def subfigs(
@@ -1787,9 +1829,9 @@ def subfigs(
         width_document_cm=width_document,
         file_out=file_out
     ) as doc:
-        with SimplifyFilenames(file_out, files) as files_rel:
+        with SimplifyFilenames(file_out, files) as simplenames:
             doc.append_subfig_row(
-                files_rel=files_rel,
+                files_rel=simplenames.files_rel,
                 caption=caption,
                 subcaptions=subcaptions,
                 width_column_cm=width_column_cm,
