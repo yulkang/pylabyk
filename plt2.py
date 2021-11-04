@@ -1913,6 +1913,29 @@ def subfigs_from_template(
     )
 
 
+def subfig_rows(file_fig: str, rows_out: Iterable[dict]):
+    assert all(['files' in row.keys() for row in rows_out])
+    assert all(['caption' in row.keys() for row in rows_out])
+
+    import contextlib
+    file_fig_name, file_fig_ext = os.path.splitext(file_fig)
+    with contextlib.ExitStack() as stack:
+        simplefiles = [
+            stack.enter_context(
+                SimplifyFilenames(
+                    file_fig_name
+                    + '+row=' + row['caption'] + file_fig_ext,
+                    row.pop('files')))
+            for row in rows_out
+        ]
+        with LatexDoc(file_out=file_fig) as doc:
+            for row, simplefile in zip(rows_out, simplefiles):
+                doc.append_subfig_row(
+                    simplefile.files_rel,
+                    **row
+                )
+
+
 def ____MODEL_COMPARISON_PLOTS____():
     pass
 
