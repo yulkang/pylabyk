@@ -1920,6 +1920,7 @@ def subfig_rows(file_fig: str, rows_out: Iterable[dict]):
     import contextlib
     file_fig_name, file_fig_ext = os.path.splitext(file_fig)
     with contextlib.ExitStack() as stack:
+        # noinspection PyTypeChecker
         simplefiles = [
             stack.enter_context(
                 SimplifyFilenames(
