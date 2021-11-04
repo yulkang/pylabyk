@@ -16,6 +16,7 @@ from matplotlib import patches, pyplot as plt
 from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
 from copy import copy
+import pylatex as ltx
 
 import numpy_groupies as npg
 
@@ -1533,6 +1534,162 @@ def ____COMPOSITE_FIGURES____():
     pass
 
 
+class SimplifyFilenames:
+    def __init__(self, file_out, files):
+        """
+        rename files to simple names
+        :param file_out:
+        :param files:
+        """
+        self.files = files
+        self.file_out = file_out
+        self.files_abs = None
+        self.temp_dir_abs = None
+
+    def __enter__(self):
+        """
+
+        :return: files_rel
+        """
+        files = self.files
+        file_out = self.file_out
+
+        import shutil, hashlib
+        temp_name = hashlib.md5(file_out.encode('utf-8')).hexdigest()
+        temp_dir_rel = '_temp_subfig' + temp_name
+        temp_dir_abs = os.path.join(os.path.dirname(file_out), temp_dir_rel)
+        mkdir4file(os.path.join(temp_dir_abs, 'temp'))
+        files_rel = np.empty_like(files)
+        files_abs = np.empty_like(files)
+        for row in range(files.shape[0]):
+            for col in range(files.shape[1]):
+                file0 = files[row, col]
+                if file0 is None:
+                    files_rel[row, col] = None
+                    files_abs[row, col] = None
+                    continue
+                # NOTE: consider using os.path.relpath()
+                file_name1 = 'row%dcol%d%s' % (
+                    row, col, os.path.splitext(file0)[1])
+                files_rel[row, col] = os.path.join(temp_dir_rel, file_name1)
+                files_abs[row, col] = os.path.join(temp_dir_abs, file_name1)
+                shutil.copy(file0, files_abs[row, col])
+        import pandas as pd
+        df = pd.DataFrame(files)
+        file_csv = os.path.splitext(file_out)[0] + '.csv'
+        df.to_csv(file_csv)
+        print('Saved original paths to %s' % file_csv)
+
+        self.files_abs = files_abs
+        self.temp_dir_abs = temp_dir_abs
+        return files_rel
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        from send2trash import send2trash
+
+        files = self.files
+        files_abs = self.files_abs
+        temp_dir_abs = self.temp_dir_abs
+
+        for row in range(files_abs.shape[0]):
+            for col in range(files_abs.shape[1]):
+                file0 = files[row, col]
+                file1 = files_abs[row, col]
+                if file1 is not None and file0 != file1:
+                    send2trash(file1)
+        os.rmdir(temp_dir_abs)
+
+        if exc_type is not None:
+            import traceback
+            traceback.print_exception(exc_type, exc_value, exc_traceback)
+            raise RuntimeError('An exception occurred!')
+
+
+class LatexDoc(ltx.Document):
+    def __init__(
+        self,
+        *args,
+        width_document_cm=21.,
+        title='',
+        **kwargs
+    ):
+        super().__init__(
+            *args,
+            documentclass=['standalone'],
+            document_options=[
+                'varwidth=%fcm' % width_document_cm,
+                'border=0pt'
+            ],
+            **kwargs
+        )
+        doc = self
+        doc.packages.append(ltx.Package('subcaption'))
+        doc.packages.append(
+            ltx.Package(
+                'caption', [
+                    'labelformat=parens',
+                    'labelsep=quad',
+                    'justification=centering',
+                    'font=scriptsize',
+                    'labelfont=sf',
+                    'textfont=sf',
+                ]))
+        doc.packages.append(ltx.Package('graphicx'))
+        doc.append(
+            ltx.Command(
+                'setlength', [
+                    ltx.Command('abovecaptionskip'), '0pt']))
+        doc.append(
+            ltx.Command(
+                'setlength', [
+                    ltx.Command('belowcaptionskip'), '0pt']))
+
+        if len(title) > 0:
+            doc.preamble.append(ltx.Command('title', title))
+            doc.append(ltx.Command(r'\maketitle'))
+
+    def append_subfig_row(
+        self, files_rel, caption, subcaptions, width_column_cm, hspace,
+        caption_on_top, subcaption_on_top
+    ):
+        """
+
+        :param files_rel:
+        :param caption:
+        :param subcaptions:
+        :param width_column_cm:
+        :param hspace:
+        :param caption_on_top:
+        :param subcaption_on_top:
+        :return:
+        """
+        if subcaption_on_top is None:
+            subcaption_on_top = caption_on_top
+
+        doc = self
+        with doc.create(ltx.Figure()) as fig:
+            if caption_on_top and caption is not None:
+                fig.add_caption(caption)
+            for row in range(files_rel.shape[0]):
+                for col in range(files_rel.shape[1]):
+                    file = files_rel[row, col]
+                    if file is None:
+                        continue
+                    with doc.create(
+                        ltx.SubFigure('%fcm' % width_column_cm[col])
+                    ) as subfig:
+                        doc.append(ltx.Command('centering'))
+                        if subcaption_on_top and subcaptions is not None:
+                            subfig.add_caption(subcaptions[row, col])
+                        subfig.add_image(
+                            file, width='%f cm' % width_column_cm[col])
+                        if (not subcaption_on_top) and subcaptions is not None:
+                            subfig.add_caption(subcaptions[row, col])
+                        doc.append(ltx.VerticalSpace(hspace))
+                doc.append(ltx.NewLine())
+            if (not caption_on_top) and caption is not None:
+                fig.add_caption(caption)
+
 def subfigs(
         files: Union[Sequence, np.ndarray], file_out: str,
         width_document=None,
@@ -1551,8 +1708,9 @@ def subfigs(
     :param files: 1D or 2D array of strings.
         if 2D, [row, col] = file path relative to file_out's folder,
         or absolute path as obtained from os.path.abspath()
+        if '', skipped
     :param file_out:
-    :param width_document:
+    :param width_document: in cm
     :param width_column_cm:
     :param hspace: space between rows
     :param ncol: defaults to files.shape[1] if it is an array;
@@ -1591,99 +1749,26 @@ def subfigs(
     width_column_cm = np.array(width_column_cm)
 
     if width_document is None:
-        width_document = 'varwidth=%fcm' % (width_column_cm[0] * ncol)
-    if subcaption_on_top is None:
-        subcaption_on_top = caption_on_top
+        width_document = width_column_cm[0] * ncol
 
-    # rename files to simple names
-    import os, shutil, hashlib
-    temp_name = hashlib.md5(file_out.encode('utf-8')).hexdigest()
-
-    temp_dir_rel = '_temp_subfig' + temp_name
-    temp_dir_abs = os.path.join(os.path.dirname(file_out), temp_dir_rel)
-    mkdir4file(os.path.join(temp_dir_abs, 'temp'))
-    files_rel = np.empty_like(files)
-    files_abs = np.empty_like(files)
-    for row in range(files.shape[0]):
-        for col in range(files.shape[1]):
-            file0 = files[row, col]
-            if file0 is None:
-                files_rel[row, col] = None
-                files_abs[row, col] = None
-                continue
-            # NOTE: consider using os.path.relpath()
-            file_name1 = 'row%dcol%d%s' % (row, col, os.path.splitext(file0)[1])
-            files_rel[row, col] = os.path.join(temp_dir_rel, file_name1)
-            files_abs[row, col] = os.path.join(temp_dir_abs, file_name1)
-            shutil.copy(file0, files_abs[row, col])
-
-    import pandas as pd
-    df = pd.DataFrame(files)
-    file_csv = os.path.splitext(file_out)[0] + '.csv'
-    df.to_csv(file_csv)
-    print('Saved original paths to %s' % file_csv)
-
-    import pylatex as ltx
-    doc = ltx.Document(
-        documentclass=['standalone'],
-        document_options=[
-            width_document,
-            'border=0pt'
-        ],
-    )
-    doc.packages.append(ltx.Package('subcaption'))
-    doc.packages.append(ltx.Package(
-        'caption', [
-            'labelformat=parens',
-            'labelsep=quad',
-            'justification=centering',
-            'font=scriptsize',
-            'labelfont=sf',
-            'textfont=sf',
-        ]))
-    doc.packages.append(ltx.Package('graphicx'))
-    doc.append(ltx.Command('setlength', [
-        ltx.Command('abovecaptionskip'), '0pt']))
-    doc.append( ltx.Command('setlength', [
-        ltx.Command('belowcaptionskip'), '0pt']))
-
-    if len(suptitle) > 0:
-        doc.preamble.append(ltx.Command('title', 'Awesome Title'))
-        doc.append(ltx.Command(r'\maketitle'))
-
-    with doc.create(ltx.Figure()) as fig:
-        if caption_on_top and caption is not None:
-            fig.add_caption(caption)
-        for row in range(files_rel.shape[0]):
-            for col in range(files_rel.shape[1]):
-                file = files_rel[row, col]
-                if file is None:
-                    continue
-                with doc.create(ltx.SubFigure('%fcm' % width_column_cm[col])
-                                ) as subfig:
-                    doc.append(ltx.Command('centering'))
-                    if subcaption_on_top and subcaptions is not None:
-                        subfig.add_caption(subcaptions[row, col])
-                    subfig.add_image(file, width='%f cm' % width_column_cm[col])
-                    if (not subcaption_on_top) and subcaptions is not None:
-                        subfig.add_caption(subcaptions[row, col])
-                    doc.append(ltx.VerticalSpace(hspace))
-            doc.append(ltx.NewLine())
-        if (not caption_on_top) and caption is not None:
-            fig.add_caption(caption)
-    mkdir4file(file_out)
-    if file_out.lower().endswith('.pdf'):
-        file_out = file_out[:-4]
-    doc.generate_pdf(file_out, clean_tex=clean_tex)
-
-    from send2trash import send2trash
-    for row in range(files_abs.shape[0]):
-        for col in range(files_abs.shape[1]):
-            file0 = files[row, col]
-            file1 = files_abs[row, col]
-            if file1 is not None and file0 != file1:
-                send2trash(file1)
-    os.rmdir(temp_dir_abs)
+    with SimplifyFilenames(file_out, files) as files_rel:
+        doc = LatexDoc(
+            title=suptitle,
+            width_document_cm=width_document
+        )
+        doc.append_subfig_row(
+            files_rel=files_rel,
+            caption=caption,
+            subcaptions=subcaptions,
+            width_column_cm=width_column_cm,
+            hspace=hspace,
+            caption_on_top=caption_on_top,
+            subcaption_on_top=subcaption_on_top
+        )
+        mkdir4file(file_out)
+        if file_out.lower().endswith('.pdf'):
+            file_out = file_out[:-4]
+        doc.generate_pdf(file_out, clean_tex=clean_tex)
 
 
 pdfs2subfigs = subfigs  # alias for backward compatibility
