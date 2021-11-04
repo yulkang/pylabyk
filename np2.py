@@ -1916,3 +1916,18 @@ def filt_str(s, filt_preset='alphanumeric', replace_with='_'):
 
 
 make_alphanumeric = filt_str
+
+
+def ____CONTEXT_MANAGER____():
+    pass
+
+
+class ContextManager:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        if exc_type is not None:
+            import traceback
+            traceback.print_exception(exc_type, exc_value, exc_traceback)
+            raise RuntimeError('An exception occurred!')

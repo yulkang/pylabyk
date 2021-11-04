@@ -1541,6 +1541,12 @@ class SimplifyFilenames:
         :param file_out:
         :param files:
         """
+        if not isinstance(files, np.ndarray):
+            files = np.array(files)
+        if files.ndim == 1:
+            files = files[None]
+        else:
+            assert files.ndim == 2
         self.files = files
         self.file_out = file_out
         self.files_abs = None
@@ -1584,7 +1590,7 @@ class SimplifyFilenames:
         self.temp_dir_abs = temp_dir_abs
         return files_rel
 
-    def __exit__(self, exc_type, exc_value, exc_traceback):
+    def __exit__(self, exc_type=None, exc_value=None, exc_traceback=None):
         from send2trash import send2trash
 
         files = self.files
@@ -1605,12 +1611,13 @@ class SimplifyFilenames:
             raise RuntimeError('An exception occurred!')
 
 
-class LatexDoc(ltx.Document):
+class LatexDoc(ltx.Document, np2.ContextManager):
     def __init__(
         self,
         *args,
-        width_document_cm=21.,
+        file_out=None,
         title='',
+        width_document_cm=21.,
         **kwargs
     ):
         super().__init__(
@@ -1622,6 +1629,9 @@ class LatexDoc(ltx.Document):
             ],
             **kwargs
         )
+        self.file_out = file_out
+        self.width_document_cm = width_document_cm
+
         doc = self
         doc.packages.append(ltx.Package('subcaption'))
         doc.packages.append(
@@ -1649,8 +1659,14 @@ class LatexDoc(ltx.Document):
             doc.append(ltx.Command(r'\maketitle'))
 
     def append_subfig_row(
-        self, files_rel, caption, subcaptions, width_column_cm, hspace,
-        caption_on_top, subcaption_on_top
+        self, files_rel,
+        caption=None,
+        subcaptions=None,
+        width_column_cm=None,
+        hspace_cm=0.,
+        caption_on_top=False,
+        subcaption_on_top=False,
+        ncol=None,
     ):
         """
 
@@ -1658,22 +1674,57 @@ class LatexDoc(ltx.Document):
         :param caption:
         :param subcaptions:
         :param width_column_cm:
-        :param hspace:
+        :param hspace_cm:
         :param caption_on_top:
         :param subcaption_on_top:
         :return:
         """
+        files_rel = np.array(files_rel)
+
+        if ncol is None:
+            if files_rel.ndim == 1:
+                ncol = int(np.floor(np.sqrt(files_rel.size)))
+            else:
+                assert files_rel.ndim == 2
+                ncol = files_rel.shape[1]
+        files_rel = reshape_ragged(files_rel, ncol)
+
+        if subcaptions is not None:
+            subcaptions = np.array(subcaptions)
+            if subcaptions.ndim == 1:
+                reshape_ragged(subcaptions, files_rel.shape[1])
+            else:
+                assert files_rel.shape == subcaptions.shape
+
+        if width_column_cm is None:
+            width_column_cm = (
+                self.width_document_cm - hspace_cm * (ncol - 1)
+            ) / ncol
+        if np.isscalar(width_column_cm):
+            width_column_cm = [width_column_cm]
+        elif len(width_column_cm) > ncol:
+            width_column_cm = width_column_cm[:ncol]
+        elif len(width_column_cm) < ncol:
+            width_column_cm = (
+                list(width_column_cm)
+                * int(np.ceil(ncol / len(width_column_cm)))
+            )[:ncol]
+        width_column_cm = np.array(width_column_cm)
+
         if subcaption_on_top is None:
             subcaption_on_top = caption_on_top
 
         doc = self
+        if width_column_cm is None:
+            width_column_cm = self.width_document_cm / files_rel.shape[1]
+
         with doc.create(ltx.Figure()) as fig:
             if caption_on_top and caption is not None:
                 fig.add_caption(caption)
             for row in range(files_rel.shape[0]):
                 for col in range(files_rel.shape[1]):
                     file = files_rel[row, col]
-                    if file is None:
+                    if file is None or file == '':
                         continue
                     with doc.create(
                         ltx.SubFigure('%fcm' % width_column_cm[col])
@@ -1685,18 +1736,27 @@ class LatexDoc(ltx.Document):
                             file, width='%f cm' % width_column_cm[col])
                         if (not subcaption_on_top) and subcaptions is not None:
                             subfig.add_caption(subcaptions[row, col])
-                        doc.append(ltx.VerticalSpace(hspace))
+                        doc.append(ltx.VerticalSpace('%f cm' % hspace_cm))
                 doc.append(ltx.NewLine())
             if (not caption_on_top) and caption is not None:
                 fig.add_caption(caption)
+
+    def __exit__(self, *args, **kwargs):
+        if self.file_out is not None:
+            file_out = self.file_out
+            mkdir4file(file_out)
+            if file_out.lower().endswith('.pdf'):
+                file_out = file_out[:-4]
+            self.generate_pdf(file_out, **kwargs)
+        super().__exit__(*args)
+
 
 def subfigs(
         files: Union[Sequence, np.ndarray], file_out: str,
         width_document=None,
         width_column_cm=(2,),
-        hspace='0pt',
+        hspace_cm=0.,
         ncol: int = None,
-        clean_tex=True,
         caption=None,
         subcaptions: Union[Sequence, np.ndarray] = None,
         caption_on_top=False,
@@ -1722,53 +1782,22 @@ def subfigs(
     :param subcaption_on_top: defaults to caption_on_top
     :return:
     """
-    if not isinstance(files, np.ndarray):
-        files = np.array(files)
-    if ncol is None:
-        if files.ndim == 1:
-            ncol = int(np.floor(np.sqrt(files.size)))
-        else:
-            assert files.ndim == 2
-            ncol = files.shape[1]
-    files = reshape_ragged(files, ncol)
-    if subcaptions is not None:
-        subcaptions = np.array(subcaptions)
-        if subcaptions.ndim == 1:
-            reshape_ragged(subcaptions, files.shape[1])
-        else:
-            assert files.shape == subcaptions.shape
-    if np.isscalar(width_column_cm):
-        width_column_cm = [width_column_cm]
-    elif len(width_column_cm) > ncol:
-        width_column_cm = width_column_cm[:ncol]
-    elif len(width_column_cm) < ncol:
-        width_column_cm = (
-                list(width_column_cm)
-                * int(np.ceil(ncol / len(width_column_cm)))
-        )[:ncol]
-    width_column_cm = np.array(width_column_cm)
-
-    if width_document is None:
-        width_document = width_column_cm[0] * ncol
-
-    with SimplifyFilenames(file_out, files) as files_rel:
-        doc = LatexDoc(
-            title=suptitle,
-            width_document_cm=width_document
-        )
-        doc.append_subfig_row(
-            files_rel=files_rel,
-            caption=caption,
-            subcaptions=subcaptions,
-            width_column_cm=width_column_cm,
-            hspace=hspace,
-            caption_on_top=caption_on_top,
-            subcaption_on_top=subcaption_on_top
-        )
-        mkdir4file(file_out)
-        if file_out.lower().endswith('.pdf'):
-            file_out = file_out[:-4]
-        doc.generate_pdf(file_out, clean_tex=clean_tex)
+    with LatexDoc(
+        title=suptitle,
+        width_document_cm=width_document,
+        file_out=file_out
+    ) as doc:
+        with SimplifyFilenames(file_out, files) as files_rel:
+            doc.append_subfig_row(
+                files_rel=files_rel,
+                caption=caption,
+                subcaptions=subcaptions,
+                width_column_cm=width_column_cm,
+                hspace_cm=hspace_cm,
+                caption_on_top=caption_on_top,
+                subcaption_on_top=subcaption_on_top,
+                ncol=ncol
+            )
 
 
 pdfs2subfigs = subfigs  # alias for backward compatibility
