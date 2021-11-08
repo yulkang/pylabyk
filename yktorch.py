@@ -38,6 +38,8 @@ default_device = torch.device('cpu')  # CHECKING
 
 Param0 = namedtuple('Param0', ['v0', 'lb', 'ub'])
 
+epsilon0 = 1e-6
+
 class OverriddenParameter(nn.Module):
     """
     In operations requiring the whole parameter, use param[:] instead of
@@ -46,7 +48,7 @@ class OverriddenParameter(nn.Module):
     work when param is substituted with another tensor.
     """
 
-    def __init__(self, epsilon=1e-6, *args, **kwargs):
+    def __init__(self, epsilon=epsilon0, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.epsilon = epsilon
         self.skip_loading_lbub = None
@@ -1777,6 +1779,7 @@ def optimize_scipy(
 
     # NOTE: somehow this is necessary to set params to the fitted state
     model.load_state_dict(obj.unpack_parameters(out['x']))
+    out['state_dict'] = model.state_dict()
 
     # def vec2str(v) -> str:
     #     return ', '.join(['%g' % v1 for v1 in v])
