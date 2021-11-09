@@ -1824,12 +1824,17 @@ def subfigs(
     :param subcaption_on_top: defaults to caption_on_top
     :return:
     """
-    with LatexDoc(
-        title=suptitle,
-        width_document_cm=width_document,
-        file_out=file_out
-    ) as doc:
-        with SimplifyFilenames(file_out, files) as simplenames:
+    if width_document is None:
+        files = np.array(files)
+        width_document = np.sum(
+            np.array(width_column_cm) + np.zeros(files.shape[1]))
+
+    with SimplifyFilenames(file_out, files) as simplenames:
+        with LatexDoc(
+            title=suptitle,
+            width_document_cm=width_document,
+            file_out=file_out
+        ) as doc:
             doc.append_subfig_row(
                 files_rel=simplenames.files_rel,
                 caption=caption,
@@ -1845,7 +1850,9 @@ def subfigs(
 pdfs2subfigs = subfigs  # alias for backward compatibility
 
 
-def reshape_ragged(v, ncol):
+def reshape_ragged(v, ncol=None):
+    if ncol is None:
+        ncol = int(np.ceil(np.sqrt(v)))
     return np.r_[
         v.flatten(),
         [None] * (int(np.ceil(v.size / ncol)) * ncol - v.size)
