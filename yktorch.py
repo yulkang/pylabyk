@@ -1779,7 +1779,20 @@ def optimize_scipy(
 
     # NOTE: somehow this is necessary to set params to the fitted state
     model.load_state_dict(obj.unpack_parameters(out['x']))
-    out['state_dict'] = model.state_dict()
+    state_dict0 = model.state_dict()
+    state_dict = {}
+    for k, v in state_dict0.items():
+        if torch.is_tensor(v):
+            state_dict[k] = npt.dclone(v)
+        else:
+            state_dict[k] = v
+        # try:
+        #     state_dict[k] = npt.dclone(v)
+        # except AttributeError:
+        #     print(k)
+        #     print(v)
+        #     raise RuntimeError()
+    out['state_dict'] = state_dict
 
     # def vec2str(v) -> str:
     #     return ', '.join(['%g' % v1 for v1 in v])
