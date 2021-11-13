@@ -222,6 +222,26 @@ def dictkeys(d, keys):
     return [d[k] for k in keys]
 
 
+def dict_diff(d0: dict, d1: dict) -> dict:
+    d = {}
+    d_missing = {}
+    for k in d0.keys():
+        if k not in d1:
+            d[k] = (d0[k],)
+        elif (
+                (torch.is_tensor(d0[k]) or isinstance(d0[k], np.ndarray))
+                and (torch.is_tensor(d1[k]) or isinstance(d1[k], np.ndarray))
+                and np.any(npy(d0[k]) - npy(d1[k]))
+        ):
+            d[k] = (d0[k] - d1[k],)
+        elif not is_iter(d0[k]) and not is_iter(d1[k]) and d0[k] != d1[k]:
+            d[k] = (d0[k], d1[k])
+    for k in d1.keys():
+        if k not in d0:
+            d_missing[k] = d1[k]
+    return d, d_missing
+
+
 def rmkeys(d: dict, keys: Union[str, Iterable[str]]):
     if type(keys) is str:
         keys = [keys]
