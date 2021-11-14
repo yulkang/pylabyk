@@ -234,8 +234,17 @@ def dict_diff(d0: dict, d1: dict) -> dict:
                 and np.any(npy(d0[k]) - npy(d1[k]))
         ):
             d[k] = (d0[k] - d1[k],)
-        elif not is_iter(d0[k]) and not is_iter(d1[k]) and d0[k] != d1[k]:
-            d[k] = (d0[k], d1[k])
+        else:
+            is_different = d0[k] != d1[k]
+            if is_iter(is_different):
+                is_different = np.any(npy(is_different))
+            if is_different:
+                d[k] = (d0[k], d1[k])
+            # try:
+            #     if d0[k] != d1[k]:
+            #         d[k] = (d0[k], d1[k])
+            # except Exception:
+            #     d[k] = (d0[k], d1[k])
     for k in d1.keys():
         if k not in d0:
             d_missing[k] = d1[k]
