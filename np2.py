@@ -760,7 +760,7 @@ def pearsonr_ci(x,y,alpha=0.05):
     return r, p, lo, hi
 
 
-def info_criterion(nll, n_trial, n_param, kind='BIC'):
+def info_criterion(nll, n_trial, n_param, kind='BIC', group_dim=None):
     """
 
     :param nll: negative log likelihood of the data given parameters
@@ -769,6 +769,10 @@ def info_criterion(nll, n_trial, n_param, kind='BIC'):
     :param kind: 'BIC'|'NLL'
     :return: the chosen information criterion
     """
+    if group_dim is not None:
+        n_param = np.sum(n_param, group_dim)
+        n_trial = np.sum(n_trial, group_dim)
+        nll = np.sum(nll, group_dim)
     if kind == 'AIC':
         return 2 * n_param + 2 * nll
     elif kind == 'nAIC':
