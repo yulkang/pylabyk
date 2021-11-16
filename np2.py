@@ -222,6 +222,10 @@ def dictkeys(d, keys):
     return [d[k] for k in keys]
 
 
+def dict2array(d, key):
+    return np.vectorize(lambda d1: d1[key])(d)
+
+
 def dict_diff(d0: dict, d1: dict) -> dict:
     d = {}
     d_missing = {}
