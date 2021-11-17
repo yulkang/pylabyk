@@ -1073,6 +1073,7 @@ def colorbar(
         width='5%', height='100%',
         borderpad=-1,
         label='',
+        orientation='vertical',
         kw_inset=(),
         kw_cbar=(),
 ) -> mpl.colorbar.Colorbar:
@@ -1096,6 +1097,10 @@ def colorbar(
     fig = ax.figure
 
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    if orientation == 'horizontal':
+        temp = width
+        width = height
+        height = temp
     axins = inset_axes(
         ax, width=width, height=height, loc=loc,
         bbox_to_anchor=(0., 0., 1., 1.),
@@ -1105,7 +1110,7 @@ def colorbar(
     )
     cb = fig.colorbar(
         mappable, cax=axins,
-        **{'label': label, **dict(kw_cbar)}
+        label=label, orientation=orientation, **dict(kw_cbar)
     )
     return cb
 
