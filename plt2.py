@@ -874,6 +874,42 @@ def cmap_alpha(cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
     return cmap1
 
 
+def cmap_gamma(
+        cmap: Union[mpl.colors.Colormap, str, Iterable[float]] = None,
+        n: int = None,
+        piecelin=(0.25, 0.75),
+        f: Callable[[np.ndarray,], np.ndarray] = None
+) -> ListedColormap:
+    """
+    Add linear alphas to a colormap
+
+    based on https://stackoverflow.com/a/37334212/2565317
+
+    :param cmap: cmap with alpha of 1 / cmap.N, or a color (RGB/A or str)
+    :param n:
+    :return: cmap
+    """
+    if cmap is None:
+        cmap = plt.get_cmap('viridis')
+    if piecelin is not None:
+        x_control, y_control = piecelin
+        f = np.vectorize(
+            lambda v: v * y_control / x_control if v < x_control
+            else (v - x_control) * (1 - y_control) / (
+                        1 - x_control) + y_control)
+    elif f is None:
+        f = lambda v: v
+
+    assert isinstance(cmap, mpl.colors.Colormap)
+    n = cmap.N
+    v = np.arange(n)
+    v = f(v / n)
+
+    cmap0 = cmap(v)
+    cmap1 = ListedColormap(cmap0)
+    return cmap1
+
+
 def colormap2arr(arr,cmap):
     """
     https://stackoverflow.com/a/3722674/2565317
