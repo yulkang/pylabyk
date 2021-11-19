@@ -369,6 +369,7 @@ def break_axis(
         amin, amax=None, xy='x', ax: plt.Axes = None,
         fun_draw: Callable = None,
         margin=0.05,
+        prop=0.5,
 ) -> (plt.Axes, plt.Axes):
     """
     :param amin: data coordinate to start breaking from
@@ -377,6 +378,8 @@ def break_axis(
     :param fun_draw: if not None, fun_draw(ax1) and fun_draw(ax2) will
     be run to recreate ax. Use the same function as that was called for
     with ax. Use, e.g., fun_draw=lambda ax: ax.plot(x, y)
+    :param prop: None for auto; 0.5 makes the two resulting axis to be
+        of equal widths or heights
     :return: axs: a list of axes created
     """
 
@@ -389,20 +392,26 @@ def break_axis(
     if xy == 'x':
         rect = ax.get_position().bounds
         lim = ax.get_xlim()
-        prop_min = (amin - lim[0]) / (lim[1] - lim[0])
-        prop_max = (amax - lim[0]) / (lim[1] - lim[0])
+        if prop is None:
+            prop = (amin - lim[0]) / (amin - lim[0] + lim[1] - amax)
+            # prop_min = (amin - lim[0]) / (lim[1] - lim[0])
+            # prop_max = (amax - lim[0]) / (lim[1] - lim[0])
+
         rect1 = np.array([
             rect[0],
             rect[1],
-            rect[2] * prop_min,
+            rect[2] * (prop - margin / 2),
+            # rect[2] * (prop_min - margin / 2),
             rect[3]
         ])
-        rect2 = [
-            rect[0] + rect[2] * prop_max,
+        rect2 = np.array([
+            rect[0] + rect[2] * (prop + margin / 2),
+            # rect[0] + rect[2] * (prop_max + margin / 2),
             rect[1],
-            rect[2] * (1 - prop_max),
+            rect[2] * (1. - prop - margin / 2),
+            # rect[2] * (1 - prop_max),
             rect[3]
-        ]
+        ])
 
         fig = ax.figure  # type: plt.Figure
         ax1 = fig.add_axes(plt.Axes(fig=fig, rect=rect1))
@@ -410,6 +419,7 @@ def break_axis(
         if fun_draw is not None:
             fun_draw(ax1)
         ax1.set_xticks(ax.get_xticks())
+        # ax1.set_xlim(right=amin)
         ax1.set_xlim(lim[0], amin)
         ax1.spines['right'].set_visible(False)
 
@@ -418,11 +428,35 @@ def break_axis(
         if fun_draw is not None:
             fun_draw(ax2)
         ax2.set_xticks(ax.get_xticks())
+        # ax2.set_xlim(left=amax)
         ax2.set_xlim(amax, lim[1])
         ax2.spines['left'].set_visible(False)
         ax2.set_yticks([])
 
-        ax.set_visible(False)
+        xlim0 = ax.get_xlim()
+        xtick0 = ax.get_xticks()
+        xticklabels0 = ax.get_xticklabels()
+
+        ylim0 = ax.get_ylim()
+        ytick0 = ax.get_yticks()
+        yticklabels0 = ax.get_yticklabels()
+
+        ax.cla()
+        # ax.set_xlim(xlim0)
+        # ax.set_xticks(xtick0)
+        # ax.set_xticklabels(xticklabels0, color='w')
+        #
+        # ax.set_ylim(ylim0)
+        # ax.set_yticks(ytick0)
+        # ax.set_yticklabels(yticklabels0, color='w')
+
+        box_off('all', ax=ax,
+            # remove_ticklabels=False, remove_ticks=False,
+        )
+        # ax.tick_params(axis='x', color='w')
+        # ax.tick_params(axis='y', color='w')
+        # plt.findobj(ax)
+        # ax.set_visible(False)
         # plt.show()  # CHECKED
         axs = [ax1, ax2]
 
@@ -668,6 +702,7 @@ def detach_yaxis(ymin=0, ymax=None, ax=None):
 
 def box_off(remove_spines: Union[str, Iterable[str]] = ('right', 'top'),
             remove_ticklabels=True,
+            remove_ticks=True,
             ax=None):
     """
     :param remove_spines: 'all': remove all spines and ticks; or a list
@@ -684,11 +719,13 @@ def box_off(remove_spines: Union[str, Iterable[str]] = ('right', 'top'),
         # ax.set_yticks([])
 
     if 'left' in remove_spines:
-        ax.tick_params(axis='y', length=0)
+        if remove_ticks:
+            ax.tick_params(axis='y', length=0)
         if remove_ticklabels:
             ax.set_yticklabels([])
     if 'bottom' in remove_spines:
-        ax.tick_params(axis='x', length=0)
+        if remove_ticks:
+            ax.tick_params(axis='x', length=0)
         if remove_ticklabels:
             ax.set_xticklabels([])
 
