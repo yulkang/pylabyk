@@ -876,14 +876,19 @@ def cmap_alpha(cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
 
 def cmap_gamma(
         cmap: Union[mpl.colors.Colormap, str, Iterable[float]] = None,
-        n: int = None,
-        piecelin=(0.25, 0.75),
-        f: Callable[[np.ndarray,], np.ndarray] = None
+        n=256,
+        piecelin=(0.2, 0.8),
+        f: Callable[[np.ndarray,], np.ndarray] = None,
+        name='gamma',
 ) -> ListedColormap:
     """
-    Add linear alphas to a colormap
+    Add linear alphas to a colormap.
+    Give directly as cmap=cmap_gamma() to imshow(),
+    rather than setting with set_cmap().
+    The latter will result in an error on savefig().
 
     based on https://stackoverflow.com/a/37334212/2565317
+    and https://stackoverflow.com/questions/49367144/modify-matplotlib-colormap
 
     :param cmap: cmap with alpha of 1 / cmap.N, or a color (RGB/A or str)
     :param n:
@@ -901,12 +906,13 @@ def cmap_gamma(
         f = lambda v: v
 
     assert isinstance(cmap, mpl.colors.Colormap)
-    n = cmap.N
     v = np.arange(n)
     v = f(v / n)
-
     cmap0 = cmap(v)
-    cmap1 = ListedColormap(cmap0)
+    cmap1 = ListedColormap(
+        cmap0, name=name,
+        N=cmap0.shape[0],
+    )
     return cmap1
 
 
