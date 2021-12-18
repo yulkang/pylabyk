@@ -98,12 +98,18 @@ class LocalFile(object):
         if d is None:
             d = {}
         return os.path.join(
-            self.get_pth_out(subdir), cacheutil.dict2fname(
-                argsutil.kwdef(
-                    argsutil.merge_fileargs(d),
-                    [(filekind, kind)],
-                    sort_merged=False, sort_given=True, def_bef_given=True
-                )
+            self.get_pth_out(subdir),
+            (
+                d if isinstance(d, str)
+                else cacheutil.dict2fname(
+                        argsutil.kwdef(
+                            argsutil.merge_fileargs(d),
+                            [(filekind, kind)],
+                            sort_merged=False,
+                            sort_given=True,
+                            def_bef_given=True
+                        )
+                    )
             ) + ext
         )
 
