@@ -1,22 +1,9 @@
 """
-Options:
+Example:
 
-1. Use OverriddenParameter
-Pros
-: can assign to slice
-: can use autocompletion
-Cons
-: need to use [:] to refer to the whole tensor
-
-2. Use BoundedModule.register_()
-Pros
-: ?
-Cons
-: cannot assign to slice without using setslice()
 """
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
-
 import numpy as np
 from pprint import pprint
 from typing import Union, Iterable, List, Tuple, Sequence, Callable, \
@@ -29,16 +16,20 @@ from copy import deepcopy
 import warnings
 
 import torch
-from torch import nn, Tensor
+from scipy import optimize as scioptim
+from torch import nn
 from torch.nn import functional as F
 from torch import optim
 from torch.utils.tensorboard import SummaryWriter
 
-from lib.pylabyk import np2, plt2, numpytorch as npt
-from lib.pylabyk.numpytorch import npy, npys
+from pytorchobjective.obj_torch import PyTorchObjective
 
-default_device = torch.device('cpu')  # CHECKING
-# default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+from . import plt2, numpytorch as npt
+from .numpytorch import npy, freeze
+from .cacheutil import mkdir4file
+
+# default_device = torch.device('cpu')  # CHECKING
+default_device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 #%% Bounded parameters (under construction)
 # this is for better autocompletion, etc.
@@ -66,6 +57,18 @@ class OverriddenParameter(nn.Module):
     @v.setter
     def v(self, data):
         self._param = nn.Parameter(self.data2param(data))
+
+    @property
+    def requires_grad(self):
+        return self._param.requires_grad
+
+    @property
+    def shape(self):
+        return self._param.shape
+
+    @requires_grad.setter
+    def requires_grad(self, v):
+        self._param.requires_grad = v
 
     def __getitem__(self, key):
         return self.v[key]
@@ -97,9 +100,18 @@ class OverriddenParameter(nn.Module):
 class BoundedParameter(OverriddenParameter):
     def __init__(self, data, lb=0., ub=1., skip_loading_lbub=False,
                  requires_grad=True, **kwargs):
+        """
+
+        :param data:
+        :param lb:
+        :param ub:
+        :param skip_loading_lbub:
+        :param requires_grad:
+        :param kwargs:
+        """
         super().__init__(**kwargs)
-        self.lb = npt.tensor(lb)
-        self.ub = npt.tensor(ub)
+        self.lb = None if lb == -np.inf else npt.tensor(lb)
+        self.ub = None if ub == np.inf else npt.tensor(ub)
         self.skip_loading_lbub = skip_loading_lbub
         self._param = nn.Parameter(self.data2param(data),
                                    requires_grad=requires_grad)
@@ -109,31 +121,48 @@ class BoundedParameter(OverriddenParameter):
                           'value.')
 
     def data2param(self, data) -> torch.Tensor:
-        lb = self.lb
-        ub = self.ub
-        data = enforce_float_tensor(data)
-        if lb is None and ub is None:  # Unbounded
+        lb = npt.tensor(self.lb)
+        ub = npt.tensor(self.ub)
+        data = npt.tensor(enforce_float_tensor(data))
+
+        if lb is not None and ub is not None and (lb == ub).all():
+            if (data != lb).any():
+                print('Out of lb=ub assignment to %s!' % type(self))
+            return npt.zeros_like(data)
+
+        if lb is not None:
+            too_small = data < lb + self.epsilon
+            if too_small.any():
+                print('Out of lb assignment to %s!' % type(self))
+        else:
+            too_small = None
+
+        if ub is not None:
+            too_big = data > ub - self.epsilon
+            if too_big.any():
+                print('Out of ub assignment to %s!' % type(self))
+        else:
+            too_big = None
+
+        if (lb is None) and (ub is None):  # Unbounded
             return data
         elif lb is None:
-            data[data > ub - self.epsilon] = ub - self.epsilon
+            data[too_big] = ub - self.epsilon
             return torch.log(ub - data)
         elif ub is None:
-            data[data < lb + self.epsilon] = lb + self.epsilon
+            data[too_small] = lb + self.epsilon
             return torch.log(data - lb)
-        elif npt.tensor(lb == ub).all():
-            return torch.zeros_like(data)
         else:
-            too_small = data < lb + self.epsilon
             try:
                 data[too_small] = lb + self.epsilon
             except RuntimeError:
                 data[too_small] = (lb + self.epsilon)[too_small]
 
-            too_big = data > ub - self.epsilon
             try:
                 data[too_big] = ub - self.epsilon
             except RuntimeError:
                 data[too_big] = (ub - self.epsilon)[too_big]
+
             p = (data - lb) / (ub - lb)
             return torch.log(p) - torch.log(1. - p)
 
@@ -141,14 +170,22 @@ class BoundedParameter(OverriddenParameter):
         lb = self.lb
         ub = self.ub
         param = enforce_float_tensor(param)
+
+        def tensor1(v):
+            return npt.tensor(v).to(param.device)
+        if lb is not None:
+            lb = tensor1(lb)
+        if ub is not None:
+            ub = tensor1(ub)
+
         if lb is None and ub is None: # Unbounded
             return param
         elif lb is None:
-            return torch.tensor(ub) - torch.exp(param)
+            return ub - torch.exp(param)
         elif ub is None:
             return lb + torch.exp(param)
-        elif npt.tensor(lb == ub).all():
-            return torch.zeros_like(param) + lb
+        elif (lb == ub).all():
+            return npt.zeros_like(param) + lb
         else:
             return (1 / (1 + torch.exp(-param))) * (ub - lb) + lb  # noqa
 
@@ -209,7 +246,9 @@ class BoundedParameter(OverriddenParameter):
                 self.ub = npt.tensor(state_dict.pop(ub_name))
         if data_name in state_dict:
             state_dict[param_name] = self.data2param(
-                state_dict.pop(data_name).detach().clone())
+                state_dict.pop(data_name).detach().clone().to(npt.get_device()))
+        elif param_name in state_dict:
+            state_dict[param_name] = npt.tensor(state_dict[param_name])
         return super()._load_from_state_dict(
             state_dict, prefix, local_metadata, strict,
             missing_keys, unexpected_keys, error_msgs)
@@ -225,8 +264,8 @@ class ProbabilityParameter(OverriddenParameter):
         """
         super().__init__(**kwargs)
         self.probdim = probdim
-        self.lb = torch.zeros(1)
-        self.ub = torch.ones(1)
+        self.lb = npt.zeros(1)
+        self.ub = npt.ones(1)
         self._param = nn.Parameter(self.data2param(prob))
         if self._param.ndim == 0:
             raise Warning('Use ndim>0 to allow consistent use of [:]. '
@@ -405,7 +444,7 @@ class BoundedModule(nn.Module):
         return odict([
             (k, param.v)
             for k, param in d.items()
-            if isinstance(param, BoundedParameter)
+            if isinstance(param, OverriddenParameter)
         ])
 
     def named_bounded_lb(self):
@@ -413,7 +452,7 @@ class BoundedModule(nn.Module):
         return odict([
             (k, param.lb)
             for k, param in d.items()
-            if isinstance(param, BoundedParameter)
+            if isinstance(param, OverriddenParameter)
         ])
 
     def named_bounded_ub(self):
@@ -421,7 +460,7 @@ class BoundedModule(nn.Module):
         return odict([
             (k, param.ub)
             for k, param in d.items()
-            if isinstance(param, BoundedParameter)
+            if isinstance(param, OverriddenParameter)
         ])
 
     # Get/set
@@ -631,11 +670,17 @@ class BoundedModule(nn.Module):
         for name, param in d.items():
             v0 = param.v.flatten()
             if param._param.grad is None:
-                g0 = torch.zeros_like(v0)
+                g0 = npt.zeros_like(v0)
             else:
                 g0 = param._param.grad.flatten()
-            l0 = npt.tensor(param.lb).expand_as(param.v).flatten()
-            u0 = npt.tensor(param.ub).expand_as(param.v).flatten()
+            if param.lb is None:
+                l0 = npt.tensor([-np.inf]).expand_as(param.v).flatten()
+            else:
+                l0 = npt.tensor(param.lb).expand_as(param.v).flatten()
+            if param.ub is None:
+                u0 = npt.tensor([np.inf]).expand_as(param.v).flatten()
+            else:
+                u0 = npt.tensor(param.ub).expand_as(param.v).flatten()
 
             for i, (v1, g1, l1, u1) in enumerate(zip(v0, g0, l0, u0)):
                 v.append(npy(v1))
@@ -665,6 +710,85 @@ class BoundedModule(nn.Module):
                 n_free += module.get_n_free_param()
         return n_free
 
+    def load_state_dict_data(
+            self, state_dict_data: Dict[str, torch.Tensor], strict=False
+    ) -> (List[str], List[str]):
+        """
+        EXAMPLE:
+        from pprint import pprint
+        import yktorch as ykt
+
+        class Objective(ykt.BoundedModule):
+            def __init__(self):
+                self.a = ykt.BoundedParameter([0.], lb=-1., ub=1.)
+        obj = Objective()
+        obj.load_state_dict_data({'a': torch.tensor([0.5])})
+        pprint(obj.named_bounded_param_value())
+        print(obj0.__str__())
+
+        :param state_dict_data: {param_name: value} where param_name omits
+            '._data' used by BoundedModule for convenience
+        :param strict: whether to strictly match the keys in state_dict()
+        :return: missing_keys (list) and unexpected keys (list)
+        """
+        state_dict1 = {
+            k + '._data': v for k, v in state_dict_data.items()
+        }
+        return self.load_state_dict(state_dict1, strict=strict)
+
+    def state_dict_data(self) -> Dict[str, torch.Tensor]:
+        """
+        An alias for named_bounded_param_value()
+            that rhymes with load_state_dict_data()
+        :return: parameter values (transformed to respect bounds).
+        """
+        return self.named_bounded_param_value()
+
+    def parameters_data_vec(self) -> torch.Tensor:
+        p = self.state_dict_data()
+        return torch.cat([v.flatten() for v in p.values()], 0)
+
+    def param_vec2value_vec(
+            self, param_vec: Union[torch.Tensor, np.ndarray]
+    ) -> Union[torch.Tensor, np.ndarray]:
+        param_vec0 = self.parameters_data_vec()
+        self.load_state_dict(self.param_vec2dict(param_vec), strict=False)
+        value_vec = self.parameters_data_vec()
+        self.load_state_dict(self.param_vec2dict(param_vec0), strict=False)
+        return value_vec
+
+    def param_vec2dict(self, param_vec, suffix='._param') -> odict:
+        dict0 = self.state_dict()  # type: Dict[str, torch.Tensor]
+        dict1 = odict()
+        if not torch.is_tensor(param_vec):
+            param_vec = npt.tensor(param_vec)
+        for k, v0 in dict0.items():
+            if not k.endswith(suffix):
+                continue
+            size = v0.size()
+            n = v0.numel()
+
+            v1 = param_vec[:n]
+            param_vec = param_vec[n:]
+
+            v1 = v1.reshape(size)
+            dict1[k] = v1
+        return dict1
+
+    def grad_vec(self):
+        ps = self.parameters()
+        return torch.cat([
+            (p.grad.flatten() if p.requires_grad
+             else npt.zeros(p.numel()))
+            for p in ps
+        ])
+
+    def freeze_(self):
+        """Freeze all parameters (set requires_grad=False)"""
+        freeze(self)
+        return self
+
+
 def enforce_float_tensor(v: Union[torch.Tensor, np.ndarray], device=None
                          ) -> torch.Tensor:
     """
@@ -673,7 +797,7 @@ def enforce_float_tensor(v: Union[torch.Tensor, np.ndarray], device=None
     if device is None:
         device = default_device
     if not torch.is_tensor(v):
-        return torch.tensor(v, dtype=torch.get_default_dtype(), device=device)
+        return npt.tensor(v, dtype=torch.get_default_dtype(), device=device)
     elif not torch.is_floating_point(v):
         return v.float()
     else:
@@ -690,7 +814,7 @@ class TestBoundedModule(unittest.TestCase):
                 return '%d' % v
 
         bound = BoundedModule()
-        data = torch.zeros(2, 3)
+        data = npt.zeros(2, 3)
         for lb in [None, 0, -10, 10]:
             for ub in [None, 0, -5, 20]:
                 if lb is not None and ub is not None and lb >= ub:
@@ -713,7 +837,7 @@ class TestBoundedModule(unittest.TestCase):
                 return '%d' % v
 
         bound = BoundedModule()
-        data = torch.zeros(2, 3)
+        data = npt.zeros(2, 3)
         for lb in [None, 0, -10, 10]:
             for ub in [None, 0, -5, 20]:
                 if lb is not None and ub is not None and lb >= ub:
@@ -737,7 +861,7 @@ class TestBoundedModule(unittest.TestCase):
                 return '%d' % v
 
         bound = BoundedModule()
-        data = torch.zeros(2, 3)
+        data = npt.zeros(2, 3)
         for lb in [0, 5, 20]:
             for scale in [1, 5, 20]:
                 for offset in [0, 0.01, 0.5, scale]:
@@ -763,8 +887,8 @@ class TestBoundedModule(unittest.TestCase):
         bound = BoundedModule()
         for p in [0, 0.5, 1]:
             data = torch.cat([
-                torch.zeros(1, 3) + p,
-                torch.ones(1, 3) - p
+                npt.zeros(1, 3) + p,
+                npt.ones(1, 3) - p
                 ], dim=0)
             param = bound._prob2conf(data)
             data1 = bound._conf2prob(param)
@@ -780,8 +904,8 @@ class TestBoundedModule(unittest.TestCase):
         bound = BoundedModule()
         for p in [0, 0.5, 1]:
             data = torch.cat([
-                torch.zeros(1, 3) + p,
-                torch.ones(1, 3) - p
+                npt.zeros(1, 3) + p,
+                npt.ones(1, 3) - p
                 ], dim=0)
             bound.register_probability_parameter('prob', data)
             data1 = bound.prob
@@ -827,8 +951,8 @@ def print_grad(model):
 ModelType = Union[OverriddenParameter, BoundedModule, nn.Module]
 FunDataType = Callable[
     [str, int, int, int],
-    Tuple[Union[torch.Tensor, Tuple[torch.Tensor, ...]],
-          Union[torch.Tensor, Tuple[torch.Tensor, ...]]]
+    Tuple[Union[None, torch.Tensor, Tuple[torch.Tensor, ...]],
+          Union[None, torch.Tensor, Tuple[torch.Tensor, ...]]]
     # (mode='all'|'train'|'valid'|'train_valid'|'test', fold_valid=0, epoch=0,
     #  n_fold_valid=1)
     # -> (data, target)
@@ -846,9 +970,9 @@ PlotFunsType = Iterable[Tuple[str, PlotFunType]]
 
 def optimize(
         model: ModelType,
-        fun_data: FunDataType,
-        fun_loss: FunLossType,
-        plotfuns: PlotFunsType,
+        fun_data: FunDataType = None,
+        fun_loss: FunLossType = None,
+        plotfuns: PlotFunsType = None,
         optimizer_kind='Adam',
         max_epoch=100,
         patience=20,  # How many epochs to wait before quitting
@@ -864,6 +988,7 @@ def optimize(
         n_fold_valid=1,
         epoch_to_check=None,  # CHECKED
         comment='',
+        best_grad_mode='train',
         **kwargs  # to ignore unnecessary kwargs
 ) -> (float, dict, dict, List[float], List[float]):
     """
@@ -872,8 +997,9 @@ def optimize(
     :param fun_data: (mode='all'|'train'|'valid'|'train_valid'|'test',
     fold_valid=0, epoch=0, n_fold_valid=1) -> (data, target)
     :param fun_loss: (out, target) -> loss
-    :param plotfuns: [(str, fun)] where fun takes dict d with keys
-    'data_*', 'target_*', 'out_*', 'loss_*', where * = 'train', 'valid', etc.
+    :param plotfuns: [(name_plotfun: str, plotfun: PlotFunType)]
+    where plotfun(model, d) -> (fgure, d)
+    and d is as returned by optimize() itself
     :param optimizer_kind:
     :param max_epoch:
     :param patience:
@@ -886,6 +1012,8 @@ def optimize(
     :param show_progress_every:
     :param to_print_grad:
     :param n_fold_valid:
+    :param best_grad_mode: take gradient after fitting with this data mode;
+    'None' to skip
     :param kwargs:
     :return: loss_test, best_state, d, losses_train, losses_valid where d
     contains 'data_*', 'target_*', 'out_*', and 'loss_*', where * is
@@ -904,8 +1032,20 @@ def optimize(
         else:
             raise NotImplementedError()
 
+    if fun_data is None:
+        fun_data = lambda *args: (None, None)
+    if fun_loss is None:
+        fun_loss = lambda *args: model()
+    if plotfuns is None:
+        plotfuns = {}
+
     learning_rate0 = learning_rate
     optimizer = get_optimizer(model, learning_rate)
+
+    if optimizer_kind == 'LBFGS':
+        assert n_fold_valid == 1, 'n_fold_valid > 1 is not implemented ' \
+                                  'for LBFGS yet - ' \
+                                  'will need averaging loss within the closure!'
 
     best_loss_epoch = 0
     best_loss_valid = np.inf
@@ -949,10 +1089,18 @@ def optimize(
     losses_train = []
     losses_valid = []
 
-    if to_plot_progress:
+    if to_plot_progress and max_epoch > 0:
         writer = SummaryWriter(comment=comment)
     t_st = time.time()
     epoch = 0
+
+    def loss_wo_nan(model1, data1, target1) -> torch.Tensor:
+        is_nan = (
+            torch.isnan(data1.reshape(data1.shape[0], -1)).any(-1)
+            | torch.isnan(target1.reshape(target1.shape[0], -1)).any(-1)
+        )
+        out1 = model1(data1[~is_nan])
+        return fun_loss(out1, target1[~is_nan]), out1
 
     try:
         for epoch in range(max([max_epoch, 1])):
@@ -963,27 +1111,11 @@ def optimize(
                 data_train, target_train = fun_data('train', i_fold, epoch,
                                                     n_fold_valid)
                 model.train()
-                if optimizer_kind == 'LBFGS':
-                    def closure():
-                        optimizer.zero_grad()
-                        out_train = model(data_train)
-                        loss = fun_loss(out_train, target_train)
-                        loss.backward()
-                        return loss
-                    if max_epoch > 0:
-                        optimizer.step(closure)
-                    out_train = model(data_train)
-                    loss_train1 = fun_loss(out_train, target_train)
-                    raise NotImplementedError(
-                        'Restoring best state is not implemented yet'
-                    )
-                else:
-                    optimizer.zero_grad()
-                    out_train = model(data_train)
-                    loss_train1 = fun_loss(out_train, target_train)
-                    # DEBUGGED: optimizer.step() must not be taken before
-                    #  storing best_loss or best_state
-
+                optimizer.zero_grad()
+                loss_train1, out_train = loss_wo_nan(
+                    model, data_train, target_train)
+                # DEBUGGED: optimizer.step() must not be taken before
+                #  storing best_loss or best_state
                 losses_fold_train.append(loss_train1)
 
                 if n_fold_valid == 1:
@@ -999,8 +1131,8 @@ def optimize(
                     model.eval()
                     data_valid, target_valid = fun_data('valid', i_fold, epoch,
                                                         n_fold_valid)
-                    out_valid = model(data_valid)
-                    loss_valid1 = fun_loss(out_valid, target_valid)
+                    loss_valid1, out_valid = loss_wo_nan(
+                        model, data_train, target_train)
                     model.train()
                 losses_fold_valid.append(loss_valid1)
 
@@ -1009,7 +1141,12 @@ def optimize(
             losses_train.append(npy(loss_train))
             losses_valid.append(npy(loss_valid))
 
-            if to_plot_progress:
+            # steps are not taken here,
+            # since it's BEFORE storing the best state
+            # Still, take the gradient for plotting
+            loss_train.backward()
+
+            if to_plot_progress and max_epoch > 0:
                 writer.add_scalar(
                     'loss_train', loss_train,
                     global_step=epoch
@@ -1026,6 +1163,11 @@ def optimize(
                 best_loss_epoch = deepcopy(epoch)
                 best_loss_valid = npt.tensor(npy(loss_valid))
                 best_state = model.state_dict()
+                # pprint(model.state_dict_data())  # CHECKED best state
+                # best_state_data = model.state_dict_data()
+                # if loss_valid < 436:
+                #     pprint(best_state_data)
+                #     print('--')
 
             best_losses.append(best_loss_valid)
 
@@ -1038,7 +1180,7 @@ def optimize(
                 out0 = out_valid.detach().clone()
                 outs0 = fun_outs(model, data0)
 
-                loss001 = fun_loss(out0, target0)
+                loss001, _ = loss_wo_nan(model, data0, target0)
                 # CHECKED: loss001 must equal loss0
                 print('loss001 - loss0: %g' % (loss001 - loss0))
 
@@ -1053,34 +1195,45 @@ def optimize(
                          loss_train, loss_valid, learning_rate,
                          best_loss_valid, best_loss_epoch))
 
-            if epoch % show_progress_every == 0:
+            if torch.isnan(loss_train):
+                print_loss()
+                print('NaN loss!')
+                print('--')
+
+            if show_progress_every != 0 and epoch % show_progress_every == 0:
                 model.train()
                 data_train_valid, target_train_valid = fun_data(
                     'train_valid', i_fold, epoch, n_fold_valid
                 )
-                out_train_valid = model(data_train_valid)
-                loss_train_valid = fun_loss(out_train_valid, target_train_valid)
+                loss_train_valid, out_train_valid = loss_wo_nan(
+                    model, data_train_valid, target_train_valid)
                 print_loss()
-                if to_plot_progress:
+
+                if to_plot_progress and max_epoch > 0:
                     d = {
                         'data_train': data_train,
                         'data_valid': data_valid,
                         'data_train_valid': data_train_valid,
-                        'out_train': out_train.detach(),
-                        'out_valid': out_valid.detach(),
-                        'out_train_valid': out_train_valid.detach(),
-                        'target_train': target_train.detach(),
-                        'target_valid': target_valid.detach(),
-                        'target_train_valid': target_train_valid.detach(),
-                        'loss_train': loss_train.detach(),
-                        'loss_valid': loss_valid.detach(),
-                        'loss_train_valid': loss_train_valid.detach()
+                        'out_train': out_train,
+                        'out_valid': out_valid,
+                        'out_train_valid': out_train_valid,
+                        'target_train': target_train,
+                        'target_valid': target_valid,
+                        'target_train_valid': target_train_valid,
+                        'loss_train': loss_train,
+                        'loss_valid': loss_valid,
+                        'loss_train_valid': loss_train_valid
                     }
-
+                    d = {k: v.detach() if torch.is_tensor(v) else v
+                         for k, v in d.items()}
                     for k, f in odict(plotfuns).items():
                         fig, d = f(model, d)
                         if fig is not None:
                             writer.add_figure(k, fig, global_step=epoch)
+                    d = {
+                        k: (v.detach() if torch.is_tensor(v) else v)
+                        for k, v in d.items()
+                    }
 
             # --- Learning rate reduction and patience
             # if epoch == reduced_lr_on_epoch + reset_lr_after
@@ -1103,24 +1256,33 @@ def optimize(
                 if to_print_grad:
                     print_grad(model)
                 break
+            if to_print_grad and epoch == 0:
+                print_grad(model)
 
-            # --- Take a step
-            if optimizer_kind != 'LBFGS':
+            # --- Take a step (do after plotting)
+            if optimizer_kind == 'LBFGS':
+                model.train()
+                def closure():
+                    optimizer.zero_grad()
+                    loss, out_train = loss_wo_nan(
+                        model, data_train, target_train)
+                    loss.backward()
+                    return loss
+                if max_epoch > 0:
+                    optimizer.step(closure)
+            else:
                 # steps are not taken above for n_fold_valid == 1, so take a
-                # step here, after storing the best state
-                loss_train.backward()
-                if to_print_grad and epoch == 0:
-                    print_grad(model)
+                # step here, AFTER storing the best state
                 if max_epoch > 0:
                     optimizer.step()
 
     except Exception as ex:
-        from lib.pylabyk.cacheutil import is_keyboard_interrupt
+        from .cacheutil import is_keyboard_interrupt
         if not is_keyboard_interrupt(ex):
             raise ex
         print('fit interrupted by user at epoch %d' % epoch)
 
-        from lib.pylabyk.localfile import LocalFile, datetime4filename
+        from .localfile import LocalFile, datetime4filename
         localfile = LocalFile()
         cache = localfile.get_cache('model_data_target')
         data_train_valid, target_train_valid = fun_data(
@@ -1133,7 +1295,7 @@ def optimize(
         cache.save()
 
     print_loss()
-    if to_plot_progress:
+    if to_plot_progress and max_epoch > 0:
         writer.close()
 
     if epoch_to_check is not None:
@@ -1155,7 +1317,7 @@ def optimize(
         data, target = fun_data('valid', 0, epoch_to_check, n_fold_valid)
 
         if not torch.is_tensor(data):
-            p_unequal = torch.tensor([
+            p_unequal = npt.tensor([
                 (v1 != v0).double().mean() for v1, v0
                 in zip(data, data0)
             ])
@@ -1239,8 +1401,16 @@ def optimize(
     d = {}
     for mode in ['train_valid', 'valid', 'test', 'all']:
         data, target = fun_data(mode, 0, 0, n_fold_valid)
-        out = model(data)
-        loss = fun_loss(out, target)
+
+        if mode == best_grad_mode:
+            model.train()
+            model.zero_grad()
+
+        loss, out = loss_wo_nan(model, data, target)
+
+        if mode == best_grad_mode:
+            loss.backward()
+
         d.update({
             'data_' + mode: data,
             'target_' + mode: target,
@@ -1254,6 +1424,8 @@ def optimize(
               'd[loss_valid] - best_loss_valid = %g' %
               (d['loss_valid'], best_loss_valid,
                d['loss_valid'] - best_loss_valid))
+        # pprint(best_state_data)
+        # pprint(model.state_dict_data())
         print('--')
 
     if isinstance(model, OverriddenParameter):
@@ -1273,7 +1445,9 @@ def tensor2str(v: Union[torch.Tensor], sep='; ') -> str:
     else:
         return '(%s) %s' % (
             sep.join(['%d' % s for s in v.shape]),
-            sep.join(['%g' % v1 for v1 in v.flatten()])
+            sep.join(
+                ['%g' % v1 for v1 in v.flatten()]
+            ) if v.ndimension() > 0 else '%g' % v
         )
 
 
@@ -1291,7 +1465,8 @@ def save_optim_results(
     :param model:
     :param best_state: model.state_dict()
     :param d: as returned from optimize()
-    :param plotfuns:
+    :param plotfuns: [fun_plot(model, d), ...]
+        where fun_plot(model, d) -> (figure, _)
     :param fun_tab_file: (file_kind, extension) -> fullpath
     :param fun_fig_file: (file_kind, extension) -> fullpath
     :param plot_exts:
@@ -1311,6 +1486,7 @@ def save_optim_results(
         best_state = odict(model.named_parameters())
     if best_state is not None:
         file = fun_tab_file('best_state', '.csv')
+        mkdir4file(file)
         with open(file, 'w') as f:
             if isinstance(model, BoundedModule):
                 names, v, grad, lb, ub, requires_grad = \
@@ -1332,25 +1508,34 @@ def save_optim_results(
         files.append(file)
 
     if d is not None:
-        file = fun_tab_file('best_loss', '.csv')
-        with open(file, 'w') as f:
-            f.write('name, value\n')
-            for k, v in d.items():
-                if k.startswith('loss'):
-                    f.write('%s, %s\n'
-                            % (k, tensor2str(v)))
-        print('Saved to %s' % file)
-        files.append(file)
+        files1 = fun_tab_file('best_loss', '.csv')
+        if isinstance(files1, str):
+            files1 = [files1]
+        for file in files1:
+            mkdir4file(file)
+            with open(file, 'w') as f:
+                f.write('name, value\n')
+                for k, v in d.items():
+                    if k.startswith('loss'):
+                        f.write('%s, %s\n'
+                                % (k, (tensor2str(v) if torch.is_tensor(v)
+                                       else '%g' % v)))
+            print('Saved to %s' % file)
+            files.append(file)
 
     if plotfuns is not None and model is not None and d is not None:
         plotfuns = odict(plotfuns)
         for k, fun_plot in plotfuns.items():
             for plot_ext in plot_exts:
-                file = fun_fig_file(k, plot_ext)
-                fig, _ = fun_plot(model, d)
-                fig.savefig(file, dpi=300)
-                print('Saved to %s' % file)
-                files.append(file)
+                files1 = fun_fig_file(k, plot_ext)
+                if isinstance(files1, str):
+                    files1 = [files1]
+                for file in files1:
+                    mkdir4file(file)
+                    fig, _ = fun_plot(model, d)
+                    fig.savefig(file, dpi=300)
+                    print('Saved to %s' % file)
+                    files.append(file)
     return files
 
 
@@ -1399,3 +1584,91 @@ if __name__ == 'main':
     print(res.failures)
 
     #%%
+
+
+def optimize_scipy(
+        model: BoundedModule,
+        maxiter=400,
+        verbose=True,
+        kw_optim=(),
+        kw_optim_option=(),
+        kw_pyobj=(),
+) -> (torch.Tensor, torch.Tensor, np.array):
+    """
+
+    :param model:
+    :param maxiter:
+    :param verbose:
+    :param kw_optim: e.g., {'callback': lambda x, *args: print(x)}
+    :param kw_optim_option:
+    :param kw_pyobj: {'separate_loss_for_jac': True} to separately return
+            loss_for_grad, loss = model()
+        e.g., for REINFORCE
+    :return: param_fit, loss, out
+    """
+    kw_optim = dict(kw_optim)
+    kw_optim_option = dict(kw_optim_option)
+
+    t_st = time.time()
+    # with tqdm(total=maxiter) as pbar:
+    #     def verbose(xk):
+    #         pbar.update(1)
+
+    obj = PyTorchObjective(model, **dict(kw_pyobj))
+    out = scioptim.minimize(
+        obj.fun, obj.x0,
+        jac=obj.jac,
+        **{
+            'method': 'BFGS',
+            # method='L-BFGS-B',
+            # callback=verbose,
+            **kw_optim
+        }, options={
+            # 'gtol': 1e-16, # 12,
+            'disp': True, 'maxiter': maxiter,
+            # 'finite_diff_rel_step': 1e-6,
+            **kw_optim_option
+        },
+    )
+    model.load_state_dict(obj.unpack_parameters(out['x']))
+
+    t_en = time.time()
+    t_el = t_en - t_st
+    print('Time elapsed: %1.3g s\n' % t_el)
+
+    # --- Results
+    param = out['x']  # obj.parameters()
+    se_param = np.sqrt(np.diag(out['hess_inv']))
+    out['x_param_vec'] = out['x']
+    out['se_param_vec'] = se_param
+
+    for k in ['x', 'se']:
+        out[k + '_param_dict'] = model.param_vec2dict(out[k + '_param_vec'])
+
+    out['x_value_vec'] = npy(model.param_vec2value_vec(param))
+    out['lb_value_vec'] = npy(model.param_vec2value_vec(param - se_param))
+    out['ub_value_vec'] = npy(model.param_vec2value_vec(param + se_param))
+
+    for k in ['x', 'lb', 'ub']:
+        out[k + '_value_dict'] = model.param_vec2dict(out[k + '_value_vec'])
+
+    # NOTE: somehow this is necessary to set params to the fitted state
+    model.load_state_dict(obj.unpack_parameters(out['x']))
+
+    # def vec2str(v) -> str:
+    #     return ', '.join(['%g' % v1 for v1 in v])
+
+    if verbose:
+        for k in out['x_value_dict'].keys():
+            x1, lb1, ub1 = (
+                out['x_value_dict'][k],
+                out['lb_value_dict'][k],
+                out['ub_value_dict'][k]
+            )
+            for i, (x11, lb11, ub11) in enumerate(zip(
+                    x1, lb1, ub1
+                    # x1.flatten(), lb1.flatten(), ub1.flatten()
+            )):
+                if x11.ndim == 0:
+                    print('%s[%d]: %g (%g - %g)\n' % (k, i, x11, lb11, ub11))
+    return out['x_value_vec'], out['fun'], out

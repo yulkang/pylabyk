@@ -1,10 +1,11 @@
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 from . import cacheutil
 from . import argsutil
+from .cacheutil import Cache
 import os, shutil
 from collections import OrderedDict as odict
 from typing import Union, Iterable
-from .cacheutil import datetime4filename, mkdir4file
+from .cacheutil import mkdir4file
 
 
 def replace_ext(fullpath, ext_new):
@@ -52,10 +53,12 @@ class LocalFile(object):
             pth_root='../Data',
             subdir_default='',
             cache_dir='cache',
+            ext_fig='.png',  # .png is much faster than .pdf (~5x)
     ):
         self.pth_root = pth_root
         self.subdir_default = subdir_default
         self.cache_dir = cache_dir
+        self.ext_fig = ext_fig
 
     def get_pth_out(self, subdir=None):
         if subdir is None:
@@ -85,7 +88,9 @@ class LocalFile(object):
             cacheutil.dict2fname(d) + '.zpkl'
         )
 
-    def get_file(self, filekind, kind, d=None, ext=None, subdir=None):
+    def get_file(self, filekind, kind: str,
+                 d: Union[Iterable[tuple], dict, odict, str, None] = None,
+                 ext=None, subdir=None):
         """
         :type filekind: str
         :type kind: str
@@ -97,48 +102,52 @@ class LocalFile(object):
             ext = '.' + filekind
         if d is None:
             d = {}
+        elif isinstance(d, str):
+            pass
+        elif not (type(d) is list):
+            d = [d]
+
+        if isinstance(d, str):
+            fname = d
+        else:
+            kw_fname = argsutil.kwdef(
+                    argsutil.merge_fileargs(d),
+                    {},
+                    sort_merged=False, sort_given=True, def_bef_given=True
+                )
+            fname = cacheutil.dict2fname(argsutil.merge_fileargs(kw_fname))
+
+        fname = '%s=%s+%s' % (filekind, kind, fname)
         return os.path.join(
-            self.get_pth_out(subdir),
-            (
-                d if isinstance(d, str)
-                else cacheutil.dict2fname(
-                        argsutil.kwdef(
-                            argsutil.merge_fileargs(d),
-                            [(filekind, kind)],
-                            sort_merged=False,
-                            sort_given=True,
-                            def_bef_given=True
-                        )
-                    )
-            ) + ext
+            self.get_pth_out(subdir), fname + ext
         )
 
     def get_cache(
             self, cache_kind: str,
             d: Union[str, dict] = None,
             subdir: Union[str, dict] = None,
-            **kwargs) -> cacheutil.Cache:
+            ignore_key=True,
+            **kwargs) -> Cache:
         """
         :type cache_kind: str
         :type d: Union[Iterable[tuple], dict, odict, None]
         """
-        if d is None:
-            d = [{}]
-        elif not (type(d) is list):
-            d = [d]
-        return cacheutil.Cache(
-            self.get_file_cache(argsutil.kwdef(
-                argsutil.merge_fileargs(d),
-                [('cache', cache_kind)],
-                sort_merged=False, sort_given=True, def_bef_given=True
-            ), subdir=subdir), **kwargs
+        file = self.get_file(
+            filekind='cache', kind=cache_kind,
+            d=d, ext='.zpkl', subdir=subdir
         )
+        return Cache(file, **{
+            'ignore_key': ignore_key,
+            **kwargs
+        })
 
     def get_file_fig(self, fig_kind,
                      d: Union[Iterable[tuple], dict, odict, None] = None,
-                     ext='.png', subdir=None) -> str:
+                     ext=None, subdir=None) -> str:
         """
         """
+        if ext is None:
+            ext = self.ext_fig
         return self.get_file('plt', fig_kind, d=d, ext=ext, subdir=subdir)
 
 

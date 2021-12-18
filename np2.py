@@ -9,16 +9,13 @@ Created on Mon Mar 12 10:28:15 2018
 
 import numpy as np
 import torch
-import scipy
 from scipy import interpolate
 from scipy import stats
 import numpy_groupies as npg
 import pandas as pd
-from copy import deepcopy, copy
+from copy import deepcopy
 from . import numpytorch
-from pprint import pprint
-from typing import Union, Sequence, Iterable, Tuple, Type, Callable
-import multiprocessing
+from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List
 from multiprocessing.pool import Pool as Pool0
 # from multiprocessing import Pool
 
@@ -58,7 +55,12 @@ def vec_on(arr, dim, n_dim=None):
 
 
 def cell2mat(c: np.ndarray, dtype=np.float) -> np.ndarray:
-    # convert from object to numeric
+    """
+    convert from object to numeric
+    :param c:
+    :param dtype:
+    :return:
+    """
     shape0 = c.shape
     vs = np.stack([
         v.astype(dtype) if isinstance(v, np.ndarray)
@@ -91,17 +93,28 @@ def cell2mat2(l, max_len=None):
     return m
 
 
-def mat2cell(m):
+def mat2cell(m: np.ndarray, remove_nan=True) -> List[np.ndarray]:
     """
-    remove trailing NaNs from each row.
-    @param m: 2D array
-    @type m: np.ndarray
-    @rtype: np.ndarray
+    Make a list of array
+    :param remove_nan: if True (default), remove trailing NaNs from each row
     """
-    return [v[~np.isnan(v)] for v in m]
+    if remove_nan:
+        return [v[~np.isnan(v)] for v in m]
+    else:
+        return [v for v in m]
+
+
+def mat2list(m: np.ndarray) -> List[np.ndarray]:
+    """
+    Make a list of array
+    """
+    return [v for v in m]
 
 
 def dict_shapes(d, verbose=True):
+    if not isinstance(d, dict):
+        assert is_iter(d)
+        d = {k: v for k, v in enumerate(d)}
     sh = {}
     for k in d.keys():
         v = d[k]
@@ -141,7 +154,8 @@ def dict_shapes(d, verbose=True):
     return sh
 
 
-def filt_dict(d: dict, incl: np.ndarray) -> dict:
+def filt_dict(d: dict, incl: np.ndarray,
+              copy=True, ignore_diff_len=True) -> dict:
     """
     Copy d[k][incl] if d[k] is np.ndarray and d[k].shape[1] == incl.shape[0];
     otherwise copy the whole value.
@@ -149,12 +163,26 @@ def filt_dict(d: dict, incl: np.ndarray) -> dict:
     @type incl: np.ndarray
     @rtype: dict
     """
-    return {
-        k: (deepcopy(v[incl]) if (isinstance(v, np.ndarray)
-                                  and v.shape[0] == incl.shape[0])
-            else deepcopy(v))
-        for k, v in d.items()
-    }
+    if copy:
+        if ignore_diff_len:
+            return {
+                k: (deepcopy(v[incl]) if (isinstance(v, np.ndarray)
+                                          and v.shape[0] == incl.shape[0])
+                    else deepcopy(v))
+                for k, v in d.items()
+            }
+        else:
+            return {k: deepcopy(v[incl]) for k, v in d.items()}
+    else:
+        if ignore_diff_len:
+            return {
+                k: (v[incl] if (isinstance(v, np.ndarray)
+                                          and v.shape[0] == incl.shape[0])
+                    else v)
+                for k, v in d.items()
+            }
+        else:
+            return {k: v[incl] for k, v in d.items()}
 
 
 def listdict2dictlist(listdict: list, to_array=False) -> dict:
@@ -436,9 +464,10 @@ def mean_distrib(p, v, axis=None):
 
 
 def var_distrib(p, v, axis=None):
-    return (
-            mean_distrib(p, v ** 2, axis=axis)
-            - mean_distrib(p, v, axis=axis) ** 2
+    return np.clip(
+        mean_distrib(p, v ** 2, axis=axis)
+        - mean_distrib(p, v, axis=axis) ** 2,
+        0, np.inf
     )
 
 def std_distrib(p, v, axis=None):
@@ -461,7 +490,7 @@ def wmean(values: np.ndarray, weights: np.ndarray,
 def wstd(values: np.ndarray, weights: np.ndarray,
          axis=None, keepdim=False) -> np.ndarray:
     """
-    Return the weighted average and standard deviation.
+    Return the weighted standard deviation.
 
     from: https://stackoverflow.com/a/2415343/2565317
 
@@ -473,6 +502,22 @@ def wstd(values: np.ndarray, weights: np.ndarray,
     if not keepdim:
         var = np.squeeze(var, axis=axis)
     return np.sqrt(var)
+
+
+def wsem(values: np.ndarray, weights: np.ndarray,
+         axis=None, keepdim=False) -> np.ndarray:
+    """
+    Weighted standard error of mean.
+    :param values:
+    :param weights:
+    :param axis:
+    :param keepdim:
+    :return:
+    """
+    return (
+        wstd(values, weights, axis, keepdim)
+        / np.sqrt(np.sum(weights, axis=axis, keepdims=keepdim))
+    )
 
 
 def quantilize(v, n_quantile=5, return_summary=False, fallback_to_unique=True):
@@ -527,7 +572,7 @@ def ecdf(x0):
     """
     
     n = len(x0)
-    p = np.arange(1.,n+1.) / n
+    p = np.linspace(0, 1, n)
     x = np.sort(x0)
     return p, x
 
@@ -561,9 +606,16 @@ def argmax_margin(v, margin=0.1, margin_from='second',
     a[not_enough_margin] = fillvalue
     return a
 
+
 def argmin_margin(v, **kw):
     """argmin with margin. See argmax_margin for details."""
     return argmax_margin(-v, **kw)
+
+
+def argmedian(v, axis=None):
+    median = np.median(v, axis=axis, keepdims=True)
+    return np.argmin(np.abs(v - median), axis=axis)
+
 
 def sumto1(v, axis=None, ignore_nan=True):
     if ignore_nan:
@@ -576,6 +628,20 @@ def sumto1(v, axis=None, ignore_nan=True):
             return v / v.sum(axis=axis, keepdims=True)
         else:  # v is torch.Tensor
             return v / v.sum(axis, keepdim=True)
+
+
+def maxto1(v, axis=None, ignore_nan=True):
+    if ignore_nan:
+        if type(v) is np.ndarray:
+            return v / np.nanmax(v, axis=axis, keepdims=True)
+        else:  # v is torch.Tensor
+            return v / v.nanmax(axis, keepdim=True)
+    else:
+        if type(v) is np.ndarray:
+            return v / np.amax(v, axis=axis, keepdims=True)
+        else:  # v is torch.Tensor
+            return v / v.max(axis, keepdim=True)
+
 
 def nansem(v, axis=None, **kwargs):
     s = np.nanstd(v, axis=axis, **kwargs)
@@ -647,12 +713,50 @@ def info_criterion(nll, n_trial, n_param, kind='BIC'):
     :param kind: 'BIC'|'NLL'
     :return: the chosen information criterion
     """
-    if kind == 'BIC':
+    if kind == 'AIC':
+        return 2 * n_param + 2 * nll
+    elif kind == 'nAIC':
+        return n_param + nll
+    elif kind == 'BIC':
         return n_param * np.log(n_trial) + 2 * nll
+    elif kind == 'nBIC':
+        # nBIC: following Bishop's convention except for the sign,
+        #   since signs are used to choose the best model,
+        #   and hence may introduce a bug downstream.
+        return (n_param * np.log(n_trial) + 2 * nll) / 2
     elif kind == 'NLL':
         return nll
     else:
         raise ValueError()
+
+
+def dkl(a: np.ndarray, b: np.ndarray, axis=None) -> np.ndarray:
+    """
+    DKL[a || b]
+    :param a:
+    :param b:
+    :param axis:
+    :return: DKL[a || b] = sum(a * (log(a) - log(b)), axis)
+    """
+    return np.sum(a * (np.log(a) - np.log(b)), axis=axis)
+
+
+def wsum_rvs(mu: np.ndarray, sigma: np.ndarray, w: np.ndarray
+             ) -> (np.ndarray, np.ndarray):
+    """
+    Mean and covariance of weighted sum of random variables
+    :param mu: [..., RV]
+    :param sigma: [..., RV, RV]
+    :param w: [RV]
+    :return: mu_sum[...], variance_sum[...]
+    """
+    mu1 = mu * w  # type: np.ndarray
+    ndim = mu1.ndim
+    # not using axis=-1, to make it work with DataFrame and Series
+    mu1 = mu1.sum(axis=ndim - 1)
+    sigma1 = (sigma *  (w[..., None] * w[..., None, :])
+              ).sum(axis=ndim).sum(axis=ndim - 1)
+    return mu1, sigma1
 
 
 #%% Distribution
@@ -673,6 +777,40 @@ def pdf_trapezoid(x, center, width_top, width_bottom):
 def ____CIRCSTAT____():
     pass
 
+
+def circmean_distrib(p: np.ndarray, dim=-1, keepdim=False) -> np.ndarray:
+    """
+    Circular mean in radian.
+    p is assumed to sum to 1 along dim, and is assumed to correspond to
+    [0, 1/n, 2/n, ..., (n-1)/n] * 2 * pi radian, where n = p.shape[dim]
+    :param p:
+    :param dim: defaults to -1.
+    :return: circmean
+    """
+    n = p.shape[dim]
+    th = vec_on(np.linspace(0., 1. - 1. / n, n), dim, p.ndim)
+    c = np.cos(th * 2. * np.pi)
+    s = np.sin(th * 2. * np.pi)
+    c1 = np.sum(p * c, dim, keepdims=keepdim)
+    s1 = np.sum(p * s, dim, keepdims=keepdim)
+    return np.arctan2(s1, c1)
+
+def circvar_distrib(p: np.ndarray, dim=-1, keepdim=False) -> np.ndarray:
+    """
+    Circular variance = 1 - length of the resultant vector.
+    p is assumed to sum to 1 along dim, and is assumed to correspond to
+    [0, 1/n, 2/n, ..., (n-1)/n] * 2 * pi radian, where n = p.shape[dim]
+    :param p:
+    :param dim:
+    :return: circvar
+    """
+    n = p.shape[dim]
+    th = vec_on(np.linspace(0., 1. - 1. / n, n), dim, p.ndim)
+    c = np.cos(th * 2. * np.pi)
+    s = np.sin(th * 2. * np.pi)
+    c1 = np.sum(p * c, dim, keepdims=keepdim)
+    s1 = np.sum(p * s, dim, keepdims=keepdim)
+    return 1. - np.sqrt(c1 ** 2 + s1 ** 2)
 
 def rad2deg(rad):
     return rad / np.pi * 180.
@@ -696,8 +834,13 @@ def circdiff(angle1, angle2, maxangle=None):
 
 
 def pconc2conc(pconc: np.ndarray) -> np.ndarray:
-    pconc = np.clip(pconc, a_min=1e-6, a_max=1-1e-6)
+    # pconc = np.clip(pconc, a_min=1e-6, a_max=1-1e-6)
+    # pconc = np.clip(pconc, 0., 1.)
     return 1. / (1. - pconc) - 1.
+
+
+def conc2pconc(conc: np.ndarray) -> np.ndarray:
+    return 1. - 1. / (conc + 1.)
 
 
 def rotation_matrix(rad, dim=(-2, -1)):
@@ -734,6 +877,61 @@ def ellipse2cov(th, long_axis, short_axis) -> np.array:
     rot = rotation_matrix(th)
     cov = rot @ np.diag([long_axis, short_axis]) ** 2 @ rot.T
     return cov
+
+
+def ____GEOMETRY____():
+    pass
+
+
+def lineseg_dists(p, a, b):
+    """
+    Cartesian distance from point to line segment
+
+    Edited to support arguments as series, from:
+    https://stackoverflow.com/a/54442561/11208892
+    From: https://stackoverflow.com/a/58781995/2565317
+
+    Args:
+        - p: np.array of single point, shape (2,) or 2D array, shape (x, 2)
+        - a: np.array of shape (x, 2)
+        - b: np.array of shape (x, 2)
+    """
+    # normalized tangent vectors
+    d_ba = b - a
+    d = np.divide(d_ba, (np.hypot(d_ba[:, 0], d_ba[:, 1])
+                           .reshape(-1, 1)))
+
+    # signed parallel distance components
+    # rowwise dot products of 2D vectors
+    s = np.multiply(a - p, d).sum(axis=1)
+    t = np.multiply(p - b, d).sum(axis=1)
+
+    # clamped parallel distance
+    h = np.maximum.reduce([s, t, np.zeros(len(s))])
+
+    # perpendicular distance component
+    # rowwise cross products of 2D vectors
+    d_pa = p - a
+    c = d_pa[:, 0] * d[:, 1] - d_pa[:, 1] * d[:, 0]
+
+    return np.hypot(h, c)
+
+
+def distance_point_line(
+        point: np.ndarray,
+        line_st: np.ndarray,
+        line_en: np.ndarray) -> np.ndarray:
+    """
+    Adapted from https://stackoverflow.com/a/48137604/2565317
+    :param point: [index, (x, y)]
+    :param line_st: [index, (x, y)]
+    :param line_en: [index, (x, y)]
+    :return: distance[index]
+    """
+    d = np.cross(
+        line_en - line_st, point - line_st
+    ) / np.linalg.norm(line_en - line_st)
+    return d
 
 
 def ____TRANSFORM____():
@@ -779,6 +977,32 @@ def project(a, b, axis=None, scalar_proj=False):
         return proj
     else:
         return proj * b
+
+
+def inverse_transform(xy0: np.ndarray, xy1: np.ndarray) -> np.ndarray:
+    """
+
+    :param xy0: [(x, y), ix, iy]: original grid
+    :param xy1: [(x, y), ix, iy]: transformed grid
+    :return: xy2: [(x, y), ix, iy]: inverse-transformed original grid
+    """
+    from scipy.interpolate import griddata
+    if xy0.ndim == 3:
+        xy2 = np.stack([
+            np.stack([
+                inverse_transform(xy00, xy11)
+                for xy00, xy11 in zip(xy0[0].T, xy1[0].T)
+            ]).T,
+            np.stack([
+                inverse_transform(xy00, xy11)
+                for xy00, xy11 in zip(xy0[1], xy1[1])
+            ])
+        ])
+    elif xy0.ndim == 1:
+        xy2 = griddata(xy1, xy0, xy0, method='linear')
+    else:
+        raise ValueError()
+    return xy2
 
 
 def ____BINARY_OPS____():
@@ -834,32 +1058,41 @@ def nancrosscorr(
         fr2: np.ndarray = None,
         thres_n=2,
         fillvalue=np.nan,
-        processes=0,
+        processes=1,
 ) -> np.ndarray:
     """
     Normalized cross-correlation ignoring NaNs.
     As in Barry et al. 2007
-    :param fr1: [x, y]
-    :param fr2: [x, y]
+    :param fr1: [x, y, batch]
+    :param fr2: [x, y, batch]
     :param fillvalue:
     :param thres_n: Minimum number of non-NaN entries to compute crosscorr with.
     :param processes: >0 to run in parallel
-    :return: cc[i_dx, i_dy]
+    :return: cc[i_dx, i_dy, batch]
     """
-    assert fr1.ndim == 2
-    assert thres_n >= 2, 'to compute correlation thres_n needs to be >= 2'
     if fr2 is None:
         fr2 = fr1
-    else:
-        assert fr2.ndim == 2
 
-    fsh1 = np.array(fr1.shape)
-    fsh2 = np.array(fr2.shape)
+    is_fr1_ndim2 = fr1.ndim == 2
+    if is_fr1_ndim2:
+        fr1 = fr1[..., None]
+
+    is_fr2_ndim2 = fr2.ndim == 2
+    if is_fr2_ndim2:
+        fr2 = fr2[..., None]
+
+    assert fr1.ndim == 3
+    assert fr2.ndim == 3
+    assert thres_n >= 2, 'to compute correlation thres_n needs to be >= 2'
+
+    fsh1 = np.array(fr1.shape[:2])
+    fsh2 = np.array(fr2.shape[:2])
     # csh = fsh1 + fsh2
 
     # NOTE: pad smaller of the two to match max_shape + 2,
     #   + 2 to ensure both are padded on both sides to remove smoothing artifact
-    max_sh = np.amax(np.stack([fsh1, fsh2], axis=0), axis=0) + 2
+    max_sh0 = np.amax(np.stack([fsh1, fsh2], axis=0), axis=0)
+    max_sh = max_sh0 + 2
     # max_sh = (max_sh // 2) * 2 + 1  # enforce odd numbers so it has a center
     pad1 = max_sh - fsh1
     # pad1 = np.stack([
@@ -869,20 +1102,22 @@ def nancrosscorr(
         (int(np.floor(pad1[0] / 2)),
          int(np.ceil(pad1[0] / 2))),
         (int(np.floor(pad1[1] / 2)),
-         int(np.ceil(pad1[1] / 2)))
+         int(np.ceil(pad1[1] / 2))),
+        (0, 0)
     ], constant_values=np.nan)
     fr2 = np.pad(fr2, [
         (int(np.floor(pad2[0] / 2)),
          int(np.ceil(pad2[0] / 2))),
         (int(np.floor(pad2[1] / 2)),
-         int(np.ceil(pad2[1] / 2)))
+         int(np.ceil(pad2[1] / 2))),
+        (0, 0)
     ], constant_values=np.nan)
 
-    csh = max_sh * 2
-    cc = np.zeros(csh) + fillvalue
+    csh = max_sh0 * 2
+    cc = np.zeros(tuple(csh) + fr1.shape[2:]) + fillvalue
     # fsh = np.amin(np.stack([fsh1, fsh2], axis=0), axis=0)
     # fsh = np.ceil(max_sh / 2).astype(int)
-    fsh = max_sh
+    fsh = max_sh0
 
     pool = Pool(processes=processes)
     # if processes > 0:
@@ -905,12 +1140,29 @@ def nancrosscorr(
     # if processes > 0:
     #     pool.close()
 
+    if is_fr1_ndim2 and is_fr2_ndim2:
+        assert cc.shape[-1] == 1
+        cc = cc[..., 0]
+
     return cc
 
 
 def _ccorrs_given_dx(inp):
+    """
+
+    :param inp: dx, csh, fillvalue, fr1, fr2, fsh, thres_n
+        dx: int
+        csh: [(x, y)] shape of the results (cross correlation)
+        fillvalue: what to fill when the number of bins < thres_n
+        fr1: [x, y, batch]
+        fr2: [x, y, batch]
+        fsh: [(x, y)]
+        thres_n: min number of bins required
+    :return: cross_correlation[x, y]
+    """
     dx, csh, fillvalue, fr1, fr2, fsh, thres_n = inp
-    cc0 = np.zeros(csh[1]) + fillvalue
+    n_batch = fr1.shape[-1]
+    cc0 = np.zeros([csh[1], n_batch]) + fillvalue
     if dx == 0:
         f1 = fr1
         f2 = fr2
@@ -931,15 +1183,62 @@ def _ccorrs_given_dx(inp):
             g1 = f1[:, :dy]
             g2 = f2[:, -dy:]
 
-        g1 = g1.flatten()
-        g2 = g2.flatten()
+        # g1 = g1.flatten()
+        # g2 = g2.flatten()
+        g1 = g1.reshape([np.prod(g1.shape[:2]), -1])
+        g2 = g2.reshape([np.prod(g2.shape[:2]), -1])
 
-        incl = ~np.isnan(g1) & ~np.isnan(g2)
+        incl = np.all(~np.isnan(g1), -1) & np.all(~np.isnan(g2), -1)
         if np.sum(incl) >= thres_n:
-            cc0[dy + fsh[1]] = stats.pearsonr(g1[incl], g2[incl])[0]
+            # cc0[dy + fsh[1]] = stats.pearsonr(g1[incl], g2[incl])[0]
+            cc0[dy + fsh[1]] = pearsonr(g1[incl].T, g2[incl].T)
 
         # return cc0
     return cc0
+
+
+def pearsonr(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """
+    Same as scipy.stats.pearsonr, but works along dim=-1, w/o checks or pvalue.
+    :param a:
+    :param b:
+    :param dim:
+    :return:
+    """
+    xmean = x.mean(axis=-1, keepdims=True)
+    ymean = y.mean(axis=-1, keepdims=True)
+
+    xm = x - xmean
+    ym = y - ymean
+
+    from scipy import linalg
+    # Unlike np.linalg.norm or the expression sqrt((xm*xm).sum()),
+    # scipy.linalg.norm(xm) does not overflow if xm is, for example,
+    # [-5e210, 5e210, 3e200, -3e200]
+    normxm = linalg.norm(xm, axis=-1, keepdims=True)
+    normym = linalg.norm(ym, axis=-1, keepdims=True)
+
+    threshold = 1e-13
+    import warnings
+    from scipy.stats import PearsonRNearConstantInputWarning
+    if (
+        np.any(normxm < threshold * np.abs(xmean)) or
+        np.any(normym < threshold * np.abs(ymean))
+    ):
+        # If all the values in x (likewise y) are very close to the mean,
+        # the loss of precision that occurs in the subtraction xm = x - xmean
+        # might result in large errors in r.
+        warnings.warn(PearsonRNearConstantInputWarning())
+
+    # YK: Assume dot product along the last dim;
+    #   the preceding dims are considered batch
+    r = ((xm / normxm) * (ym / normym)).sum(-1)
+    # r = np.dot(xm / normxm, ym / normym)
+
+    # Presumably, if abs(r) > 1, then it is only some small artifact of
+    # floating point arithmetic.
+    r = np.clip(r, -1., 1.)
+    return r
 
 
 def ____MULTIPROCESSING____():
@@ -953,26 +1252,42 @@ class PoolParallel(Pool0):
 
 
 class PoolSim:
-    def map(self, *args, **kwargs):
-        return list(map(*args, **kwargs))
+    def map(self, fun, iter, chunksize=1, **kwargs):
+        # ignore chunksize
+        return list(map(fun, iter, **kwargs))
+
+    def starmap(self, fun, iter, chunksize=1, **kwargs):
+        # ignore chunksize
+        from itertools import starmap
+        return list(starmap(fun, iter, **kwargs))
 
     def close(self):
         pass
 
 
-def Pool(processes=None, *args, **kwargs):
+def Pool(
+        processes=None, *args, **kwargs
+):
+    """
+
+    :param processes: When < 1, use n_processors + processes.
+        When 1, do not use multiprocessing (only simulate).
+    :param args:
+    :param kwargs:
+    :return:
+    """
     import multiprocessing
     n_processors = multiprocessing.cpu_count()
 
     if processes is None:
         processes = n_processors
-    elif processes < 0:
+    elif processes < 1:
         processes = n_processors + processes
     elif (0 < processes) and (processes < 1):
         processes = int(np.clip(n_processors * processes,
                                 a_min=1, a_max=n_processors))
 
-    if processes == 0:
+    if processes == 1:
         return PoolSim()
     else:
         return PoolParallel(processes=processes, *args, **kwargs)
@@ -982,14 +1297,35 @@ def fun_deal(f, inp):
     return f(*inp)
 
 
-def arrayobj1d(inp: Iterable):
+def arrayobj1d(inp: Iterable, copy=False):
     """
     Return a 1D np.ndarray of dtype=np.object.
     Different from np.array(inp, dtype=np.object) because the latter may
     return a multidimensional array, which gets flattened when fed to
     np.meshgrid, unlike the output from this function.
     """
-    return np.array([None] + list(inp), dtype=np.object)[1:]
+    return np.array([None] + list(inp), dtype=np.object, copy=copy)[1:]
+
+
+def scalararray(inp) -> np.ndarray:
+    """
+    Return a scalar np.ndarray of dtype=np.object.
+    :param inp:
+    :return:
+    """
+    return np.array([None, inp], dtype=np.object)[[1]].reshape([])
+
+
+def meshgridflat(*args, copy=False):
+    """
+    flatten outputs from meshgrid, for use with np.vectorize()
+    :param args:
+    :param copy: whether to copy during meshgrid
+    :return:
+    """
+    outputs = np.meshgrid(*args, indexing='ij', copy=copy)  # type: Iterable[np.ndarray]
+    outputs = [v.flatten() for v in outputs]
+    return outputs
 
 
 def vectorize_par(f: Callable, inputs: Iterable,
@@ -1015,7 +1351,9 @@ def vectorize_par(f: Callable, inputs: Iterable,
         will give an output of
     :param pool: a Pool object. If None (default), one will be created.
     :param processes: Number of parallel processes.
+        If 1, use PoolSim, which does not use multiprocessing.
         If None (default), set to the number of CPU cores.
+        If < 1, use n_processors + processes.
         Ignored if pool is given.
     :param chunksize: Giving an integer larger than 1 may boost efficiency.
     :param nout: If unspecified, set to the length of the first output from
@@ -1026,6 +1364,7 @@ def vectorize_par(f: Callable, inputs: Iterable,
         arguments to f.
         If False, an iterable containing all inputs is given as one argument
         to f.
+        Ignored if processes=1 and multiprocessing is not used.
     :return: (iterable of) outputs from f.
     """
     inputs = [inp if (isinstance(inp, np.ndarray) and type(inp[0]) is np.object)
@@ -1041,6 +1380,9 @@ def vectorize_par(f: Callable, inputs: Iterable,
     if pool is None:
         pool = Pool(processes=processes)  # type: PoolParallel
 
+    # if processes == 0:
+    #     use_starmap = False
+
     if chunksize is None:
         # NOTE: this doesn't seem to work well, unlike chunksize=1.
         #   Need further experiment.
@@ -1055,25 +1397,39 @@ def vectorize_par(f: Callable, inputs: Iterable,
         outs = pool.map(f, m, chunksize=chunksize)
 
     if nout is None:
-        nout = len(outs[0]) if is_iter(outs[0]) else 1
+        try:
+            nout = len(outs[0])
+        except TypeError:
+            nout = 1
 
     if otypes is None:
         otypes = [np.object] * nout
-    elif not is_sequence(otypes):
-        otypes = [otypes]
+    elif not is_sequence(type(otypes)):
+        otypes = [otypes] * nout
 
     # NOTE: deliberately keeping outs, outs1, and outs2 for debugging.
     #  After confirming everything works well, rename all to "outs"
     #  to save memory.
+    # DEF: outs1[argout][i_input_flattened]
     if nout > 1:
         outs1 = zip(*outs)
-        outs3 = [arrayobj1d(out).reshape(lengths) for out in outs1]
-        outs2 = [cell2mat(out, otype) if otype is not np.object
-                 else out
-                 for out, otype in zip(outs3, otypes)]
     else:
-        outs2 = np.array(outs, dtype=otypes[0]).reshape(lengths)
-    return outs2
+        if use_starmap:
+            outs1 = [outs]
+        else:
+            # Reverse the action of map() putting each output in a list
+            outs1 = [[out1[0] for out1 in outs]]
+
+    # --- outs2: reshape to inputs' dimensions
+    # DEF: outs2[argout][i_input1, i_input2, ...]
+    outs2 = [arrayobj1d(out).reshape(lengths) for out in outs1]
+
+    # --- outs3: set to a correct otype
+    # DEF: outs3[argout][i_input1, i_input2, ...]
+    outs3 = [cell2mat(out, otype) if otype is not np.object
+             else out
+             for out, otype in zip(outs2, otypes)]
+    return outs3
 
 
 def demo_vectorize_par():
@@ -1275,6 +1631,52 @@ def ____STRING____():
     pass
 
 
+def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
+    """
+
+    :param s: string
+    :param src_dst: [(src1, dst1), (src2, dst2), ...]
+    :return: string with srcX replaced with dstX
+    """
+    for src, dst in src_dst:
+        s = s.replace(src, dst)
+    return s
+
+
+def shorten_dict(d: dict, src_dst=()):
+    return {k: shorten(v, src_dst) for k, v in d.items()}
+
+
+def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[str, None]:
+    """
+
+    :param v: string, Iterable[Number], or Number
+    :param src_dst: [(src1, dst1), (src2, dst2), ...]
+    :return: string with srcX replaced with dstX, or printed '%g,%g,...'
+    """
+    if isinstance(v, str):
+        return replace(v, src_dst)
+    elif isinstance(v, bool):
+        return '%d' % int(v)
+    elif is_iter(v):
+        try:
+            v = list(npy(v))
+            if isinstance(v[0], str):
+                return '%s' % (','.join([
+                    ('%s' % shorten(v1, src_dst))
+                    for v1 in v]))
+            else:
+                return '%s' % (','.join([
+                    ('%s' % shorten(v1, src_dst))
+                    for v1 in npy(v).flatten()]))
+        except TypeError:
+            return '%g' % v
+    elif v is None:
+        return None
+    else:
+        return '%g' % v
+
+
 def filt_str(s, filt_preset='alphanumeric', replace_with='_'):
     import re
 
@@ -1283,3 +1685,6 @@ def filt_str(s, filt_preset='alphanumeric', replace_with='_'):
     else:
         raise ValueError()
     return re.sub(f, replace_with, s)
+
+
+make_alphanumeric = filt_str

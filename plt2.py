@@ -7,19 +7,20 @@ Created on Tue Feb 13 10:42:06 2018
 """
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
-
-from typing import Union, List, Iterable, Callable, Sequence, Mapping, Tuple
+import os
+from typing import List, Callable, Sequence, Mapping, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib import patches
 from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
-from copy import deepcopy, copy
+from copy import copy
 
 import numpy_groupies as npg
 
 from . import np2
+from .cacheutil import mkdir4file
 
 
 def ____Subplots____():
@@ -50,10 +51,10 @@ class GridAxes:
                  nrows=1, ncols=1,
                  left=0.5, right=0.1,
                  bottom=0.5, top=0.5,
-                 wspace: Union[float, Iterable[float]] = 0.25,
-                 hspace: Union[float, Iterable[float]] = 0.25,
-                 widths: Union[float, Iterable[float]] = 1.,
-                 heights: Union[float, Iterable[float]] = 0.75,
+                 wspace: Union[float, Sequence[float]] = 0.25,
+                 hspace: Union[float, Sequence[float]] = 0.25,
+                 widths: Union[float, Sequence[float]] = 1.,
+                 heights: Union[float, Sequence[float]] = 0.75,
                  kw_fig=(),
                  close_on_del=True,
                  ):
@@ -87,6 +88,16 @@ class GridAxes:
         :param kw_fig:
         :return: axs[row, col] = plt.Axes
         """
+        # truncate if too long for convenience
+        wspace, hspace, widths, heights = [
+            v[:l] if np2.is_sequence(v) and len(v) > l else v
+            for v, l in [
+                (wspace, ncols - 1),
+                (hspace, nrows - 1),
+                (widths, ncols),
+                (heights, nrows)
+            ]
+        ]
 
         wspace = np.zeros([ncols - 1]) + wspace
         hspace = np.zeros([nrows - 1]) + hspace
@@ -290,7 +301,6 @@ def rowtitle(row_titles, axes, pad=5, ha='right', **kwargs):
     :return: n_rows array of row title handles
     adapted from: https://stackoverflow.com/a/25814386/2565317
     """
-    from matplotlib.transforms import offset_copy
 
     labels = []
     for ax, row in zip(axes[:, 0], row_titles):
@@ -301,13 +311,13 @@ def rowtitle(row_titles, axes, pad=5, ha='right', **kwargs):
             size='large', ha=ha, va='center', **kwargs)
         labels.append(label)
 
-    fig = axes[0,0].get_figure()
-    fig.tight_layout()
+    # fig = axes[0,0].get_figure()
+    # fig.tight_layout()
 
-    # tight_layout doesn't take these labels into account. We'll need
-    # to make some room. These numbers are are manually tweaked.
-    # You could automatically calculate them, but it's a pain.
-    fig.subplots_adjust(left=0.15, top=0.95)
+    # # tight_layout doesn't take these labels into account. We'll need
+    # # to make some room. These numbers are are manually tweaked.
+    # # You could automatically calculate them, but it's a pain.
+    # fig.subplots_adjust(left=0.15, top=0.95)
 
     return np.array(labels)
 
@@ -315,23 +325,45 @@ def ____Axes_Limits____():
     pass
 
 
-def break_axis(amin, amax=None, xy='x', ax=None, fun_draw=None):
+def lim_margin(v, xy='y', margin=0.05, ax=None):
+    try:
+        _ = margin[1]
+    except TypeError:
+        margin = [margin, margin]
+    try:
+        _ = margin[1]
+    except IndexError:
+        margin = list(margin) * 2
+    vmax = np.amax(v)
+    vmin = np.amin(v)
+    v_range = vmax - vmin
+    amin = vmin - v_range * margin[0]
+    amax = vmax + v_range * margin[0]
+    if ax is None:
+        ax = plt.gca()
+    if xy == 'x':
+        ax.set_xlim([amin, amax])
+    elif xy == 'y':
+        ax.set_ylim([amin, amax])
+    else:
+        raise ValueError()
+    return amin, amax
+
+
+def break_axis(
+        amin, amax=None, xy='x', ax: plt.Axes = None,
+        fun_draw: Callable = None,
+        margin=0.05,
+) -> (plt.Axes, plt.Axes):
     """
-    @param amin: data coordinate to start breaking from
-    @type amin: Union[float, int]
-    @param amax: data coordinate to end breaking at
-    @type amax: Union[float, int]
-    @param xy: 'x' or 'y'
-    @type ax: plt.Axes
-    @param fun_draw: if not None, fun_draw(ax1) and fun_draw(ax2) will
+    :param amin: data coordinate to start breaking from
+    :param amax: data coordinate to end breaking at
+    :param xy: 'x' or 'y'
+    :param fun_draw: if not None, fun_draw(ax1) and fun_draw(ax2) will
     be run to recreate ax. Use the same function as that was called for
     with ax. Use, e.g., fun_draw=lambda ax: ax.plot(x, y)
-    @type fun_draw: function
-    @return: axs: a list of axes created
-    @rtype: List[plt.Axes, plt.Axes]
+    :return: axs: a list of axes created
     """
-    from copy import copy
-    from matplotlib.transforms import Bbox
 
     if amax is None:
         amax = amin
@@ -339,7 +371,6 @@ def break_axis(amin, amax=None, xy='x', ax=None, fun_draw=None):
     if ax is None:
         ax = plt.gca()
 
-    axs = []
     if xy == 'x':
         rect = ax.get_position().bounds
         lim = ax.get_xlim()
@@ -381,7 +412,46 @@ def break_axis(amin, amax=None, xy='x', ax=None, fun_draw=None):
         axs = [ax1, ax2]
 
     elif xy == 'y':
-        raise NotImplementedError()
+        rect = ax.get_position().bounds
+        lim = ax.get_ylim()
+        prop_all = ((amin - lim[0]) + (lim[1] - amax)) / (1 - margin)
+        prop_min = (amin - lim[0]) / prop_all
+        prop_max = (lim[1] - amax) / prop_all
+        rect1 = np.array([
+            rect[0],
+            rect[1],
+            rect[2],
+            rect[3] * prop_min
+        ])
+        rect2 = [
+            rect[0],
+            rect[1] + rect[3] * (1 - prop_max),
+            rect[2],
+            rect[3] * (1 - prop_max)
+        ]
+
+        fig = ax.figure  # type: plt.Figure
+        ax1 = fig.add_axes(plt.Axes(fig=fig, rect=rect1))
+        ax1.update_from(ax)
+        if fun_draw is not None:
+            fun_draw(ax1)
+        ax1.set_yticks(ax.get_yticks())
+        ax1.set_ylim(lim[0], amin)
+        ax1.spines['top'].set_visible(False)
+
+        ax2 = fig.add_axes(plt.Axes(fig=fig, rect=rect2))
+        ax2.update_from(ax)
+        if fun_draw is not None:
+            fun_draw(ax2)
+        ax2.set_yticks(ax.get_yticks())
+        ax2.set_ylim(amax, lim[1])
+        ax2.spines['bottom'].set_visible(False)
+        ax2.set_xticks([])
+
+        ax.set_visible(False)
+        # plt.show()  # CHECKED
+        axs = [ax1, ax2]
+
     else:
         raise ValueError()
 
@@ -459,16 +529,41 @@ def same_clim(images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
             im = ax.findobj(mpl.image.AxesImage)
             images += im
 
+    if len(images) == 0:
+        return
+
     if clim is None:
         if img0 is None:
-            clims = np.array([im.get_clim() for im in images])
-            clim = [np.amin(clims[:,0]), np.amax(clims[:,1])]
+            # # DEBUGGED: just using array min and max ignores existing
+            # #  non-None clims
+            # arrays = np.concatenate([
+            #     im.get_array().flatten() for im in images], 0)
+            # clim = [np.amin(arrays), np.amax(arrays)]
+
+            # # DEBUGGED: np.amax(clims) doesn't work when either clim is None.
+            clims = np.array([im.get_clim() for im in images], dtype=np.object)
+            def fun_or_val(fun, v, im):
+                if v is not None:
+                    return v
+                else:
+                    a = im.get_array()
+                    if a.size > 0:
+                        return fun(a)
+                    else:
+                        return np.nan
+            clims[:, 0] = [fun_or_val(np.nanmin, v, im)
+                           for v, im in zip(clims[:, 0], images)]
+            clims[:, 1] = [fun_or_val(np.nanmax, v, im)
+                           for v, im in zip(clims[:, 1], images)]
+            clims = clims.astype(float)
+            clim = [np.nanmin(clims[:,0]), np.nanmax(clims[:,1])]
         else:
             if isinstance(img0, plt.Axes):
                 img0 = img0.findobj(mpl.image.AxesImage)
             clim = img0.get_clim()
     for img in images:
         img.set_clim(clim)
+    return clim
 
 
 def lim_symmetric(xy='y', lim=None, ax=None):
@@ -570,8 +665,8 @@ def box_off(remove_spines: Union[str, Iterable[str]] = ('right', 'top'),
         ax = plt.gca()  # plt.Axes
     if remove_spines == 'all':
         remove_spines = ['left', 'right', 'top', 'bottom']
-        ax.set_xticks([])
-        ax.set_yticks([])
+        # ax.set_xticks([])
+        # ax.set_yticks([])
 
     if 'left' in remove_spines:
         ax.tick_params(axis='y', length=0)
@@ -604,8 +699,7 @@ def ticks(ax=None, xy='y',
           major=True,
           interval=None, format=None, length=None, **kwargs):
 
-    from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
-                                   AutoMinorLocator, NullFormatter)
+    from matplotlib.ticker import (MultipleLocator, FormatStrFormatter)
 
     if ax is None:
         ax = plt.gca()
@@ -643,13 +737,13 @@ def ticks(ax=None, xy='y',
         axis.tick_params(which='major' if major else 'minor', **kwargs)
 
 
-def hide_ticklabels(xy='xy', ax=None):
+def hide_ticklabels(xy='xy', ax=None, to_hide=True):
     if ax is None:
         ax = plt.gca()
     if 'x' in xy:
-        plt.setp(ax.get_xticklabels(), visible=False)
+        plt.setp(ax.get_xticklabels(), visible=not to_hide)
     if 'y' in xy:
-        plt.setp(ax.get_yticklabels(), visible=False)
+        plt.setp(ax.get_yticklabels(), visible=not to_hide)
 
 
 def tick_color(xy, ticks, labels, colors):
@@ -963,6 +1057,7 @@ def colorbar(
         loc='right',
         width='5%', height='100%',
         borderpad=-1,
+        label='',
         kw_inset=(),
         kw_cbar=(),
 ) -> mpl.colorbar.Colorbar:
@@ -995,7 +1090,7 @@ def colorbar(
     )
     cb = fig.colorbar(
         mappable, cax=axins,
-        **dict(kw_cbar)
+        **{'label': label, **dict(kw_cbar)}
     )
     return cb
 
@@ -1154,6 +1249,15 @@ def bar_group(y: np.ndarray, yerr: np.ndarray = None,
 
 
 def errorbar_shade(x, y, yerr=None, **kw):
+    """
+
+    :param x:
+    :param y:
+    :param yerr: as in plt.errorbar.
+        If 2D,  yerr[0,:] = err_low, yerr[1,:] = err_high
+    :param kw:
+    :return:
+    """
     if yerr is None:
         y1 = y[0,:]
         y2 = y[1,:]
@@ -1162,9 +1266,7 @@ def errorbar_shade(x, y, yerr=None, **kw):
             yerr = np.concatenate([-yerr[np.newaxis,:],
                                    yerr[np.newaxis,:]], axis=0)
         elif yerr.ndim == 2:
-            # assume yerr[0,:] = err_low, yerr[1,:] = err_high
-            # (both positive), as in plt.errorbar
-            raise NotImplementedError()
+            pass
 
         else:
             raise ValueError()
@@ -1198,9 +1300,12 @@ def ____Stats_Probability____():
     pass
 
 def ecdf(x0, *args, **kw):
-    p, x = np2.ecdf(x0)
-    return plt.step(np.concatenate([x[:1], x], 0),
-                    np.concatenate([np.array([0.]), p], 0),
+    n = len(x0)
+    p = np.linspace(0, 1, n + 1)[:-1]
+    x = np.sort(x0)
+    return plt.step(np.concatenate([x[:1], x, x[-1:]], 0),
+                    np.concatenate([np.array([0.]), p, np.array([1.])
+                                    ], 0),
                     *args, **kw)
 
 def ____Gaussian____():
@@ -1299,7 +1404,7 @@ def arrays2gif(arrays, file='ani.gif', duration=100, loop=0,
     :param loop: 0 to loop forever, None not to loop
     :rtype: Iterable[PIL.Image]
     """
-    from PIL import Image, ImageDraw
+    from PIL import Image
 
     height, width, n_channel = arrays[0].shape
     images = []
@@ -1391,3 +1496,207 @@ class Animator:
             files = files[1:]
 
         return files
+
+
+def subfigs(
+        files: Union[Sequence, np.ndarray], file_out: str,
+        width_document=None,
+        width_column='2cm',
+        hspace='0pt',
+        ncol: int = None,
+        clean_tex=True,
+        caption=None,
+        subcaptions: Union[Sequence, np.ndarray] = None,
+        caption_on_top=False,
+        subcaption_on_top=None,
+):
+    """
+
+    :param files: 1D or 2D array of strings. Path relative to file_out.
+    :param file_out:
+    :param width_document:
+    :param width_column:
+    :param hspace: space between rows
+    :param ncol: defaults to files.shape[1] if it is an array;
+        makes the array close to square otherwise
+    :param clean_tex: delete intermediate files
+    :param caption: caption for the whole array of subfigures
+    :param subcaptions: caption under each subfig
+    :param caption_on_top:
+    :param subcaption_on_top: defaults to caption_on_top
+    :return:
+    """
+    if not isinstance(files, np.ndarray):
+        files = np.array(files)
+    if ncol is None:
+        if files.ndim == 1:
+            ncol = int(np.floor(np.sqrt(files.size)))
+        else:
+            assert files.ndim == 2
+            ncol = files.shape[1]
+    files = reshape_ragged(files, ncol)
+    if subcaptions is not None:
+        subcaptions = np.array(subcaptions)
+        if subcaptions.ndim == 1:
+            reshape_ragged(subcaptions, files.shape[1])
+        else:
+            assert files.shape == subcaptions.shape
+    if width_document is None:
+        width_document = 'varwidth=%dcm' % (int(width_column[0]) * ncol)
+    if subcaption_on_top is None:
+        subcaption_on_top = caption_on_top
+
+    # rename files to simple names
+    import os, shutil, hashlib
+    temp_name = hashlib.md5(file_out.encode('utf-8')).hexdigest()
+
+    temp_dir_rel = '_temp_subfig' + temp_name
+    temp_dir_abs = os.path.join(os.path.dirname(file_out), temp_dir_rel)
+    mkdir4file(os.path.join(temp_dir_abs, 'temp'))
+    files_rel = np.empty_like(files)
+    files_abs = np.empty_like(files)
+    for row in range(files.shape[0]):
+        for col in range(files.shape[1]):
+            file0 = files[row, col]
+            if file0 is None:
+                files_rel[row, col] = None
+                files_abs[row, col] = None
+                continue
+            file_name1 = 'row%dcol%d%s' % (row, col, os.path.splitext(file0)[1])
+            files_rel[row, col] = os.path.join(temp_dir_rel, file_name1)
+            files_abs[row, col] = os.path.join(temp_dir_abs, file_name1)
+            shutil.copy(file0, files_abs[row, col])
+
+    import pandas as pd
+    df = pd.DataFrame(files)
+    file_csv = os.path.splitext(file_out)[0] + '.csv'
+    df.to_csv(file_csv)
+    print('Saved original paths to %s' % file_csv)
+
+    import pylatex as ltx
+    doc = ltx.Document(
+        documentclass=['standalone'],
+        document_options=[
+            width_document,
+            'border=0pt'
+        ],
+    )
+    doc.packages.append(ltx.Package('subcaption'))
+    doc.packages.append(ltx.Package(
+        'caption', [
+            'labelformat=parens',
+            'labelsep=quad',
+            'justification=centering',
+            'font=scriptsize',
+            'labelfont=sf',
+            'textfont=sf',
+        ]))
+    doc.packages.append(ltx.Package('graphicx'))
+    doc.append(ltx.Command('setlength', [
+        ltx.Command('abovecaptionskip'), '0pt']))
+    doc.append( ltx.Command('setlength', [
+        ltx.Command('belowcaptionskip'), '0pt']))
+    with doc.create(ltx.Figure()) as fig:
+        if caption_on_top and caption is not None:
+            fig.add_caption(caption)
+        for row in range(files_rel.shape[0]):
+            for col in range(files_rel.shape[1]):
+                file = files_rel[row, col]
+                if file is None:
+                    continue
+                with doc.create(ltx.SubFigure(width_column)
+                                ) as subfig:
+                    doc.append(ltx.Command('centering'))
+                    if subcaption_on_top and subcaptions is not None:
+                        subfig.add_caption(subcaptions[row, col])
+                    subfig.add_image(file, width=width_column)
+                    if (not subcaption_on_top) and subcaptions is not None:
+                        subfig.add_caption(subcaptions[row, col])
+                    doc.append(ltx.VerticalSpace(hspace))
+            doc.append(ltx.NewLine())
+        if (not caption_on_top) and caption is not None:
+            fig.add_caption(caption)
+    mkdir4file(file_out)
+    if file_out.lower().endswith('.pdf'):
+        file_out = file_out[:-4]
+    doc.generate_pdf(file_out, clean_tex=clean_tex)
+
+    from send2trash import send2trash
+    for row in range(files_abs.shape[0]):
+        for col in range(files_abs.shape[1]):
+            file0 = files[row, col]
+            file1 = files_abs[row, col]
+            if file1 is not None and file0 != file1:
+                send2trash(file1)
+    os.rmdir(temp_dir_abs)
+
+
+pdfs2subfigs = subfigs  # alias for backward compatibility
+
+
+def reshape_ragged(v, ncol):
+    return np.r_[
+        v.flatten(),
+        [None] * (int(np.ceil(v.size / ncol)) * ncol - v.size)
+    ].reshape([-1, ncol])
+
+
+def subfigs_from_template(
+        file_out: str, template: str,
+        srcs: Iterable[str],
+        dstss: Iterable[Union[
+            Mapping[Tuple[int, int], str],
+            np.ndarray
+        ]],
+        caption='',
+        caption_on_top=True,
+        subcaptions: Union[None, str, np.ndarray] = 'auto',
+        **kwargs) -> None:
+    """
+
+    :param file_out: output file
+    :param template: path relative to the output file
+    :param srcs: [pair] = src_pair
+    :param dstss: [pair][row, col] = dst_pair
+    :param caption: title on top
+    :param caption_on_top:
+    :param subcaptions: defaults to combination of destination strings. In the
+        example, these are 'row0; col0', etc.
+        Give subcaptions[row, col] = 'subcaption_row_col' to set manually.
+        Give None to omit.
+
+    EXAMPLE:
+    subfigs_from_template(
+        'out.pdf',
+        'input_row0_col1.png',
+        ['row0', 'col1'],
+        [
+            np.array([
+                ['row0'],
+                ['row1']
+            ]),
+            np.array([
+                ['col0', 'col1']
+            ])
+        ]
+    )
+    """
+    files = np.vectorize(
+        lambda *dsts:
+            np2.replace(template, [
+                (src, dst) for src, dst in zip(srcs, dsts)
+            ])
+    )(*dstss)
+
+    if isinstance(subcaptions, str) and subcaptions == 'auto':
+        subcaptions = np.vectorize(
+            lambda *args: '; '.join(args)
+        )(*dstss)
+
+    subfigs(
+        files, file_out,
+        caption=caption,
+        caption_on_top=caption_on_top,
+        subcaptions=subcaptions,
+        **kwargs
+    )

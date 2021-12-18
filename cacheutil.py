@@ -40,8 +40,8 @@ val1, val2 = cache.getvalue([subkey1, subkey2])
 import os
 from . import zipPickle
 from collections import OrderedDict as odict
-from .argsutil import dict2fname, kwdef, fullpath2hash
-from typing import List
+from .argsutil import dict2fname, fname2title, kwdef, fullpath2hash
+from typing import List, Union
 
 ignore_cache = False
 ignored_once = []
@@ -102,8 +102,8 @@ class Cache(object):
     See example_cache_custom_file()
     """
     def __init__(self, fullpath='cache.zpkl', key=None, verbose=True,
-                 ignore_key=False, hash_fname=False,
-                 save_to_cpu=True
+                 ignore_key=False, hash_fname=None,
+                 save_to_cpu=True, max_len_fname=255
                  ):
         """
         :param fullpath: use cacheutil.dict2fname(dict) for human-readable
@@ -112,6 +112,9 @@ class Cache(object):
         :param verbose: bool.
         :param ignore_key: bool.
         """
+        if hash_fname is None:
+            _, fname = os.path.split(fullpath)
+            hash_fname = len(fname) > max_len_fname
         if hash_fname:
             self.fullpath_orig = fullpath
             self.fullpath = fullpath2hash(fullpath)
@@ -121,18 +124,49 @@ class Cache(object):
         self.verbose = verbose
         self.save_to_cpu = save_to_cpu
 
-        self.dict = {}
+        self._dict = None
         self.to_save = False
         if key is None:
             self.key = None
         else:
             self.key = self.format_key(key)
         self.ignore_key = ignore_key
-        if os.path.exists(self.fullpath):
-            if ignore_cache and self.fullpath not in ignored_once:
-                ignored_once.append(self.fullpath)
+
+        # # UNUSED in favor of lazy loading
+        # self.dict = {}
+        # if os.path.exists(self.fullpath):
+        #     if ignore_cache and self.fullpath not in ignored_once:
+        #         ignored_once.append(self.fullpath)
+        #     else:
+        #         self.dict = zipPickle.load(self.fullpath)
+
+    @property
+    def dict(self):
+        if self._dict is None:
+            if os.path.exists(self.fullpath):
+                if ignore_cache and self.fullpath not in ignored_once:
+                    ignored_once.append(self.fullpath)
+                    self._dict = {}
+                else:
+                    self._dict = zipPickle.load(self.fullpath)
             else:
-                self.dict = zipPickle.load(self.fullpath)
+                self._dict = {}
+        return self._dict
+
+    @dict.setter
+    def dict(self, v):
+        self._dict = v
+
+    def keys(self):
+        return [k for k in self.dict.keys() if not k.startswith('_')]
+
+    @property
+    def fname_orig(self):
+        return os.path.splitext(os.path.split(self.fullpath_orig)[1])[0]
+
+    @property
+    def fname(self):
+        return os.path.splitext(os.path.split(self.fullpath)[1])[0]
 
     def __enter__(self):
         return self
@@ -161,7 +195,7 @@ class Cache(object):
         :rtype: bool
         """
         if self.ignore_key:
-            return self.dict.__len__() > 0
+            return len(self.keys()) > 0
         if key is None:
             key = self.key
         r = self.format_key(key) in self.dict
@@ -188,7 +222,12 @@ class Cache(object):
         :rtype: Any
         """
         if self.ignore_key:
-            key = list(self.dict.keys())[0]
+            if len(self.keys()) == 0:
+                key = None
+            else:
+                keys = self.keys()
+                assert len(keys) == 1, 'multiple keys exist - cannot ignore!'
+                key = keys[0]
         elif key is None:
             key = self.key
         if self.verbose and self.exists(key):
@@ -231,7 +270,8 @@ class Cache(object):
     def ____DICT_INTERFACE____(self):
         pass
 
-    def getdict(self, subkeys: List = None, key=None, load_gpu=False):
+    def getdict(self, subkeys: Union[str, List] = None,
+                key=None, load_gpu=False):
         """
         Return a tuple of values corresponding to subkeys from default key.
         Assumes that self.dict[key] is itself a dict.
@@ -262,10 +302,7 @@ class Cache(object):
         pass
 
     def save(self):
-        pth = os.path.dirname(self.fullpath)
-        if not os.path.exists(pth) and pth != '':
-            os.mkdir(pth)
-
+        mkdir4file(self.fullpath)
         self.dict['_fullpath_orig'] = self.fullpath_orig
 
         if self.save_to_cpu:
