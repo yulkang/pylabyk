@@ -599,6 +599,12 @@ def ____INDICES____():
     pass
 
 
+def assign_inplace(v0: torch.Tensor, incl: torch.BoolTensor, default=0.):
+    v = torch.zeros_like(v0) + default
+    v[incl] = v0[incl]
+    return v
+
+
 def unravel_index(v, shape, **kwargs):
     """
     For now, just use np.unravel_index()
