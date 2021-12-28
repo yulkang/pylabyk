@@ -25,7 +25,7 @@ from torch.utils.tensorboard import SummaryWriter
 from pytorchobjective.obj_torch import PyTorchObjective
 
 from . import numpytorch as npt, plt2
-from .numpytorch import npy, freeze
+from .numpytorch import npy
 from .cacheutil import mkdir4file
 
 default_device = torch.device('cpu')  # CHECKING
@@ -158,7 +158,7 @@ class OverriddenParameter(nn.Module):
 
 class BoundedParameter(OverriddenParameter):
     def __init__(self, data, lb=0., ub=1., skip_loading_lbub=False,
-                 requires_grad=True, randomize=False,
+                 requires_grad=True, randomize=False, # name=None,
                  **kwargs):
         """
 
@@ -188,8 +188,11 @@ class BoundedParameter(OverriddenParameter):
         self.shape = data.shape
         self.update_is_fixed()
 
-        self._param = nn.Parameter(self.data2param(data),
-                                   requires_grad=requires_grad)
+        self._param = nn.Parameter(
+            self.data2param(data),
+            requires_grad=requires_grad,
+            # name=name
+        )
         if self._param.ndim == 0:
             raise Warning('Use ndim>0 to allow consistent use of [:]. '
                           'If ndim=0, use paramname.v to access the '
@@ -579,6 +582,8 @@ class BoundedModule(nn.Module):
 
     def __setattr__(self, item, value):
         # if isinstance(value, OverriddenParameter):
+        #     self.add_module(item, value)
+        #     return
         #     super().__setattr__(item, value)
         #     return
 
@@ -856,8 +861,18 @@ class BoundedModule(nn.Module):
 
     def freeze_(self):
         """Freeze all parameters (set requires_grad=False)"""
-        freeze(self)
+        raise DeprecationWarning('use set_requires_grad(False) instead!')
+        self.set_requires_grad(False)
         return self
+
+    def unfreeze_(self):
+        """Unfreeze all parameters (set requires_grad=True)"""
+        raise DeprecationWarning('use set_requires_grad(True) instead!')
+        self.set_requires_grad(True)
+        return self
+
+    def set_requires_grad_(self, requires_grad: bool):
+        npt.set_requires_grad(self, requires_grad)
 
 
 def enforce_float_tensor(v: Union[torch.Tensor, np.ndarray], device=None
