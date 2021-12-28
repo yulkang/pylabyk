@@ -854,7 +854,7 @@ class BoundedModule(nn.Module):
     def grad_vec(self):
         ps = self.parameters()
         return torch.cat([
-            (p.grad.flatten() if p.requires_grad
+            (p.grad.flatten() if p.requires_grad and p.grad is not None
              else npt.zeros(p.numel()))
             for p in ps
         ])
