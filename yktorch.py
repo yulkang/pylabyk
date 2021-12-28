@@ -157,7 +157,9 @@ class OverriddenParameter(nn.Module):
 
 
 class BoundedParameter(OverriddenParameter):
-    def __init__(self, data, lb=0., ub=1., skip_loading_lbub=False,
+    def __init__(self, data, lb=0., ub=1.,
+                 lb_random=None, ub_random=None,
+                 skip_loading_lbub=False,
                  requires_grad=True, randomize=False, # name=None,
                  **kwargs):
         """
@@ -174,13 +176,15 @@ class BoundedParameter(OverriddenParameter):
         super().__init__(**kwargs)
         self.lb = None if lb is None else enforce_float_tensor(lb)  # lb == -np.inf doesn't allow for non-scalar lb
         self.ub = None if ub is None else enforce_float_tensor(ub)
+
+        self.lb_random = self.lb if lb_random is None else lb_random
+        self.ub_random = self.ub if ub_random is None else ub_random
+
         # self.lb = None if lb == -np.inf or lb is None else npt.tensor(lb)
         # self.ub = None if ub == np.inf or ub is None else npt.tensor(ub)
         self.skip_loading_lbub = skip_loading_lbub
         if randomize:
-            data = (
-                       torch.rand_like(enforce_float_tensor(data))
-            ) * (self.ub - self.lb) + self.lb
+            data = self.get_random_data0(data)
         else:
             data = enforce_float_tensor(data)
 
@@ -197,6 +201,14 @@ class BoundedParameter(OverriddenParameter):
             raise Warning('Use ndim>0 to allow consistent use of [:]. '
                           'If ndim=0, use paramname.v to access the '
                           'value.')
+
+    def get_random_data0(self, data=None):
+        if data is None:
+            data = self.param2data(self._param)
+        data = (
+                   torch.rand_like(enforce_float_tensor(data))
+               ) * (self.ub_random - self.lb_random) + self.lb_random
+        return data
 
     def update_is_fixed(self):
         if (self.lb is not None and self.ub is not None):
@@ -391,6 +403,9 @@ class LookUp(object):
 class BoundedModule(nn.Module):
     def __init__(self):
         super().__init__()
+
+        # for backward compatibility
+        # - unused after introduction of BoundedParameter
         self._params_bounded = {} # {name:(lb, ub)}
         self._params_probability = {} # {name:probdim}
         self._params_circular = {} # {name:(lb, ub)}
@@ -398,6 +413,20 @@ class BoundedModule(nn.Module):
         self.params_probability = LookUp()
         self.params_circular = LookUp()
         self.epsilon = 1e-6
+
+    def randomize(self):
+        if len(self._params_bounded) > 0:
+            raise NotImplementedError()
+        if len(self._params_probability) > 0:
+            raise NotImplementedError()
+        if len(self._params_circular) > 0:
+            raise NotImplementedError()
+
+        d = odict(self.named_modules())
+        for k, param in d.items():  # type: str, BoundedParameter
+            if isinstance(param, BoundedParameter):
+                data0 = param.get_random_data0()
+                self.load_state_dict_data({k: data0})
 
     def setslice(self, name, index, value):
         v = self.__getattr__(name)
