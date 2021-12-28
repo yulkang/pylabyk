@@ -103,8 +103,17 @@ def ____GRADIENT____():
     pass
 
 def freeze(module):
+    raise DeprecationWarning('use set_requires_grad(module, False) instead!')
+    set_requires_grad(module, False)
+
+def unfreeze(module):
+    raise DeprecationWarning('use set_requires_grad(module, True) instead!')
+    set_requires_grad(module, True)
+
+def set_requires_grad(module, requires_grad: bool):
     for param in module.parameters():
-        param.requires_grad = False
+        param.requires_grad = requires_grad
+
 
 #%% Types
 def ____TYPE____():
