@@ -341,6 +341,21 @@ def softmax_mask(w: torch.Tensor,
 def ____SHAPE____():
     pass
 
+
+def squeezes(v: torch.Tensor, dims: Union[int, Iterable[int]]) -> torch.Tensor:
+    if hasattr(dims, '__iter__'):
+        if not isinstance(dims, list):
+            dims = list(dims)
+    else:
+        dims = [dims]
+    ndim = len(v.shape)
+    dims = [dim + ndim if dim < 0 else dim for dim in dims]
+    dims_incl = [dim for dim in range(ndim) if dim not in dims]
+    old_shape = np.array(v.shape)
+    new_shape = old_shape[dims_incl]
+    return v.reshape(tuple(new_shape))
+
+
 def indexshape(v: torch.Tensor, index: torch.Tensor) -> torch.Tensor:
     """
     index the first dimension of v in the shape of the index tensor.
@@ -693,6 +708,44 @@ def maxto1(v, dim=None, ignore_nan=True):
                 return v / v.max()
             else:
                 return v / v.max(dim, keepdim=True)
+
+
+#%% Overflow & overflow prevention
+def ____UNDERFLOW_OVERFLOW_PREVENTION____():
+    pass
+
+
+def sum_log_prob(
+        log_prob: torch.Tensor, dim=None, keepdim=False,
+        robust=True,
+) -> torch.Tensor:
+    """
+    log of sum of probabilities given in log probabilities, avoiding underflow.
+    :param log_prob:
+    :param dim:
+    :param keepdim:
+    :param robust: if False, use simple and straightforward expressions that
+        does not protect against over/underflow.
+    :return: sum(log_prob.exp(), dim, keepdim).log()
+    """
+    if dim is None:
+        dim = tuple(np.arange(len(log_prob.shape)))
+    elif hasattr(dim, '__iter__'):
+        dim = tuple(dim)
+    else:
+        assert isinstance(dim, int)
+        dim = (dim,)
+
+    if not robust:
+        return log_prob.exp().sum(dim, keepdim).log()
+
+    max_log_prob = torch.amax(log_prob, keepdim=True, dim=dim)
+    scaled_prob = (log_prob - max_log_prob).exp()  # type: torch.Tensor
+    log_sum_scaled_prob = (
+            scaled_prob.sum(keepdim=True, dim=dim).log() + max_log_prob)
+    if not keepdim:
+        log_sum_scaled_prob = squeezes(log_sum_scaled_prob, dim)
+    return log_sum_scaled_prob
 
 
 #%% Aggregate
