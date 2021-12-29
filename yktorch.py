@@ -738,7 +738,7 @@ class BoundedModule(nn.Module):
         ax.set_xticks([])
         ax.set_yticks(np.arange(n))
 
-        names = [v.replace('_', '-') for v in names]
+        names = [v.replace('_', ' ') for v in names]
         ax.set_yticklabels(names)
         ax.set_ylim(n - 0.5, -0.5)
         plt2.box_off(['top', 'right', 'bottom'])
@@ -890,17 +890,18 @@ class BoundedModule(nn.Module):
 
     def freeze_(self):
         """Freeze all parameters (set requires_grad=False)"""
-        raise DeprecationWarning('use set_requires_grad(False) instead!')
-        self.set_requires_grad(False)
+        raise DeprecationWarning('use requires_grad_(False) instead!')
+        self.set_requires_grad_(False)
         return self
 
     def unfreeze_(self):
         """Unfreeze all parameters (set requires_grad=True)"""
-        raise DeprecationWarning('use set_requires_grad(True) instead!')
-        self.set_requires_grad(True)
+        raise DeprecationWarning('use requires_grad_(True) instead!')
+        self.set_requires_grad_(True)
         return self
 
     def set_requires_grad_(self, requires_grad: bool):
+        raise DeprecationWarning('use requires_grad_() instead!')
         npt.set_requires_grad(self, requires_grad)
 
 
