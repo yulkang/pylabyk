@@ -1516,7 +1516,7 @@ def fun_deal(f, inp):
     return f(*inp)
 
 
-def arrayobj1d(inp: Iterable, copy=False):
+def arrayobj1d(inp: Iterable, copy=False) -> np.ndarray:
     """
     Return a 1D np.ndarray of dtype=np.object.
     Different from np.array(inp, dtype=np.object) because the latter may
@@ -1524,6 +1524,21 @@ def arrayobj1d(inp: Iterable, copy=False):
     np.meshgrid, unlike the output from this function.
     """
     return np.array([None] + list(inp), dtype=np.object, copy=copy)[1:]
+
+
+def arrayobj(inp: np.ndarray, up_to_dim=1, copy=False) -> np.ndarray:
+    """
+    Return np.ndarray of dtype=np.object with shape=inp.shape[:up_to_dim]
+    Useful for np.vectorize()
+    :param inp:
+    :param copy:
+    :param up_to_dim:
+    :return: array
+    """
+    return arrayobj1d(
+        inp.reshape([np.prod(inp.shape[:up_to_dim]), -1]),
+        copy=copy
+    ).reshape(inp.shape[:up_to_dim])
 
 
 def scalararray(inp) -> np.ndarray:
