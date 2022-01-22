@@ -1318,6 +1318,7 @@ def plot_binned_ch(x0, ch, n_bin=9, **kw):
 def ____Stats_Probability____():
     pass
 
+
 def ecdf(x0, *args, w=None, **kw) -> List[plt.Line2D]:
     """
     See also np2.ecdf()
@@ -1339,6 +1340,81 @@ def ecdf(x0, *args, w=None, **kw) -> List[plt.Line2D]:
                     np.concatenate([np.array([0.]), p, np.array([1.])
                                     ], 0),
                     *args, **kw)
+
+
+def significance(
+        x: Union[Sequence[float], np.ndarray],
+        y: Union[Sequence[float], np.ndarray],
+        text='*', kw_line=(), kw_text=(),
+        x_text=None,
+        y_text=None,
+        margin_prop=0.1,
+        margin_axis='y',
+) -> (plt.Line2D, plt.Text):
+    """
+
+    :param x:
+    :param y:
+    :param text:
+    :param kw_line:
+    :param kw_text:
+    :return: h_line, h_text
+    """
+    x, y = np.broadcast_arrays(x, y)
+    x_middle = np.mean(x)
+    y_middle = np.mean(y)
+
+    if x_text is None:
+        x_text = x_middle
+    if y_text is None:
+        y_text = y_middle
+
+    if margin_axis == 'y':
+        va = 'bottom'
+        ha = 'center'
+        # if x_text is None:
+        #     x_text = x_middle
+        # if y_text is None:
+        #     margin = np.diff(plt.ylim()) * margin_prop * (
+        #         1 if y_middle == 0 else np.sign(y_middle))
+        #     y_text = y_middle + margin
+    elif margin_axis == 'x':
+        va = 'center'
+        ha = 'left'
+        # if x_text is None:
+        #     margin = np.diff(plt.xlim()) * margin_prop * (
+        #         1 if x_middle == 0 else np.sign(x_middle))
+        #     x_text = x_middle + margin
+        # if y_text is None:
+        #     y_text = y_middle
+    else:
+        raise ValueError()
+
+    kw_line = {'color': 'k', 'linewidth': 0.5, 'linestyle': '-',
+        **dict(kw_line)}
+    kw_text = {'ha': ha, 'va': va, **dict(kw_text)}
+    h_line = plt.plot(x, y, **kw_line)
+    h_text = plt.text(x_text, y_text, text, **kw_text)
+    return h_line, h_text
+
+
+def significance_marker(
+        p: Union[float, np.ndarray],
+        thres=(0.1, 0.05, 0.01, 0.001),
+        markers=('n.s.', '+', '*', '**', '***')
+) -> Union[str, np.ndarray]:
+    """
+
+    :param p:
+    :param thres:
+    :param markers:
+    :return:
+    """
+    markers = np.array(markers)
+    p = np.array(p)
+    lessthan = np.stack([p < thres1 for thres1 in thres]).sum(0).astype(int)
+    return markers[lessthan]
+
 
 def ____Gaussian____():
     pass
