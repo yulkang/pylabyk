@@ -667,6 +667,22 @@ def detach_yaxis(ymin=0, ymax=None, ax=None):
     detach_axis('y', ymin, ymax, ax)
 
 
+def box_prop(
+        linewidth=3,
+        color='r',
+        spines: Union[str, Iterable[str]] = 'all',
+        ax: plt.Axes = None
+):
+    if isinstance(spines, str) and spines == 'all':
+        spines = ('left', 'right', 'top', 'bottom')
+    if ax is None:
+        ax = plt.gca()
+    for spine in spines:
+        s = ax.spines[spine]
+        s.set_edgecolor(color)
+        s.set_linewidth(linewidth)
+
+
 def box_off(remove_spines: Union[str, Iterable[str]] = ('right', 'top'),
             remove_ticklabels=True,
             ax=None):
