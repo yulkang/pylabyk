@@ -163,4 +163,6 @@ class LocalFile(object):
                      ext='.csv', subdir=None) -> str:
         """
         """
+        if self.kind2subdir and subdir is None:
+            subdir = 'tab=' + kind
         return self.get_file('tab', kind, d, ext='.csv', subdir=subdir)
