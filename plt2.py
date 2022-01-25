@@ -1638,7 +1638,7 @@ class SimpleFilename:
         self.file_in = []
         self.file_temp_rel = []
         self.file_temp_abs = []
-        self.temp_dir_rel = '_temp_SimplifyFileList'
+        self.temp_dir_rel = '_temp_SimpleFilename'
         self.temp_dir_abs = os.path.join(
             os.path.dirname(self.file_out),
             self.temp_dir_rel)
