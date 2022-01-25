@@ -1155,6 +1155,10 @@ def ____TRANSFORM____():
     pass
 
 
+def fisher_transform(r: np.ndarray) -> np.ndarray:
+    return np.arctanh(r)
+
+
 def logit(v, epsilon=0.):
     """logit function"""
     if epsilon != 0:
