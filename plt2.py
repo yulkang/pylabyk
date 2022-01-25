@@ -1629,7 +1629,7 @@ def ____COMPOSITE_FIGURES____():
     pass
 
 
-class SimplifyFilelist:
+class SimpleFilename:
     """
     copy files to simple names as they are appended; clean them up on del.
     """
@@ -1688,7 +1688,7 @@ class SimplifyFilelist:
         self.close()
 
 
-class SimplifyFilenames:
+class SimpleFilenameArray:
     def __init__(self, file_out, files):
         """
         rename files to simple names
@@ -1792,7 +1792,6 @@ class LatexDoc(ltx.Document, np2.ContextManager):
         *args,
         file_out=None,
         title='',
-        width_document_cm=21.,
         **kwargs
     ):
         super().__init__(
@@ -1800,7 +1799,7 @@ class LatexDoc(ltx.Document, np2.ContextManager):
             **kwargs
         )
         self.file_out = file_out
-        self.width_document_cm = width_document_cm
+        self.simple_filename = SimpleFilename(self.file_out)
 
         self.n_row = 0
 
@@ -1829,6 +1828,37 @@ class LatexDoc(ltx.Document, np2.ContextManager):
         if len(title) > 0:
             doc.preamble.append(ltx.Command('title', title))
             doc.append(ltx.Command(r'\maketitle'))
+
+    def simplify_path(self, fullpath: str) -> str:
+        return self.simple_filename.append(fullpath)
+
+    def close(self, **kwargs):
+        file_out = self.file_out
+        mkdir4file(file_out)
+        if file_out.lower().endswith('.pdf'):
+            file_out = file_out[:-4]
+        self.generate_pdf(file_out, **kwargs)
+
+        # should close simple_filename after generate_pdf()
+        # so that temporary files can be used before being deleted.
+        self.simple_filename.close()
+
+    def __exit__(self, *args, **kwargs):
+        self.close()
+        super().__exit__(*args)
+
+class LatexDocStandalone(LatexDoc):
+    def __init__(self, *args, width_document_cm=21, **kwargs):
+        super().__init__(
+            *args,
+            documentclass=('standalone',),
+            document_options=[
+                'varwidth=%fcm' % width_document_cm,
+                'border=0pt'
+            ],
+            **kwargs
+        )
+        self.width_document_cm = width_document_cm
 
     def append_subfig_row(
         self, files_rel,
@@ -1912,31 +1942,6 @@ class LatexDoc(ltx.Document, np2.ContextManager):
             if (not caption_on_top) and caption is not None:
                 fig.add_caption(caption)
 
-    def __exit__(self, *args, **kwargs):
-        if self.file_out is not None:
-            file_out = self.file_out
-            mkdir4file(file_out)
-            if file_out.lower().endswith('.pdf'):
-                file_out = file_out[:-4]
-            self.generate_pdf(file_out, **kwargs)
-        super().__exit__(*args)
-
-    def close(self, **kwargs):
-        self.__exit__(None, 0, None, **kwargs)
-
-
-class LatexDocStandalone(LatexDoc):
-    def __init__(self, *args, width_document_cm=21, **kwargs):
-        super().__init__(
-            *args,
-            documentclass=('standalone',),
-            document_options=[
-                'varwidth=%fcm' % width_document_cm,
-                'border=0pt'
-            ],
-            **kwargs
-        )
-
 
 def convert_unit(src, src_unit, dst_unit):
     if src_unit == 'pt':
@@ -1994,7 +1999,7 @@ def subfigs(
         width_document = np.sum(
             np.array(width_column_cm) + np.zeros(files.shape[1]))
 
-    with SimplifyFilenames(file_out, files) as simplenames:
+    with SimpleFilenameArray(file_out, files) as simplenames:
         with LatexDocStandalone(
             title=suptitle,
             width_document_cm=width_document,
@@ -2102,7 +2107,7 @@ def subfig_rows(file_fig: str, rows_out: Iterable[dict]):
         # noinspection PyTypeChecker
         simplefiles = [
             stack.enter_context(
-                SimplifyFilenames(
+                SimpleFilenameArray(
                     file_fig_name
                     + '+row=' + row['caption'] + file_fig_ext,
                     row.pop('files')))
