@@ -229,14 +229,17 @@ class GridAxes:
     def figure(self) -> plt.Figure:
         return self.axs[0, 0].figure
 
+    def close(self):
+        fig = self.axs[0, 0].figure
+        import sys
+        if sys.getrefcount(fig) == 0:
+            plt.close(fig)
+            print('Closed figure %d!' % id(fig))  # CHECKING
+
     def __del__(self):
         """Close figure to prevent memory leak"""
         if self._close_on_del:
-            fig = self.axs[0, 0].figure
-            import sys
-            if sys.getrefcount(fig) == 0:
-                plt.close(fig)
-                print('Closed figure %d!' % id(fig))  # CHECKING
+            self.close()
 
     def supxy(self, xprop=0.5, yprop=0.5):
         return supxy(self.axs[:], xprop=xprop, yprop=yprop)
@@ -1626,6 +1629,65 @@ def ____COMPOSITE_FIGURES____():
     pass
 
 
+class SimplifyFilelist:
+    """
+    copy files to simple names as they are appended; clean them up on del.
+    """
+    def __init__(self, file_out: str):
+        self.file_out = file_out
+        self.file_in = []
+        self.file_temp_rel = []
+        self.file_temp_abs = []
+        self.temp_dir_rel = '_temp_SimplifyFileList'
+        self.temp_dir_abs = os.path.join(
+            os.path.dirname(self.file_out),
+            self.temp_dir_rel)
+        self._closed = False
+
+    def append(self, file_in) -> str:
+        self.file_in.append(file_in)
+
+        import shutil, hashlib
+
+        mkdir4file(os.path.join(self.temp_dir_abs, 'temp'))
+
+        file_name1 = (
+                hashlib.md5(file_in.encode('utf-8')).hexdigest()
+                + os.path.splitext(file_in)[1])
+        file_temp_rel = os.path.join(self.temp_dir_rel, file_name1)
+        file_temp_abs = os.path.join(self.temp_dir_abs, file_name1)
+        shutil.copy(file_in, file_temp_abs)
+        self.file_temp_rel.append(file_temp_rel)
+        self.file_temp_abs.append(file_temp_abs)
+
+        return file_temp_rel
+
+    def close(self):
+        if not self._closed:
+            from send2trash import send2trash
+            for file_abs in self.file_temp_abs:
+                if os.path.exists(file_abs):
+                    send2trash(file_abs)
+            if os.path.exists(self.temp_dir_abs):
+                os.rmdir(self.temp_dir_abs)
+
+            import pandas as pd
+            df = pd.DataFrame(data={
+                'file_in': self.file_in,
+                'file_temp_rel': self.file_temp_rel
+            })
+            file_csv = os.path.splitext(self.file_out)[0] + '.csv'
+            df.to_csv(file_csv)
+            print('Saved original paths to %s' % file_csv)
+            self._closed = True
+
+    def __del__(self):
+        self.close()
+
+    def __exit__(self, *args, **kwargs):
+        self.close()
+
+
 class SimplifyFilenames:
     def __init__(self, file_out, files):
         """
@@ -1689,7 +1751,7 @@ class SimplifyFilenames:
         self.temp_dir_abs = temp_dir_abs
         return self
 
-    def __exit__(self, exc_type=None, exc_value=None, exc_traceback=None):
+    def __del__(self, exc_type=None, exc_value=None, exc_traceback=None):
         from send2trash import send2trash
 
         files = self.files
@@ -1735,11 +1797,6 @@ class LatexDoc(ltx.Document, np2.ContextManager):
     ):
         super().__init__(
             *args,
-            documentclass=['standalone'],
-            document_options=[
-                'varwidth=%fcm' % width_document_cm,
-                'border=0pt'
-            ],
             **kwargs
         )
         self.file_out = file_out
@@ -1864,6 +1921,22 @@ class LatexDoc(ltx.Document, np2.ContextManager):
             self.generate_pdf(file_out, **kwargs)
         super().__exit__(*args)
 
+    def close(self, **kwargs):
+        self.__exit__(None, 0, None, **kwargs)
+
+
+class LatexDocStandalone(LatexDoc):
+    def __init__(self, *args, width_document_cm=21, **kwargs):
+        super().__init__(
+            *args,
+            documentclass=('standalone',),
+            document_options=[
+                'varwidth=%fcm' % width_document_cm,
+                'border=0pt'
+            ],
+            **kwargs
+        )
+
 
 def convert_unit(src, src_unit, dst_unit):
     if src_unit == 'pt':
@@ -1922,10 +1995,10 @@ def subfigs(
             np.array(width_column_cm) + np.zeros(files.shape[1]))
 
     with SimplifyFilenames(file_out, files) as simplenames:
-        with LatexDoc(
+        with LatexDocStandalone(
             title=suptitle,
             width_document_cm=width_document,
-            file_out=file_out
+            file_out=file_out,
         ) as doc:
             doc.append_subfig_row(
                 files_rel=simplenames.files_rel,
@@ -2013,6 +2086,13 @@ def subfigs_from_template(
 
 
 def subfig_rows(file_fig: str, rows_out: Iterable[dict]):
+    """
+
+    :param file_fig: combined figure name
+    :param rows_out: [row][('caption', 'files')]
+        rows_out[row]['files'][column] = subfigure file name
+    :return: None
+    """
     assert all(['files' in row.keys() for row in rows_out])
     assert all(['caption' in row.keys() for row in rows_out])
 
@@ -2028,7 +2108,7 @@ def subfig_rows(file_fig: str, rows_out: Iterable[dict]):
                     row.pop('files')))
             for row in rows_out
         ]
-        with LatexDoc(file_out=file_fig) as doc:
+        with LatexDocStandalone(file_out=file_fig) as doc:
             for row, simplefile in zip(rows_out, simplefiles):
                 doc.append_subfig_row(
                     simplefile.files_rel,
