@@ -1786,6 +1786,15 @@ def get_pdf_size(file) -> (float, float):
     return width_document, height_document
 
 
+def get_image_size(file) -> (int, int):
+    """
+    :param file:
+    :return: width_pixel, height_pixel
+    """
+    from PIL import Image
+    return Image.open(file).size
+
+
 class LatexDoc(ltx.Document, np2.ContextManager):
     def __init__(
         self,
@@ -1846,6 +1855,7 @@ class LatexDoc(ltx.Document, np2.ContextManager):
     def __exit__(self, *args, **kwargs):
         self.close()
         super().__exit__(*args)
+
 
 class LatexDocStandalone(LatexDoc):
     def __init__(self, *args, width_document_cm=21, **kwargs):
