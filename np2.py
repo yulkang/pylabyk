@@ -1943,7 +1943,7 @@ class Long2ShortDict:
     """
     Deliberately not subclassing dict so that when replacing short dict,
     functions throw error messages, forcing choice of
-    .shortdict() or .longdict.
+    .shortdict(), .longdict, update(), prepend(), or append()
 
     To update, use .prepend() or .append().
     """
