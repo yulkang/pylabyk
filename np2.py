@@ -29,6 +29,21 @@ def ____SHAPE____():
     pass
 
 
+def enforce_array(v):
+    """
+    :param v: scalar, iterable, or array
+    :return: np.ndarray of ndim >= 1
+    """
+    if isinstance(v, torch.Tensor):
+        v = npy(v)
+    elif not isinstance(v, np.ndarray):
+        v = np.array(v)
+    if v.ndim == 0:
+        return v[None]
+    else:
+        return v
+
+
 def cat(arrays0, dim=0, add_dim=True):
     """
     @type arrays0: list
