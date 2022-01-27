@@ -8,7 +8,7 @@ Created on Tue Feb 13 10:42:06 2018
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 import os
-from typing import List, Callable, Sequence, Mapping, Tuple
+from typing import List, Callable, Sequence, Mapping, Tuple, Dict
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -1855,6 +1855,29 @@ class LatexDoc(ltx.Document, np2.ContextManager):
     def __exit__(self, *args, **kwargs):
         self.close()
         super().__exit__(*args)
+
+
+def latex_table(
+        doc: LatexDoc, dicts: Sequence[Dict[str, str]]):
+    """
+    Use in, e.g., "with doc.create(ltx.Table()) as table:" block
+    :param doc:
+    :param dicts: [row: int][column: str] = element
+    :return: None
+    """
+    with doc.create(ltx.Center()):
+        with doc.create(
+                ltx.Tabular(
+                        '|' +
+                        '|'.join(['c'] * len(dicts[0]))
+                        + '|'
+                )) as tabular:
+            tabular.add_hline()
+            tabular.add_row(dicts[0].keys())
+            for row in dicts:
+                tabular.add_hline()
+                tabular.add_row(list(row.values()))
+            tabular.add_hline()
 
 
 class LatexDocStandalone(LatexDoc):
