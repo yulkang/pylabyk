@@ -16,7 +16,7 @@ import numpy_groupies as npg
 import pandas as pd
 from copy import deepcopy
 from . import numpytorch
-from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List
+from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List, Dict
 from multiprocessing.pool import Pool as Pool0
 # from multiprocessing import Pool
 
@@ -1937,6 +1937,47 @@ def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[str, None]:
         return None
     else:
         return '%g' % v
+
+
+class Long2ShortDict:
+    """
+    Deliberately not subclassing dict so that when replacing short dict,
+    functions throw error messages, forcing choice of
+    .shortdict() or .longdict.
+
+    To update, use .prepend() or .append().
+    """
+    def __init__(
+            self, longdict: dict,
+            long2short_value: Dict[str, str] = None,
+            long2short_key: Dict[str, str] = None,
+    ):
+        """
+
+        :param longdict:
+        :param long2short_value:
+        :param long2short_key: defaults to long2short_value if not given
+        """
+        self.longdict = longdict
+        self.long2short_value = (
+            {} if long2short_value is None else long2short_value)
+        self.long2short_key = (
+            self.long2short_value if long2short_key is None else long2short_key)
+
+    def shortdict(self) -> dict:
+        return {
+            shorten(k, self.long2short_key): shorten(v, self.long2short_value)
+            for k, v in self.longdict.items()
+        }
+
+    def create(self, longdict: dict) -> 'Long2ShortDict':
+        return type(self)(longdict, self.long2short_value, self.long2short_key)
+
+    def prepend(self, longdict: dict) -> 'Long2ShortDict':
+        return self.create({**longdict, **self.longdict})
+
+    def append(self, longdict: dict) -> 'Long2ShortDict':
+        return self.create({**self.longdict, **longdict})
 
 
 def filt_str(s, filt_preset='alphanumeric', replace_with='_'):
