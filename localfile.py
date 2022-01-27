@@ -1,11 +1,11 @@
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 from . import cacheutil
-from . import argsutil
 from .cacheutil import Cache
 import os, shutil
 from collections import OrderedDict as odict
 from typing import Union, Iterable
 from .cacheutil import mkdir4file
+from .argsutil import dict2fname, kwdef, merge_fileargs
 
 
 def replace_ext(fullpath, ext_new):
@@ -66,7 +66,7 @@ class LocalFile(object):
         if subdir is None:
             subdir = self.subdir_default
         if isinstance(subdir, dict):
-            subdir = argsutil.dict2fname(subdir)
+            subdir = dict2fname(subdir)
         pth_out = os.path.join(self.pth_root, subdir)
         return pth_out
 
@@ -112,12 +112,12 @@ class LocalFile(object):
         if isinstance(d, str):
             fname = d
         else:
-            kw_fname = argsutil.kwdef(
-                    argsutil.merge_fileargs(d),
+            kw_fname = kwdef(
+                    merge_fileargs(d),
                     {},
                     sort_merged=False, sort_given=True, def_bef_given=True
                 )
-            fname = cacheutil.dict2fname(argsutil.merge_fileargs(kw_fname))
+            fname = cacheutil.dict2fname(merge_fileargs(kw_fname))
 
         fname = '%s=%s+%s' % (filekind, kind, fname)
 
