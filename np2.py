@@ -1115,6 +1115,36 @@ def ____GEOMETRY____():
     pass
 
 
+def ccw(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> np.ndarray:
+    """
+    
+    :param a: [..., xy] 
+    :param b: [..., xy]
+    :param c: [..., xy]
+    :return: is_counterclockwise[..., xy] = 1 if CCW, 0 if colinear, -1 if CW
+    """
+    # sign of the z component of the cross product ba x bc
+    # = sign of sin(abc), with z_a = z_b = z_c = 0
+    return np.sign(
+        (b[..., 0] - a[..., 0]) * (c[..., 1] - b[..., 1])
+        - (b[..., 1] - a[..., 1]) * (c[..., 0] - b[..., 0]))
+
+
+def intersect(
+        a: np.ndarray, b: np.ndarray, c: np.ndarray, d: np.ndarray
+) -> np.ndarray:
+    """
+
+    :param a: [..., xy]
+    :param b: [..., xy]
+    :param c: [..., xy]
+    :param d: [..., xy]
+    :return: does_intersect[...] = True if segments ab and cd meet
+    """
+    return (ccw(a, b, c) * ccw(a, b, d) <= 0) \
+           & (ccw(c, d, a) * ccw(c, d, b) <= 0)
+
+
 def lineseg_dists(p, a, b):
     """
     Cartesian distance from point to line segment
