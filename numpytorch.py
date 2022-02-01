@@ -223,7 +223,7 @@ def numpy(v: Union[torch.Tensor, np.ndarray, Iterable]):
 npy = numpy
 
 
-def npys(*args):
+def npys(*args) -> Tuple[np.ndarray]:
     return tuple([npy(v) for v in args])
 
 
