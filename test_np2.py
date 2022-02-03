@@ -14,6 +14,14 @@ def test_ShortStrAttributes():
             self.fig1 = np2.ShortStr('Figure 1')
     ss = Analyses()
 
+    # # class attributes don't invoke __getattribute__(),
+    # # so cannot be used
+    # class ss(np2.ShortStrAttributes):
+    #     fig2 = np2.ShortStr('Figure 2')
+    #     fig1 = np2.ShortStr('Figure 1')
+    #
+    # print(ss.fig1)
+
     assert ss.fig1 == 'fig1'
     assert ss.fig1.long == 'Figure 1'
     assert ss.fig2 == 'fig2'

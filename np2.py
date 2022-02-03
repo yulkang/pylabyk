@@ -1988,6 +1988,17 @@ class ShortStr(str, DictAttribute):
 
 
 class ShortStrAttributes(DictAttribute):
+    # def __getattribute__(self, key):
+    #     # class attributes don't invoke __getattribute__(),
+    #     # so cannot be used
+    #     value = super().__getattribute__(key)
+    #     if (isinstance(value, ShortStr) and
+    #         not key.startswith('_')
+    #     ):
+    #         return ShortStr(key, **value.dict)
+    #     else:
+    #         return value
+
     def __setattr__(self, key, value):
         if (isinstance(value, ShortStr) and
             not key.startswith('_')
