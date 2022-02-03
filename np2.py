@@ -1969,6 +1969,15 @@ def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[str, None]:
         return '%g' % v
 
 
+class ShortStr(str):
+    def __new__(cls, short: str, long: str = None, **kwargs):
+        self = super().__new__(cls, short)
+        self.long = long if long is not None else short
+        for k, v in kwargs.items():
+            self.__dict__[k] = v
+        return self
+
+
 class Long2ShortDict:
     """
     Deliberately not subclassing dict so that when replacing short dict,
