@@ -16,7 +16,8 @@ import numpy_groupies as npg
 import pandas as pd
 from copy import deepcopy
 from . import numpytorch
-from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List, Dict
+from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List, \
+    Dict, Any
 from multiprocessing.pool import Pool as Pool0
 # from multiprocessing import Pool
 
@@ -1969,13 +1970,35 @@ def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[str, None]:
         return '%g' % v
 
 
-class ShortStr(str):
+class DictAttribute:
+    @property
+    def dict(self) -> Dict[str, Any]:
+        return {
+            k: v for k, v in self.__dict__.items()
+            if not k.startswith('_')}
+
+
+class ShortStr(str, DictAttribute):
     def __new__(cls, short: str, long: str = None, **kwargs):
         self = super().__new__(cls, short)
         self.long = long if long is not None else short
         for k, v in kwargs.items():
             self.__dict__[k] = v
         return self
+
+
+class ShortStrAttributes(DictAttribute):
+    def __setattr__(self, key, value):
+        if (isinstance(value, ShortStr) and
+            not key.startswith('_')
+        ):
+            super().__setattr__(key, ShortStr(key, **{
+                k: v for k, v in value.__dict__.items()
+                if not k.startswith('_')
+            }))
+        else:
+            super().__setattr__(key, value)
+
 
 
 class Long2ShortDict:
