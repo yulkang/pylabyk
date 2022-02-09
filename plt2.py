@@ -1857,6 +1857,41 @@ class LatexDoc(ltx.Document, np2.ContextManager):
         super().__exit__(*args)
 
 
+class Frame(ltx.base_classes.Environment):
+    """
+    Usage:
+    from pylatex import Command
+
+    doc = plt2.LatexDoc(
+        file_out='demo_beamer.pdf',
+        documentclass=['beamer'],
+    )
+
+    doc.append(Command('title', 'Sample title'))
+    doc.append(Command('frame', Command('titlepage')))
+
+    for i in range(3):
+        with doc.create(plt2.Frame()):
+            doc.append(f'page {i}')
+
+    doc.close()
+
+    See also: https://www.overleaf.com/learn/latex/Beamer
+    """
+    pass
+
+
+class Adjustbox(ltx.base_classes.Environment):
+    def __init__(
+            self, *args,
+            arguments=ltx.NoEscape(
+                r'max width=\textwidth, '
+                r'max totalheight=\textheight-2\baselineskip,'
+                r'keepaspectratio'
+            ), **kwargs):
+        super().__init__(*args, arguments=arguments, **kwargs)
+
+
 def latex_table(
         doc: LatexDoc, dicts: Sequence[Dict[str, str]]):
     """
@@ -1865,19 +1900,19 @@ def latex_table(
     :param dicts: [row: int][column: str] = element
     :return: None
     """
-    with doc.create(ltx.Center()):
-        with doc.create(
-                ltx.Tabular(
-                        '|' +
-                        '|'.join(['c'] * len(dicts[0]))
-                        + '|'
-                )) as tabular:
+    # with doc.create(ltx.Center()):
+    with doc.create(
+            ltx.Tabular(
+                    '|' +
+                    '|'.join(['c'] * len(dicts[0]))
+                    + '|'
+            )) as tabular:
+        tabular.add_hline()
+        tabular.add_row(dicts[0].keys())
+        for row in dicts:
             tabular.add_hline()
-            tabular.add_row(dicts[0].keys())
-            for row in dicts:
-                tabular.add_hline()
-                tabular.add_row(list(row.values()))
-            tabular.add_hline()
+            tabular.add_row(list(row.values()))
+        tabular.add_hline()
 
 
 class LatexDocStandalone(LatexDoc):
