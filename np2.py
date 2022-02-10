@@ -1978,32 +1978,32 @@ class DictAttribute:
             if not k.startswith('_')}
 
 
-class ShortStr(str, DictAttribute):
-    def __new__(cls, short: str, long: str = None, **kwargs):
-        self = super().__new__(cls, short)
-        self.long = long if long is not None else short
+class AliasStr(str, DictAttribute):
+    def __new__(cls, alias: str, orig: str = None, **kwargs):
+        self = super().__new__(cls, alias)
+        self.orig = orig if orig is not None else alias
         for k, v in kwargs.items():
             self.__dict__[k] = v
         return self
 
 
-class ShortStrAttributes(DictAttribute):
+class AliasStrAttributes(DictAttribute):
     # def __getattribute__(self, key):
     #     # class attributes don't invoke __getattribute__(),
     #     # so cannot be used
     #     value = super().__getattribute__(key)
-    #     if (isinstance(value, ShortStr) and
+    #     if (isinstance(value, AliasStr) and
     #         not key.startswith('_')
     #     ):
-    #         return ShortStr(key, **value.dict)
+    #         return AliasStr(key, **value.dict)
     #     else:
     #         return value
 
     def __setattr__(self, key, value):
-        if (isinstance(value, ShortStr) and
+        if (isinstance(value, AliasStr) and
             not key.startswith('_')
         ):
-            super().__setattr__(key, ShortStr(key, **{
+            super().__setattr__(key, AliasStr(key, **{
                 k: v for k, v in value.__dict__.items()
                 if not k.startswith('_')
             }))

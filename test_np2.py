@@ -8,24 +8,24 @@ from lib.pylabyk import np2
 
 
 def test_ShortStrAttributes():
-    class Analyses(np2.ShortStrAttributes):
+    class Analyses(np2.AliasStrAttributes):
         def __init__(self):
-            self.fig2 = np2.ShortStr('Figure 2')
-            self.fig1 = np2.ShortStr('Figure 1')
+            self.fig2 = np2.AliasStr('Figure 2')
+            self.fig1 = np2.AliasStr('Figure 1')
     ss = Analyses()
 
     # # class attributes don't invoke __getattribute__(),
     # # so cannot be used
-    # class ss(np2.ShortStrAttributes):
-    #     fig2 = np2.ShortStr('Figure 2')
-    #     fig1 = np2.ShortStr('Figure 1')
+    # class ss(np2.AliasStrAttributes):
+    #     fig2 = np2.AliasStr('Figure 2')
+    #     fig1 = np2.AliasStr('Figure 1')
     #
     # print(ss.fig1)
 
     assert ss.fig1 == 'fig1'
-    assert ss.fig1.long == 'Figure 1'
+    assert ss.fig1.orig == 'Figure 1'
     assert ss.fig2 == 'fig2'
-    assert ss.fig2.long == 'Figure 2'
+    assert ss.fig2.orig == 'Figure 2'
     assert tuple(ss.dict.keys()) == ('fig2', 'fig1')
 
 
