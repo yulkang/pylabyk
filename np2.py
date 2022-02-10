@@ -1924,52 +1924,6 @@ def ____STRING____():
     pass
 
 
-def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
-    """
-
-    :param s: string
-    :param src_dst: [(src1, dst1), (src2, dst2), ...]
-    :return: string with srcX replaced with dstX
-    """
-    for src, dst in src_dst:
-        s = s.replace(src, dst)
-    return s
-
-
-def shorten_dict(d: dict, src_dst=()):
-    return {k: shorten(v, src_dst) for k, v in d.items()}
-
-
-def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[str, None]:
-    """
-
-    :param v: string, Iterable[Number], or Number
-    :param src_dst: [(src1, dst1), (src2, dst2), ...]
-    :return: string with srcX replaced with dstX, or printed '%g,%g,...'
-    """
-    if isinstance(v, str):
-        return replace(v, src_dst)
-    elif isinstance(v, bool):
-        return '%d' % int(v)
-    elif is_iter(v):
-        try:
-            v = list(npy(v))
-            if isinstance(v[0], str):
-                return '%s' % (','.join([
-                    ('%s' % shorten(v1, src_dst))
-                    for v1 in v]))
-            else:
-                return '%s' % (','.join([
-                    ('%s' % shorten(v1, src_dst))
-                    for v1 in npy(v).flatten()]))
-        except TypeError:
-            return '%g' % v
-    elif v is None:
-        return None
-    else:
-        return '%g' % v
-
-
 class DictAttribute:
     @property
     def dict(self) -> Dict[str, Any]:
@@ -2011,46 +1965,61 @@ class AliasStrAttributes(DictAttribute):
             super().__setattr__(key, value)
 
 
-
-class Long2ShortDict:
+def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
     """
-    Deliberately not subclassing dict so that when replacing short dict,
-    functions throw error messages, forcing choice of
-    .shortdict(), .longdict, update(), prepend(), or append()
 
-    To update, use .prepend() or .append().
+    :param s: string
+    :param src_dst: [(src1, dst1), (src2, dst2), ...]
+    :return: string with srcX replaced with dstX
     """
-    def __init__(
-            self, longdict: dict,
-            long2short_value: Dict[str, str] = None,
-            long2short_key: Dict[str, str] = None,
-    ):
-        """
+    for src, dst in src_dst:
+        s = s.replace(src, dst)
+    return s
 
-        :param longdict:
-        :param long2short_value:
-        :param long2short_key: defaults to long2short_value if not given
-        """
-        self.longdict = longdict
-        self.long2short_value = (
-            {} if long2short_value is None else long2short_value)
-        self.long2short_key = (
-            self.long2short_value if long2short_key is None else long2short_key)
 
-    def shortdict(self) -> dict:
-        return {
-            shorten(k, self.long2short_key): shorten(v, self.long2short_value)
-            for k, v in self.longdict.items()
-        }
+def shorten_dict(d: dict, src_dst=()):
+    return {k: shorten(v, src_dst) for k, v in d.items()}
 
-    def create(self, longdict: dict) -> 'Long2ShortDict':
-        return type(self)(longdict, self.long2short_value, self.long2short_key)
 
-    def prepend(self, longdict: dict) -> 'Long2ShortDict':
-        return self.create({**longdict, **self.longdict})
+def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[AliasStr, None]:
+    """
 
-    def append(self, longdict: dict) -> 'Long2ShortDict':
-        return self.create({**self.longdict, **longdict})
+    :param v: string, Iterable[Number], or Number
+    :param src_dst: [(src1, dst1), (src2, dst2), ...]
+    :return: string with srcX replaced with dstX, or printed '%g,%g,...'
+    """
+    if isinstance(v, str):
+        return AliasStr(replace(v, src_dst), v)
+    elif isinstance(v, bool):
+        return AliasStr('%d' % int(v), str(v))
+    elif is_iter(v):
+        try:
+            v = list(npy(v))
+            if isinstance(v[0], str):
+                return AliasStr(
+                    ','.join([
+                        (shorten(v1, src_dst))
+                        for v1 in v
+                    ]),
+                    ','.join(shorten(v1, src_dst).orig for v1 in v)
+                )
+            else:
+                return AliasStr(
+                    ','.join([
+                        (shorten(v1, src_dst))
+                        for v1 in npy(v).flatten()
+                    ]),
+                    ','.join([
+                        (shorten(v1, src_dst).orig)
+                        for v1 in npy(v).flatten()
+                    ])
+                )
+        except TypeError:
+            return AliasStr('%g' % v)
+    elif v is None:
+        return None
+    else:
+        return AliasStr('%g' % v)
 
 
 def filt_str(s, filt_preset='alphanumeric', replace_with='_'):
