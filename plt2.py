@@ -1669,7 +1669,9 @@ class SimpleFilename:
                 if os.path.exists(file_abs):
                     send2trash(file_abs)
             if os.path.exists(self.temp_dir_abs):
-                os.rmdir(self.temp_dir_abs)
+                import shutil
+                shutil.rmtree(self.temp_dir_abs)
+                # os.rmdir(self.temp_dir_abs)
 
             import pandas as pd
             df = pd.DataFrame(data={
