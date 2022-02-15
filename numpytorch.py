@@ -1631,8 +1631,23 @@ def prad2unitvec(prad, dim=-1):
 
 
 def pconc2conc(pconc: torch.Tensor) -> torch.Tensor:
+    """
+
+    :param pconc: ranges from 0 to 1
+    :return: conc: ranges from 0 to inf
+    """
     pconc = torch.clamp(pconc, min=1e-6, max=1-1e-6)
     return 1. / (1. - pconc) - 1.
+
+
+def pconc2var(pconc: torch.Tensor) -> torch.Tensor:
+    """
+
+    :param pconc: ranges from 0 to 1
+    :return: concentration parameter (kappa) of a von Mises distribution.
+        When kappa -> inf, then 1/kappa -> variance of the vM random variable.
+    """
+    return 1. / pconc2conc(pconc)
 
 
 def conc2pconc(conc):
