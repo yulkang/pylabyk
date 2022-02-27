@@ -996,6 +996,7 @@ def weighted_crosstab(w: np.ndarray, v: np.ndarray, n_sample=0) -> np.ndarray:
 def ____DISTRIBUTION____():
     pass
 
+
 def pdf_trapezoid(x, center, width_top, width_bottom):
     height = 1. / ((width_top + width_bottom) / 2.)
     proportion_between = ((width_bottom - width_top) / width_bottom)

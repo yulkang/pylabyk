@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 from typing import Union, Iterable, Tuple, Dict, Sequence
 
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
-    Categorical, OneHotCategorical, VonMises
+    Categorical, OneHotCategorical, VonMises, Gamma
 
 _device0 = torch.device('cpu')  # CHECKED
 # _device0 = None  # should be used as a default
@@ -1085,6 +1085,22 @@ def test_softmax_bias():
 
 def ____DISTRIBUTIONS_SAMPLING____():
     pass
+
+
+def gamma_logpdf_ms(
+    x: torch.Tensor, m: torch.Tensor, s: torch.Tensor
+) -> torch.Tensor:
+    """
+    
+    :param x:
+    :param m: mean
+    :param s: stdev
+    :return: log pdf (not normalized)
+    """
+    
+    rate = m / s ** 2
+    conc = m * rate
+    return Gamma(conc, rate).log_prob(x)
 
 
 def brownian_bridge(n_step, sample_shape=()) -> torch.Tensor:
