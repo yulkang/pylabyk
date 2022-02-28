@@ -8,7 +8,7 @@ Created on Tue Feb 13 10:42:06 2018
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 import os
-from typing import List, Callable, Sequence, Mapping, Tuple, Dict
+from typing import List, Callable, Sequence, Mapping, Tuple, Dict, Any
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -48,17 +48,19 @@ AxesSlice = Union[plt.Axes, Sequence[plt.Axes], np.ndarray, AxesArray]
 
 
 class GridAxes:
-    def __init__(self,
-                 nrows=1, ncols=1,
-                 left=0.5, right=0.1,
-                 bottom=0.5, top=0.5,
-                 wspace: Union[float, Sequence[float]] = 0.25,
-                 hspace: Union[float, Sequence[float]] = 0.25,
-                 widths: Union[float, Sequence[float]] = 1.,
-                 heights: Union[float, Sequence[float]] = 0.75,
-                 kw_fig=(),
-                 close_on_del=True,
-                 ):
+    def __init__(
+        self,
+        nrows=1, ncols=1,
+        left=0.5, right=0.1,
+        bottom=0.5, top=0.5,
+        wspace: Union[float, Sequence[float]] = 0.25,
+        hspace: Union[float, Sequence[float]] = 0.25,
+        widths: Union[float, Sequence[float]] = 1.,
+        heights: Union[float, Sequence[float]] = 0.75,
+        kw_fig=(),
+        kw_subplot: Union[None, Sequence[Sequence[Dict[str, Any]]]] = None,
+        close_on_del=True,
+    ):
         """
         Give all size arguments in inches. top and right are top and right
         margins, rather than top and right coordinates.
@@ -87,8 +89,15 @@ class GridAxes:
         :param widths: widths of columns in inches.
         :param heights: heights of rows in inches.
         :param kw_fig:
+        :param kw_subplot: if not None, will be converted & broadcasted
+            to an array of size [row, col] of kwargs for each subplot.
+            e.g.: kw_subplot=[[{}, {}, {'projection': 'polar'}]]
         :return: axs[row, col] = plt.Axes
         """
+        if kw_subplot is None:
+            kw_subplot = [[{}]]
+        kw_subplot = np.broadcast_to(np.array(kw_subplot), [nrows, ncols])
+        
         # truncate if too long for convenience
         wspace, hspace, widths, heights = [
             v[:l] if np2.is_sequence(v) and len(v) > l else v
@@ -139,7 +148,9 @@ class GridAxes:
 
         for row in range(nrows):
             for col in range(ncols):
-                axs[row, col] = plt.subplot(gs[row * 2 + 1, col * 2 + 1])
+                axs[row, col] = plt.subplot(
+                    gs[row * 2 + 1, col * 2 + 1],
+                    **kw_subplot[row, col])
 
         self.axs = axs
 

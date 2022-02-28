@@ -228,7 +228,7 @@ def listdict2dictlist(listdict: list, to_array=False) -> dict:
     return d
 
 
-def dictlist2listdict(dictlist: dict) -> list:
+def dictlist2listdict(dictlist: Dict[str, list]) -> List[Dict[str, Any]]:
     keys = list(dictlist.keys())
     return [{k: dictlist[k][i] for k in keys}
             for i in range(len(dictlist[keys[0]]))]
@@ -1923,6 +1923,10 @@ def nowstr():
 
 def ____STRING____():
     pass
+
+
+def joinformat(v, fmt='%g', with_str=','):
+    return with_str.join([fmt % v1 for v1 in npy(v).flatten()])
 
 
 class DictAttribute:

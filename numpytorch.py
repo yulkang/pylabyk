@@ -646,6 +646,15 @@ def ____Algebra____():
     pass
 
 
+# noinspection PyTypeHints
+def issimilar(
+    a: Union[torch.Tensor, np.ndarray, float],
+    b: Union[torch.Tensor, np.ndarray, float],
+    thres=1e-6
+) -> torch.Tensor:
+    return (a - b).abs() < thres
+
+
 def sumto1(v: torch.Tensor, dim=None, axis=None, keepdim=True) -> torch.Tensor:
     """
     Make v sum to 1 across dim, i.e., make dim conditioned on the rest.
