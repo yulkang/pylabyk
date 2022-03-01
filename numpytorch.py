@@ -229,7 +229,7 @@ def npys(*args) -> Tuple[np.ndarray, ...]:
 
 def dclone(v: torch.Tensor):
     """
-    Returns a new tensor that is detached, cloned, and does not require gradient
+    Returns a new tensor that is detached and cloned
     """
     return v.detach().clone()
 
