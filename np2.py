@@ -490,6 +490,18 @@ def nan2v(v0, v=0):
     return v0
 
 
+def ____ALGEBRA____():
+    pass
+
+
+def issimilar(
+    a: Union[torch.Tensor, np.ndarray, float],
+    b: Union[torch.Tensor, np.ndarray, float],
+    thres=1e-6
+) -> np.ndarray:
+    return np.abs(a - b) < thres
+
+
 def ____STAT____():
     pass
 
