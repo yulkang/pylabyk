@@ -1949,7 +1949,10 @@ class DictAttribute:
             if not k.startswith('_')}
 
 
-class AliasStr(str, DictAttribute):
+class AliasStr(
+    str
+    # , DictAttribute
+):
     def __new__(cls, alias: str, orig: str = None, **kwargs):
         self = super().__new__(cls, alias)
         self.orig = orig if orig is not None else alias
@@ -1994,7 +1997,7 @@ def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
     return s
 
 
-def shorten_dict(d: dict, src_dst=()):
+def shorten_dict(d: dict, src_dst=()) -> Dict[str, str]:
     return {k: shorten(v, src_dst) for k, v in d.items()}
 
 
