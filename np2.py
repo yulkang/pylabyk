@@ -1821,17 +1821,17 @@ def nanautocorr(firing_rate: np.ndarray, thres_n=2) -> np.ndarray:
     return ac
 
 
-def nansmooth(u, sigma=1.):
+def nansmooth(u, sigma=1., **kwargs):
     from scipy import ndimage
 
     isnan = np.isnan(u)
 
     v = u.copy()
     v[isnan] = 0.
-    vv = ndimage.gaussian_filter(v, sigma=sigma)
+    vv = ndimage.gaussian_filter(v, sigma=sigma, **kwargs)
 
     w = 1. - isnan
-    ww = ndimage.gaussian_filter(w, sigma=sigma)
+    ww = ndimage.gaussian_filter(w, sigma=sigma, **kwargs)
 
     r = vv / ww
     r[isnan] = np.nan
