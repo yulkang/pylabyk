@@ -1590,6 +1590,18 @@ def arrayobj1d(inp: Iterable, copy=False) -> np.ndarray:
     return np.array([None] + list(inp), dtype=np.object, copy=copy)[1:]
 
 
+def cell2array(v: np.ndarray) -> np.ndarray:
+    """
+    convert object arrays into arrays of v.flatten()[0].dtype
+    :param v: any array, typically object arrays from vectorize()
+    :return: array of shape = v.shape + v.flatten()[0].shape with dtype
+        = v.flatten()[0].dtype
+    """
+    shape = v.shape + v.flatten()[0].shape
+    v = v.flatten()
+    return np.stack([v1.astype(v[0].dtype) for v1 in v]).reshape(shape)
+
+
 def arrayobj(inp: np.ndarray, up_to_dim=1, copy=False) -> np.ndarray:
     """
     Return np.ndarray of dtype=np.object with shape=inp.shape[:up_to_dim]
