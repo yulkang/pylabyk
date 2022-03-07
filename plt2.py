@@ -933,11 +933,14 @@ def imshow_discrete(x, shade=None,
     Given index x[row, col], show color[x[row, col]]
     :param x:
     :param shade: Weight given to the foreground color.
-    :param colors: colors[i]: (R,G,B)
+    :param colors: colors[i]: (R,G,B), (R,G,B,A), or color name
     :param color_shade: Background color.
     :param kw: Keyword arguments for imshow
     :return:
     """
+    from matplotlib.colors import to_rgba
+    colors = [to_rgba(color) for color in colors]
+
     if shade is None:
         shade = np.ones(list(x.shape[:-1]) + [1])
     else:
@@ -956,20 +959,23 @@ def imshow_discrete(x, shade=None,
 def imshow_weights(
         w, colors=((1, 0, 0), (0, 1, 0), (0, 0, 1)),
         color_bkg=(1, 1, 1),
+        to_plot=True,
         **kwargs
 ):
     """
     color[row, column] = sum_i(w[row, column, i] * (colors[i] - color_bkg))
     :param w: [row, column, i]: weight given to i-th color
     :type w: np.ndarray
-    :param colors: [i] = [R, G, B]
+    :param colors: [i] = [R, G, B], [R, G, B, A], or color name
     :param color_bkg:
-    :return: h_imshow
+    :return: h_imshow if to_plot, else color[row, column, RGBA]
     """
     assert isinstance(w, np.ndarray)
     assert w.ndim == 3
-    colors = np.array(colors)
-    color_bkg = np.array(color_bkg)
+
+    from matplotlib.colors import to_rgba, to_rgba_array
+    colors = to_rgba_array(colors)
+    color_bkg = np.array(to_rgba(color_bkg))
     dcolors = np.stack([
         c - color_bkg for c in colors
     ])[None, None, :, :]  # [1, 1, w, color]
@@ -984,7 +990,11 @@ def imshow_weights(
     # ], -1)
     # color = np.clip(color, 0, 1)
     # plt.gca().set_facecolor(color_bkg)
-    return plt.imshow(color, **kwargs)
+
+    if to_plot:
+        return plt.imshow(color, **kwargs)
+    else:
+        return color
 
 
 def plot_pcolor(x, y, c=None, norm=None, cmap=None, **kwargs):
