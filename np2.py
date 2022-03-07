@@ -11,6 +11,7 @@ import numpy as np
 import torch
 import weightedstats as ws
 from scipy import interpolate
+from scipy.interpolate import griddata
 from scipy import stats
 import numpy_groupies as npg
 import pandas as pd
@@ -1837,6 +1838,25 @@ def nansmooth(u, sigma=1., **kwargs):
     r[isnan] = np.nan
 
     return r
+
+
+def griddata_fillnearest(points, values, xi, **kwargs):
+    if not isinstance(points, np.ndarray):
+        points = np.stack(points, -1)
+    if not isinstance(xi, np.ndarray):
+        xi = np.stack(xi, -1)
+
+    v = griddata(points, values, xi, **kwargs)
+    is_nan = np.isnan(v)
+
+    if np.any(is_nan):
+        v1 = griddata(
+            points, values, xi[is_nan], **{
+                **kwargs,
+                'method': 'nearest'
+            })
+        v[is_nan] = v1
+    return v
 
 
 def convolve_time(src, kernel, dim_time=0, mode='same'):
