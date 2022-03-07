@@ -1844,7 +1844,8 @@ def nansmooth(u, sigma=1., **kwargs):
     vv = ndimage.gaussian_filter(v, sigma=sigma, **kwargs)
 
     w = 1. - isnan
-    ww = ndimage.gaussian_filter(w, sigma=sigma, **kwargs)
+    ww = np.clip(
+        ndimage.gaussian_filter(w, sigma=sigma, **kwargs), a_min=0, a_max=1)
 
     r = vv / ww
     r[isnan] = np.nan
