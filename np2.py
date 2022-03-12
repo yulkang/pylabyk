@@ -2030,8 +2030,11 @@ def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
     return s
 
 
-def shorten_dict(d: dict, src_dst=()) -> Dict[str, str]:
-    return {k: shorten(v, src_dst) for k, v in d.items()}
+def shorten_dict(d: dict, src_dst=(), shorten_key=False) -> Dict[str, str]:
+    return {
+        (shorten(k, src_dst) if shorten_key else k)
+        : shorten(v, src_dst)
+        for k, v in d.items()}
 
 
 def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[AliasStr, None]:
