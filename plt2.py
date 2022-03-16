@@ -1390,6 +1390,7 @@ def significance(
         y_text=None,
         margin_prop=0.1,
         margin_axis='y',
+        margin_text=0.,
 ) -> (plt.Line2D, plt.Text):
     """
 
@@ -1407,7 +1408,7 @@ def significance(
     if x_text is None:
         x_text = x_middle
     if y_text is None:
-        y_text = y_middle
+        y_text = y_middle + margin_text
 
     if margin_axis == 'y':
         va = 'bottom'
