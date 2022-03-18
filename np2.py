@@ -507,11 +507,14 @@ def ____STAT____():
     pass
 
 
-def mean_distrib(p, v, axis=None):
+def mean_distrib(p: np.ndarray, v=None, axis=None) -> np.ndarray:
     if axis is None:
         kw = {}
     else:
         kw = {'axis': axis}
+    if v is None:
+        assert axis is not None
+        v = vec_on(np.arange(p.shape[axis]), axis, n_dim=p.ndim)
     return (p * v).sum(**kw) / p.sum(**kw)
 
 
