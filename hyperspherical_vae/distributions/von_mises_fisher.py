@@ -5,6 +5,8 @@ from torch.distributions.kl import register_kl
 from hyperspherical_vae.ops.ive import ive
 from hyperspherical_vae.distributions import HypersphericalUniform
 
+import b01_behavior.construct_observer
+
 
 class VonMisesFisher(torch.distributions.Distribution):
 
@@ -26,7 +28,7 @@ class VonMisesFisher(torch.distributions.Distribution):
         self.dtype = loc.dtype
         self.loc = loc
         self.scale = scale
-        self.device = loc.device
+        self.device = b01_behavior.construct_observer.device
         self.__m = loc.shape[-1]
         self.__e1 = (torch.Tensor([1.] + [0] * (loc.shape[-1] - 1))).to(self.device)
 
