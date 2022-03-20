@@ -145,6 +145,10 @@ class Cache(object):
         #     else:
         #         self.dict = zipPickle.load(self.fullpath)
 
+    def clear(self):
+        """run to save memory after loading"""
+        self._dict = None
+
     @property
     def dict(self):
         if self._dict is None:
