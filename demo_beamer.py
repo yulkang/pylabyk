@@ -3,7 +3,7 @@
 from pylatex import Command
 from pylatex.base_classes import Environment
 import pylatex as ltx
-from lib.pylabyk import plt2
+from pylabyk import plt2
 
 
 doc = plt2.LatexDoc(

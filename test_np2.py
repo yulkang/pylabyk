@@ -3,7 +3,7 @@
 
 import pytest
 import numpy as np
-from lib.pylabyk import np2
+from pylabyk import np2
 
 
 
