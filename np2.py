@@ -1996,6 +1996,14 @@ class AliasStr(
             self.__dict__[k] = v
         return self
 
+    @staticmethod
+    def dict_orig(d: dict) -> dict:
+        return {
+            k.orig if hasattr(k, 'orig') else k
+            : v.orig if hasattr(v, 'orig') else v
+            for k, v in d.items()
+        }
+
 
 class AliasStrAttributes(DictAttribute):
     # def __getattribute__(self, key):
