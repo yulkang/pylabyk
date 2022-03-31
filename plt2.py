@@ -240,17 +240,22 @@ class GridAxes:
     def figure(self) -> plt.Figure:
         return self.axs[0, 0].figure
 
-    def close(self):
+    def close(
+        self,
+        # force=True
+    ):
         fig = self.axs[0, 0].figure
-        import sys
-        if sys.getrefcount(fig) == 0:
-            plt.close(fig)
-            print('Closed figure %d!' % id(fig))  # CHECKING
+        # import sys
+        # if sys.getrefcount(fig) == 0 or force:
+        plt.close(fig)
+        print('Closed figure %d!' % id(fig))  # CHECKING
 
     def __del__(self):
         """Close figure to prevent memory leak"""
         if self._close_on_del:
-            self.close()
+            self.close(
+                # force=False
+            )
 
     def supxy(self, xprop=0.5, yprop=0.5):
         return supxy(self.axs[:], xprop=xprop, yprop=yprop)
