@@ -1648,15 +1648,21 @@ def meshgridflat(*args, copy=False):
     return outputs
 
 
-def vectorize_par(f: Callable, inputs: Iterable,
-                  pool: Pool = None, processes=None, chunksize=1,
-                  nout=None, otypes: Union[Sequence[Type], Type] = None,
-                  use_starmap=True, meshgrid_input=True,
-                  ) -> Sequence[np.ndarray]:
+def vectorize_par(
+    f: Callable, inputs: Iterable,
+    pool: Pool = None, processes=None, chunksize=1,
+    nout=None, otypes: Union[Sequence[Type], Type] = None,
+    use_starmap=True, meshgrid_input=True,
+) -> Sequence[np.ndarray]:
     """
     Run f in parallel with meshgrid of inputs along each input's first dimension
     and return the expanded outputs.
+
     See demo_vectorize_par() for examples.
+
+    Use np2.arrayobj1d(array) as an input, along with meshgrid_input=False,
+    to enforce 1D input and output.
+
     If you get an error like __THE_PROCESS_HAS_FORKED_AND_YOU_CANNOT_USE_THIS_COREFOUNDATION_FUNCTIONALITY___YOU_MUST_EXEC__()
     then you may have to force using the 'spawn' method in your main script:
         if __name__ == '__main__':
@@ -1699,7 +1705,7 @@ def vectorize_par(f: Callable, inputs: Iterable,
         shape0 = [len(inp) for inp in inputs]
         mesh_inputs = np.meshgrid(*inputs, indexing='ij')  # type: Iterable[np.ndarray]
     else:
-        shape0 = np.broadcast_shapes(*[v.shape for v in inputs])
+        shape0 = broadcast_shapes(*[npy(v).shape for v in inputs])
         mesh_inputs = [np.broadcast_to(v, shape0) for v in inputs]
     mesh_inputs = [m.flatten() for m in mesh_inputs]
 
@@ -1759,6 +1765,15 @@ def vectorize_par(f: Callable, inputs: Iterable,
              else out
              for out, otype in zip(outs2, otypes)]
     return outs3
+
+
+def broadcast_shapes(*shapes):
+    """
+
+    :param shapes:
+    :return: broadcasted shape. Similar to numpy's algorithm (version 1.22).
+    """
+    return np.broadcast(*[np.empty(shape) for shape in shapes]).shape
 
 
 def demo_vectorize_par():
