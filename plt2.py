@@ -1364,27 +1364,32 @@ def ____Stats_Probability____():
     pass
 
 
-def ecdf(x0, *args, w=None, **kw) -> List[plt.Line2D]:
+def ecdf(x0, *args, w=None, **kwargs) -> List[plt.Line2D]:
     """
     See also np2.ecdf()
     :param x0:
-    :param args:
+    :param args: fed to step()
     :param w: weight
-    :param kw:
+    :param kwargs: fed to step()
     :return: list of lines
     """
-    n = len(x0)
-    if w is None:
-        w = np.ones(n) / n
-    else:
-        w = w / np.sum(w)
-    p = np.cumsum(np.r_[[0], w])[:-1]
-    # p = np.linspace(0, 1, n + 1)[:-1]
-    x = np.sort(x0)
-    return plt.step(np.concatenate([x[:1], x, x[-1:]], 0),
-                    np.concatenate([np.array([0.]), p, np.array([1.])
-                                    ], 0),
-                    *args, **kw)
+    p, x = np2.ecdf(x0, w=w)
+    return step_ecdf(p, x, *args, **kwargs)
+
+
+def step_ecdf(
+    p: np.ndarray, x: np.ndarray, *args,
+    p_left=0., p_right=1.,
+    **kwargs
+) -> List[plt.Line2D]:
+    return plt.step(
+        np.r_[x[0], x, x[-1]],
+        # np.concatenate([x[:1], x, x[-1:]], 0),
+        np.r_[p_left, p, p_right],
+        # np.concatenate(
+        #     [np.array([0.]), p, np.array([1.])
+        #      ], 0),
+        *args, **kwargs)
 
 
 def significance(

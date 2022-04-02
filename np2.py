@@ -619,15 +619,22 @@ def uniquetol(v, tol=1e-6, return_inverse=False, **kwargs):
     return np.unique(np.round(np.array(v) / tol) * tol, 
                      return_inverse=return_inverse, **kwargs)
 
-def ecdf(x0):
+def ecdf(x0, w=None):
     """
-    Empirical distribution.
+    Empirical distribution. Supports weights.
     :param x0: a vector or a list of samples
+    :param w: weight
     :return: p[i] = Pr(x0 <= x[i]), x: sorted x0
     """
-    
     n = len(x0)
-    p = np.linspace(0, 1, n)
+
+    if w is None:
+        w = np.ones(n) / n
+    else:
+        w = w / np.sum(w)
+    p = np.cumsum(np.r_[[0], w])[:-1]
+    # p = np.linspace(0, 1, n + 1)[:-1]
+
     x = np.sort(x0)
     return p, x
 
