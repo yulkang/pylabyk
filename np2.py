@@ -14,7 +14,7 @@ from scipy import stats
 import numpy_groupies as npg
 import pandas as pd
 from copy import deepcopy
-from . import numpytorch
+from pylabyk import numpytorch
 from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List
 from multiprocessing.pool import Pool as Pool0
 # from multiprocessing import Pool
@@ -1629,6 +1629,10 @@ def nowstr():
 
 def ____STRING____():
     pass
+
+
+def truncate_at(s: str, max_len: int) -> str:
+    return s[:min([max_len, len(s)])]
 
 
 def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
