@@ -129,7 +129,7 @@ def mat2list(m: np.ndarray) -> List[np.ndarray]:
     return [v for v in m]
 
 
-def dict_shapes(d, verbose=True, return_shape=False):
+def shapes(d, verbose=True, return_shape=False):
     if not isinstance(d, dict):
         assert is_iter(d)
         d = {k: v for k, v in enumerate(d)}
@@ -171,6 +171,9 @@ def dict_shapes(d, verbose=True, return_shape=False):
 
     if return_shape:
         return sh
+
+
+dict_shapes = shapes  # alias
 
 
 def filt_dict(d: dict, incl: np.ndarray,
