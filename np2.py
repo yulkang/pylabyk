@@ -1730,7 +1730,17 @@ def vectorize_par(
         ])
 
     if use_starmap:
-        outs = pool.starmap(f, m, chunksize=chunksize)
+        try:
+            outs = pool.starmap(f, m, chunksize=chunksize)
+        except EOFError:
+            print('EOFError from starmap! Trying again..')
+            # Just try again - this seems to fix the issue
+            try:
+                outs = pool.starmap(f, m, chunksize=chunksize)
+            except EOFError:
+                print('EOFError again after trying again.. '
+                      'Not trying again this time.')
+                raise
     else:
         outs = pool.map(f, m, chunksize=chunksize)
 
