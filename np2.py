@@ -2078,7 +2078,7 @@ def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
 
 def shorten_dict(
     d: dict, src_dst=(), shorten_key=False,
-    shorten_zero=False,
+    shorten_zero=True,
 ) -> Dict[str, str]:
     d1 = {
         (shorten(k, src_dst) if shorten_key else k)
