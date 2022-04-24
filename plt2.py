@@ -1364,7 +1364,7 @@ def ____Stats_Probability____():
     pass
 
 
-def ecdf(x0, *args, w=None, **kwargs) -> List[plt.Line2D]:
+def ecdf(x0, *args, w=None, flip_y=False, **kwargs) -> List[plt.Line2D]:
     """
     See also np2.ecdf()
     :param x0:
@@ -1374,18 +1374,21 @@ def ecdf(x0, *args, w=None, **kwargs) -> List[plt.Line2D]:
     :return: list of lines
     """
     p, x = np2.ecdf(x0, w=w)
-    return step_ecdf(p, x, *args, **kwargs)
+    return step_ecdf(p, x, *args, flip_y=flip_y, **kwargs)
 
 
 def step_ecdf(
     p: np.ndarray, x: np.ndarray, *args,
-    p_left=0., p_right=1.,
+    p_left=0., p_right=1., flip_y=False,
     **kwargs
 ) -> List[plt.Line2D]:
+    p = np.r_[p_left, p, p_right]
+    if flip_y:
+        p = 1 - p
     return plt.step(
         np.r_[x[0], x, x[-1]],
         # np.concatenate([x[:1], x, x[-1:]], 0),
-        np.r_[p_left, p, p_right],
+        p,
         # np.concatenate(
         #     [np.array([0.]), p, np.array([1.])
         #      ], 0),
