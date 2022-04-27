@@ -90,6 +90,11 @@ class LocalFile(object):
             cacheutil.dict2fname(d) + '.zpkl'
         )
 
+    def get_file0(self, file: str, subdir=''):
+        return os.path.join(
+            self.get_pth_out(subdir), file
+        )
+
     def get_file(self, filekind: str, kind: str,
                  d: Union[Iterable[tuple], dict, odict, str, None] = None,
                  ext=None, subdir=None):

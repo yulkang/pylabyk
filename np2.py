@@ -313,6 +313,23 @@ def prepend_dim(v: np.ndarray, ndim=1) -> np.ndarray:
     return v.reshape((1,) * ndim + v.shape)
 
 
+def ____INDEXING___():
+    pass
+
+
+def filter_by_match(df: pd.DataFrame, d: dict) -> np.ndarray:
+    """
+    Return (df[key0] == value0) & (df[key1] == value1) & ...
+    :param df:
+    :param d:
+    :return: incl[row] == True if to be included
+    """
+    incl = np.ones([len(df)], dtype=bool)
+    for k, v in d.items():
+        incl = incl & (df[k] == v)
+    return incl
+
+
 def ____COPY____():
     pass
 
@@ -508,6 +525,49 @@ def issimilar(
 
 def ____STAT____():
     pass
+
+
+def ttest_mc(
+    v: np.ndarray, alternative='two-sided', nsim=10000,
+    method='permutation'
+) -> (float, float, int):
+    """
+
+    :param v: [sample]. Perform a paired test by subtracting one from the other.
+    :param alternative:
+    :param nsim:
+    :param method: 'bootstrap'|'permutation'
+        'bootstrap': sample with replacement
+        'permutation': randomly flip signs, as if the sides are randomly
+            flipped in a paired test.
+    :return: pval, tstat, df
+    """
+    n = len(v)
+    t_null = []
+    m = np.mean(v)
+    if method == 'bootstrap':
+        for _ in range(nsim):
+            v1 = np.random.choice(v, size=n)
+            t_null.append(np.mean(v1 - m) / sem(v1))
+    elif method == 'permutation':
+        for _ in range(nsim):
+            v1 = v * np.random.choice([-1, 1], size=n)
+            t_null.append(np.mean(v1) / sem(v1))
+    else:
+        raise ValueError()
+    tstat = np.mean(v) / sem(v)
+    df = n - 1
+    pval_lt = np.mean(tstat < t_null)
+    pval_gt = np.mean(tstat > t_null)
+    if alternative == 'two-sided':
+        pval = min([pval_lt, pval_gt]) * 2
+    elif alternative == 'less':
+        pval = pval_lt
+    elif alternative == 'greater':
+        pval = pval_gt
+    else:
+        raise ValueError()
+    return pval, tstat, df
 
 
 def mean_distrib(p: np.ndarray, v=None, axis=None) -> np.ndarray:
