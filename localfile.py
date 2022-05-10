@@ -1,5 +1,6 @@
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 from . import cacheutil
+from . import argsutil
 from .cacheutil import Cache
 import os, shutil
 from collections import OrderedDict as odict
@@ -95,7 +96,7 @@ class LocalFile(object):
             self.get_pth_out(subdir), file
         )
 
-    def get_file(self, filekind: str, kind: str,
+    def get_file(self, filekind: str = '', kind: str = '',
                  d: Union[Iterable[tuple], dict, odict, str, None] = None,
                  ext=None, subdir=None):
         """
@@ -124,7 +125,8 @@ class LocalFile(object):
                 )
             fname = cacheutil.dict2fname(merge_fileargs(kw_fname))
 
-        fname = '%s=%s+%s' % (filekind, kind, fname)
+        if len(filekind) > 0 or len(kind) > 0:
+            fname = '%s=%s+%s' % (filekind, kind, fname)
 
         if subdir is None and self.kind2subdir:
             subdir = filekind + '=' + kind
