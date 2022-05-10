@@ -389,6 +389,7 @@ def break_axis(
         amin, amax=None, xy='x', ax: plt.Axes = None,
         fun_draw: Callable = None,
         margin=0.05,
+        prop=0.5,
 ) -> (plt.Axes, plt.Axes):
     """
     :param amin: data coordinate to start breaking from
@@ -397,6 +398,8 @@ def break_axis(
     :param fun_draw: if not None, fun_draw(ax1) and fun_draw(ax2) will
     be run to recreate ax. Use the same function as that was called for
     with ax. Use, e.g., fun_draw=lambda ax: ax.plot(x, y)
+    :param prop: None for auto; 0.5 makes the two resulting axis to be
+        of equal widths or heights
     :return: axs: a list of axes created
     """
 
@@ -409,20 +412,26 @@ def break_axis(
     if xy == 'x':
         rect = ax.get_position().bounds
         lim = ax.get_xlim()
-        prop_min = (amin - lim[0]) / (lim[1] - lim[0])
-        prop_max = (amax - lim[0]) / (lim[1] - lim[0])
+        if prop is None:
+            prop = (amin - lim[0]) / (amin - lim[0] + lim[1] - amax)
+            # prop_min = (amin - lim[0]) / (lim[1] - lim[0])
+            # prop_max = (amax - lim[0]) / (lim[1] - lim[0])
+
         rect1 = np.array([
             rect[0],
             rect[1],
-            rect[2] * prop_min,
+            rect[2] * (prop - margin / 2),
+            # rect[2] * (prop_min - margin / 2),
             rect[3]
         ])
-        rect2 = [
-            rect[0] + rect[2] * prop_max,
+        rect2 = np.array([
+            rect[0] + rect[2] * (prop + margin / 2),
+            # rect[0] + rect[2] * (prop_max + margin / 2),
             rect[1],
-            rect[2] * (1 - prop_max),
+            rect[2] * (1. - prop - margin / 2),
+            # rect[2] * (1 - prop_max),
             rect[3]
-        ]
+        ])
 
         fig = ax.figure  # type: plt.Figure
         ax1 = fig.add_axes(plt.Axes(fig=fig, rect=rect1))
@@ -430,6 +439,7 @@ def break_axis(
         if fun_draw is not None:
             fun_draw(ax1)
         ax1.set_xticks(ax.get_xticks())
+        # ax1.set_xlim(right=amin)
         ax1.set_xlim(lim[0], amin)
         ax1.spines['right'].set_visible(False)
 
@@ -438,11 +448,35 @@ def break_axis(
         if fun_draw is not None:
             fun_draw(ax2)
         ax2.set_xticks(ax.get_xticks())
+        # ax2.set_xlim(left=amax)
         ax2.set_xlim(amax, lim[1])
         ax2.spines['left'].set_visible(False)
         ax2.set_yticks([])
 
-        ax.set_visible(False)
+        xlim0 = ax.get_xlim()
+        xtick0 = ax.get_xticks()
+        xticklabels0 = ax.get_xticklabels()
+
+        ylim0 = ax.get_ylim()
+        ytick0 = ax.get_yticks()
+        yticklabels0 = ax.get_yticklabels()
+
+        ax.cla()
+        # ax.set_xlim(xlim0)
+        # ax.set_xticks(xtick0)
+        # ax.set_xticklabels(xticklabels0, color='w')
+        #
+        # ax.set_ylim(ylim0)
+        # ax.set_yticks(ytick0)
+        # ax.set_yticklabels(yticklabels0, color='w')
+
+        box_off('all', ax=ax,
+            # remove_ticklabels=False, remove_ticks=False,
+        )
+        # ax.tick_params(axis='x', color='w')
+        # ax.tick_params(axis='y', color='w')
+        # plt.findobj(ax)
+        # ax.set_visible(False)
         # plt.show()  # CHECKED
         axs = [ax1, ax2]
 
@@ -704,6 +738,7 @@ def box_prop(
 
 def box_off(remove_spines: Union[str, Iterable[str]] = ('right', 'top'),
             remove_ticklabels=True,
+            remove_ticks=True,
             ax=None):
     """
     :param remove_spines: 'all': remove all spines and ticks; or a list
@@ -720,11 +755,13 @@ def box_off(remove_spines: Union[str, Iterable[str]] = ('right', 'top'),
         # ax.set_yticks([])
 
     if 'left' in remove_spines:
-        ax.tick_params(axis='y', length=0)
+        if remove_ticks:
+            ax.tick_params(axis='y', length=0)
         if remove_ticklabels:
             ax.set_yticklabels([])
     if 'bottom' in remove_spines:
-        ax.tick_params(axis='x', length=0)
+        if remove_ticks:
+            ax.tick_params(axis='x', length=0)
         if remove_ticklabels:
             ax.set_xticklabels([])
 
@@ -870,6 +907,48 @@ def cmap_alpha(cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
         )
     cmap0[:, -1] = np.linspace(alpha_min, alpha_max, cmap0.shape[0])
     cmap1 = ListedColormap(cmap0)
+    return cmap1
+
+
+def cmap_gamma(
+        cmap: Union[mpl.colors.Colormap, str, Iterable[float]] = None,
+        n=256,
+        piecelin=(0.2, 0.8),
+        f: Callable[[np.ndarray,], np.ndarray] = None,
+        name='gamma',
+) -> ListedColormap:
+    """
+    Add linear alphas to a colormap.
+    Give directly as cmap=cmap_gamma() to imshow(),
+    rather than setting with set_cmap().
+    The latter will result in an error on savefig().
+
+    based on https://stackoverflow.com/a/37334212/2565317
+    and https://stackoverflow.com/questions/49367144/modify-matplotlib-colormap
+
+    :param cmap: cmap with alpha of 1 / cmap.N, or a color (RGB/A or str)
+    :param n:
+    :return: cmap
+    """
+    if cmap is None:
+        cmap = plt.get_cmap('viridis')
+    if piecelin is not None:
+        x_control, y_control = piecelin
+        f = np.vectorize(
+            lambda v: v * y_control / x_control if v < x_control
+            else (v - x_control) * (1 - y_control) / (
+                        1 - x_control) + y_control)
+    elif f is None:
+        f = lambda v: v
+
+    assert isinstance(cmap, mpl.colors.Colormap)
+    v = np.arange(n)
+    v = f(v / n)
+    cmap0 = cmap(v)
+    cmap1 = ListedColormap(
+        cmap0, name=name,
+        N=cmap0.shape[0],
+    )
     return cmap1
 
 
@@ -1119,6 +1198,7 @@ def colorbar(
         width='5%', height='100%',
         borderpad=-1,
         label='',
+        orientation='vertical',
         kw_inset=(),
         kw_cbar=(),
 ) -> mpl.colorbar.Colorbar:
@@ -1145,6 +1225,10 @@ def colorbar(
     fig = ax.figure
 
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    if orientation == 'horizontal':
+        temp = width
+        width = height
+        height = temp
     axins = inset_axes(
         ax, width=width, height=height, loc=loc,
         bbox_to_anchor=(0., 0., 1., 1.),
@@ -1154,7 +1238,7 @@ def colorbar(
     )
     cb = fig.colorbar(
         mappable, cax=axins,
-        **{'label': label, **dict(kw_cbar)}
+        label=label, orientation=orientation, **dict(kw_cbar)
     )
     return cb
 

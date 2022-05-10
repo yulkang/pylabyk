@@ -25,7 +25,7 @@ from torch.utils.tensorboard import SummaryWriter
 from pytorchobjective.obj_torch import PyTorchObjective
 
 from . import numpytorch as npt, plt2
-from .numpytorch import npy, freeze
+from .numpytorch import npy
 from .cacheutil import mkdir4file
 
 default_device = torch.device('cpu')  # CHECKING
@@ -38,6 +38,8 @@ default_device = torch.device('cpu')  # CHECKING
 
 Param0 = namedtuple('Param0', ['v0', 'lb', 'ub'])
 
+epsilon0 = 1e-6
+
 class OverriddenParameter(nn.Module):
     """
     In operations requiring the whole parameter, use param[:] instead of
@@ -46,7 +48,7 @@ class OverriddenParameter(nn.Module):
     work when param is substituted with another tensor.
     """
 
-    def __init__(self, epsilon=1e-6, *args, **kwargs):
+    def __init__(self, epsilon=epsilon0, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.epsilon = epsilon
         self.skip_loading_lbub = None
@@ -155,8 +157,10 @@ class OverriddenParameter(nn.Module):
 
 
 class BoundedParameter(OverriddenParameter):
-    def __init__(self, data, lb=0., ub=1., skip_loading_lbub=False,
-                 requires_grad=True, randomize=False,
+    def __init__(self, data, lb=0., ub=1.,
+                 lb_random=None, ub_random=None,
+                 skip_loading_lbub=False,
+                 requires_grad=True, randomize=False, # name=None,
                  **kwargs):
         """
 
@@ -172,13 +176,15 @@ class BoundedParameter(OverriddenParameter):
         super().__init__(**kwargs)
         self.lb = None if lb is None else enforce_float_tensor(lb)  # lb == -np.inf doesn't allow for non-scalar lb
         self.ub = None if ub is None else enforce_float_tensor(ub)
+
+        self.lb_random = self.lb if lb_random is None else lb_random
+        self.ub_random = self.ub if ub_random is None else ub_random
+
         # self.lb = None if lb == -np.inf or lb is None else npt.tensor(lb)
         # self.ub = None if ub == np.inf or ub is None else npt.tensor(ub)
         self.skip_loading_lbub = skip_loading_lbub
         if randomize:
-            data = (
-                       torch.rand_like(enforce_float_tensor(data))
-            ) * (self.ub - self.lb) + self.lb
+            data = self.get_random_data0(data)
         else:
             data = enforce_float_tensor(data)
 
@@ -186,12 +192,23 @@ class BoundedParameter(OverriddenParameter):
         self.shape = data.shape
         self.update_is_fixed()
 
-        self._param = nn.Parameter(self.data2param(data),
-                                   requires_grad=requires_grad)
+        self._param = nn.Parameter(
+            self.data2param(data),
+            requires_grad=requires_grad,
+            # name=name
+        )
         if self._param.ndim == 0:
             raise Warning('Use ndim>0 to allow consistent use of [:]. '
                           'If ndim=0, use paramname.v to access the '
                           'value.')
+
+    def get_random_data0(self, data=None):
+        if data is None:
+            data = self.param2data(self._param)
+        data = (
+                   torch.rand_like(enforce_float_tensor(data))
+               ) * (self.ub_random - self.lb_random) + self.lb_random
+        return data
 
     def update_is_fixed(self):
         if (self.lb is not None and self.ub is not None):
@@ -386,6 +403,9 @@ class LookUp(object):
 class BoundedModule(nn.Module):
     def __init__(self):
         super().__init__()
+
+        # for backward compatibility
+        # - unused after introduction of BoundedParameter
         self._params_bounded = {} # {name:(lb, ub)}
         self._params_probability = {} # {name:probdim}
         self._params_circular = {} # {name:(lb, ub)}
@@ -393,6 +413,20 @@ class BoundedModule(nn.Module):
         self.params_probability = LookUp()
         self.params_circular = LookUp()
         self.epsilon = 1e-6
+
+    def randomize(self):
+        if len(self._params_bounded) > 0:
+            raise NotImplementedError()
+        if len(self._params_probability) > 0:
+            raise NotImplementedError()
+        if len(self._params_circular) > 0:
+            raise NotImplementedError()
+
+        d = odict(self.named_modules())
+        for k, param in d.items():  # type: str, BoundedParameter
+            if isinstance(param, BoundedParameter):
+                data0 = param.get_random_data0()
+                self.load_state_dict_data({k: data0})
 
     def setslice(self, name, index, value):
         v = self.__getattr__(name)
@@ -577,6 +611,8 @@ class BoundedModule(nn.Module):
 
     def __setattr__(self, item, value):
         # if isinstance(value, OverriddenParameter):
+        #     self.add_module(item, value)
+        #     return
         #     super().__setattr__(item, value)
         #     return
 
@@ -702,7 +738,7 @@ class BoundedModule(nn.Module):
         ax.set_xticks([])
         ax.set_yticks(np.arange(n))
 
-        names = [v.replace('_', '-') for v in names]
+        names = [v.replace('_', ' ') for v in names]
         ax.set_yticklabels(names)
         ax.set_ylim(n - 0.5, -0.5)
         plt2.box_off(['top', 'right', 'bottom'])
@@ -847,15 +883,26 @@ class BoundedModule(nn.Module):
     def grad_vec(self):
         ps = self.parameters()
         return torch.cat([
-            (p.grad.flatten() if p.requires_grad
+            (p.grad.flatten() if p.requires_grad and p.grad is not None
              else npt.zeros(p.numel()))
             for p in ps
         ])
 
     def freeze_(self):
         """Freeze all parameters (set requires_grad=False)"""
-        freeze(self)
+        raise DeprecationWarning('use requires_grad_(False) instead!')
+        self.set_requires_grad_(False)
         return self
+
+    def unfreeze_(self):
+        """Unfreeze all parameters (set requires_grad=True)"""
+        raise DeprecationWarning('use requires_grad_(True) instead!')
+        self.set_requires_grad_(True)
+        return self
+
+    def set_requires_grad_(self, requires_grad: bool):
+        raise DeprecationWarning('use requires_grad_() instead!')
+        npt.set_requires_grad(self, requires_grad)
 
 
 def enforce_float_tensor(v: Union[torch.Tensor, np.ndarray], device=None
@@ -1777,6 +1824,20 @@ def optimize_scipy(
 
     # NOTE: somehow this is necessary to set params to the fitted state
     model.load_state_dict(obj.unpack_parameters(out['x']))
+    state_dict0 = model.state_dict()
+    state_dict = {}
+    for k, v in state_dict0.items():
+        if torch.is_tensor(v):
+            state_dict[k] = npt.dclone(v)
+        else:
+            state_dict[k] = v
+        # try:
+        #     state_dict[k] = npt.dclone(v)
+        # except AttributeError:
+        #     print(k)
+        #     print(v)
+        #     raise RuntimeError()
+    out['state_dict'] = state_dict
 
     # def vec2str(v) -> str:
     #     return ', '.join(['%g' % v1 for v1 in v])

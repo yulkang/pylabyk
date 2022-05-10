@@ -242,6 +242,39 @@ def dictkeys(d, keys):
     return [d[k] for k in keys]
 
 
+def dict2array(d, key):
+    return np.vectorize(lambda d1: d1[key])(d)
+
+
+def dict_diff(d0: dict, d1: dict) -> dict:
+    d = {}
+    d_missing = {}
+    for k in d0.keys():
+        if k not in d1:
+            d[k] = (d0[k],)
+        elif (
+                (torch.is_tensor(d0[k]) or isinstance(d0[k], np.ndarray))
+                and (torch.is_tensor(d1[k]) or isinstance(d1[k], np.ndarray))
+                and np.any(npy(d0[k]) - npy(d1[k]))
+        ):
+            d[k] = (d0[k] - d1[k],)
+        else:
+            is_different = d0[k] != d1[k]
+            if is_iter(is_different):
+                is_different = np.any(npy(is_different))
+            if is_different:
+                d[k] = (d0[k], d1[k])
+            # try:
+            #     if d0[k] != d1[k]:
+            #         d[k] = (d0[k], d1[k])
+            # except Exception:
+            #     d[k] = (d0[k], d1[k])
+    for k in d1.keys():
+        if k not in d0:
+            d_missing[k] = d1[k]
+    return d, d_missing
+
+
 def rmkeys(d: dict, keys: Union[str, Iterable[str]]):
     if type(keys) is str:
         keys = [keys]
@@ -829,7 +862,7 @@ def pearsonr_ci(x,y,alpha=0.05):
     return r, p, lo, hi
 
 
-def info_criterion(nll, n_trial, n_param, kind='BIC'):
+def info_criterion(nll, n_trial, n_param, kind='BIC', group_dim=None):
     """
 
     :param nll: negative log likelihood of the data given parameters
@@ -838,6 +871,10 @@ def info_criterion(nll, n_trial, n_param, kind='BIC'):
     :param kind: 'BIC'|'NLL'
     :return: the chosen information criterion
     """
+    if group_dim is not None:
+        n_param = np.sum(n_param, group_dim)
+        n_trial = np.sum(n_trial, group_dim)
+        nll = np.sum(nll, group_dim)
     if kind == 'AIC':
         return 2 * n_param + 2 * nll
     elif kind == 'nAIC':
