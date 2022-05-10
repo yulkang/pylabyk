@@ -8,10 +8,12 @@ Created on Fri Oct 12 10:58:48 2018
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
+from typing import Dict, Union
 from collections import OrderedDict as odict
 import hashlib
 import os
 import textwrap
+from .np2 import AliasStr
 
 
 def varargin2props(obj, kw, skip_absent=True, error_absent=False):
@@ -122,7 +124,9 @@ def merge_fileargs(list_of_kws, **kwargs):
     return merge_subdict_recur(kwdefs(list_of_kws, **kwargs))
 
 
-def dict2fname(d, skip_None=True):
+def dict2fname(
+        d: Dict[Union[str, AliasStr], Union[str, AliasStr]],
+        skip_None=True, resolve_alias=False):
     """
     :type d: Union[odict, dict]
     :param skip_None:
@@ -133,7 +137,11 @@ def dict2fname(d, skip_None=True):
             return d[k] is not None
         else:
             return True
-    return '+'.join(['%s=%s' % (k, d[k]) for k in d if to_include(k)])
+
+    return '+'.join(('%s=%s' % (
+        (k.orig if isinstance(k, AliasStr) and resolve_alias else k),
+        (d[k].orig if isinstance(d[k], AliasStr) and resolve_alias else d[k])
+    )) for k in d if to_include(k))
 
 
 def fname2title(fname: str, wrapat=30):

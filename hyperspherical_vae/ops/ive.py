@@ -4,6 +4,8 @@ import numpy as np
 import scipy.special
 from numbers import Number
 
+import b01_behavior.construct_observer
+
 
 class IveFunction(torch.autograd.Function):
 
@@ -26,7 +28,7 @@ class IveFunction(torch.autograd.Function):
 #             print(v, type(v), np.isclose(v, 0))
 #             raise RuntimeError('v must be >= 0, it is {}'.format(v))
         
-        return torch.Tensor(output).to(z.device)
+        return torch.Tensor(output).to(b01_behavior.construct_observer.device)
 
     @staticmethod
     def backward(self, grad_output):

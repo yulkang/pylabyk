@@ -8,18 +8,19 @@ Created on Tue Feb 13 10:42:06 2018
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 import os
-from typing import List, Callable, Sequence, Mapping, Tuple
+from typing import List, Callable, Sequence, Mapping, Tuple, Dict, Any
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from matplotlib import patches
+from matplotlib import patches, pyplot as plt
 from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
 from copy import copy
+import pylatex as ltx
 
 import numpy_groupies as npg
 
-from . import np2
+from . import np2, plt_network as pltn
 from .cacheutil import mkdir4file
 
 
@@ -47,17 +48,19 @@ AxesSlice = Union[plt.Axes, Sequence[plt.Axes], np.ndarray, AxesArray]
 
 
 class GridAxes:
-    def __init__(self,
-                 nrows=1, ncols=1,
-                 left=0.5, right=0.1,
-                 bottom=0.5, top=0.5,
-                 wspace: Union[float, Sequence[float]] = 0.25,
-                 hspace: Union[float, Sequence[float]] = 0.25,
-                 widths: Union[float, Sequence[float]] = 1.,
-                 heights: Union[float, Sequence[float]] = 0.75,
-                 kw_fig=(),
-                 close_on_del=True,
-                 ):
+    def __init__(
+        self,
+        nrows=1, ncols=1,
+        left=0.5, right=0.1,
+        bottom=0.5, top=0.5,
+        wspace: Union[float, Sequence[float]] = 0.25,
+        hspace: Union[float, Sequence[float]] = 0.25,
+        widths: Union[float, Sequence[float]] = 1.,
+        heights: Union[float, Sequence[float]] = 0.75,
+        kw_fig=(),
+        kw_subplot: Union[None, Sequence[Sequence[Dict[str, Any]]]] = None,
+        close_on_del=True,
+    ):
         """
         Give all size arguments in inches. top and right are top and right
         margins, rather than top and right coordinates.
@@ -86,8 +89,15 @@ class GridAxes:
         :param widths: widths of columns in inches.
         :param heights: heights of rows in inches.
         :param kw_fig:
+        :param kw_subplot: if not None, will be converted & broadcasted
+            to an array of size [row, col] of kwargs for each subplot.
+            e.g.: kw_subplot=[[{}, {}, {'projection': 'polar'}]]
         :return: axs[row, col] = plt.Axes
         """
+        if kw_subplot is None:
+            kw_subplot = [[{}]]
+        kw_subplot = np.broadcast_to(np.array(kw_subplot), [nrows, ncols])
+        
         # truncate if too long for convenience
         wspace, hspace, widths, heights = [
             v[:l] if np2.is_sequence(v) and len(v) > l else v
@@ -138,28 +148,32 @@ class GridAxes:
 
         for row in range(nrows):
             for col in range(ncols):
-                axs[row, col] = plt.subplot(gs[row * 2 + 1, col * 2 + 1])
+                axs[row, col] = plt.subplot(
+                    gs[row * 2 + 1, col * 2 + 1],
+                    **kw_subplot[row, col])
 
         self.axs = axs
 
     @property
     def w(self) -> np.array:
+        """left, width[0], wspace[0], width[1], ..., right (inches)"""
         w = [0.]
         for ax in self.axs[0, :]:
             bounds = ax.get_position().bounds
             w += [bounds[0], bounds[0] + bounds[2]]
         w.append(1.)
-        return np.diff(w)
+        return np.diff(w) * self.figure.get_size_inches()[0]
 
     @property
     def h(self) -> np.array:
+        """top, height[0], hspace[0], height[1], ..., bottom (inches)"""
         h = [0.]
-        for ax in self.axs[:, 0]:
+        for ax in np.flip(self.axs[:, 0]):
             bounds = ax.get_position().bounds
             h += [bounds[1], bounds[1] + bounds[3]]
         h.append(1.)
         # coord from the top
-        return np.flip(np.diff(h))
+        return np.flip(np.diff(h)) * self.figure.get_size_inches()[1]
 
     def copy(self):
         gridaxes = copy(self)
@@ -226,14 +240,22 @@ class GridAxes:
     def figure(self) -> plt.Figure:
         return self.axs[0, 0].figure
 
+    def close(
+        self,
+        # force=True
+    ):
+        fig = self.axs[0, 0].figure
+        # import sys
+        # if sys.getrefcount(fig) == 0 or force:
+        plt.close(fig)
+        print('Closed figure %d!' % id(fig))  # CHECKING
+
     def __del__(self):
         """Close figure to prevent memory leak"""
         if self._close_on_del:
-            fig = self.axs[0, 0].figure
-            import sys
-            if sys.getrefcount(fig) == 0:
-                plt.close(fig)
-                print('Closed figure %d!' % id(fig))  # CHECKING
+            self.close(
+                # force=False
+            )
 
     def supxy(self, xprop=0.5, yprop=0.5):
         return supxy(self.axs[:], xprop=xprop, yprop=yprop)
@@ -247,11 +269,24 @@ class GridAxes:
         return self.supxy(xprop=1)[0] - self.supxy(xprop=0)[0]
 
     def suptitle(self, txt: str,
-                 xprop=0.5, pad=0.05, fontsize=12, yprop=None,
+                 xprop=0.5, pad=0.5, fontsize=12, yprop=None,
                  va='bottom', ha='center',
                  **kwargs):
+        """
+
+        :param txt:
+        :param xprop:
+        :param pad: inches
+        :param fontsize:
+        :param yprop:
+        :param va:
+        :param ha:
+        :param kwargs:
+        :return:
+        """
         if yprop is None:
-            yprop = 1. + pad
+            height_axes = np.sum(self.h[1:-1])
+            yprop = 1. + pad / height_axes
 
         return plt.figtext(
             *self.supxy(xprop=xprop, yprop=yprop), txt,
@@ -651,6 +686,22 @@ def detach_yaxis(ymin=0, ymax=None, ax=None):
     detach_axis('y', ymin, ymax, ax)
 
 
+def box_prop(
+        linewidth=3,
+        color='r',
+        spines: Union[str, Iterable[str]] = 'all',
+        ax: plt.Axes = None
+):
+    if isinstance(spines, str) and spines == 'all':
+        spines = ('left', 'right', 'top', 'bottom')
+    if ax is None:
+        ax = plt.gca()
+    for spine in spines:
+        s = ax.spines[spine]
+        s.set_edgecolor(color)
+        s.set_linewidth(linewidth)
+
+
 def box_off(remove_spines: Union[str, Iterable[str]] = ('right', 'top'),
             remove_ticklabels=True,
             ax=None):
@@ -887,11 +938,14 @@ def imshow_discrete(x, shade=None,
     Given index x[row, col], show color[x[row, col]]
     :param x:
     :param shade: Weight given to the foreground color.
-    :param colors: colors[i]: (R,G,B)
+    :param colors: colors[i]: (R,G,B), (R,G,B,A), or color name
     :param color_shade: Background color.
     :param kw: Keyword arguments for imshow
     :return:
     """
+    from matplotlib.colors import to_rgba
+    colors = [to_rgba(color) for color in colors]
+
     if shade is None:
         shade = np.ones(list(x.shape[:-1]) + [1])
     else:
@@ -910,20 +964,23 @@ def imshow_discrete(x, shade=None,
 def imshow_weights(
         w, colors=((1, 0, 0), (0, 1, 0), (0, 0, 1)),
         color_bkg=(1, 1, 1),
+        to_plot=True,
         **kwargs
 ):
     """
     color[row, column] = sum_i(w[row, column, i] * (colors[i] - color_bkg))
     :param w: [row, column, i]: weight given to i-th color
     :type w: np.ndarray
-    :param colors: [i] = [R, G, B]
+    :param colors: [i] = [R, G, B], [R, G, B, A], or color name
     :param color_bkg:
-    :return: h_imshow
+    :return: h_imshow if to_plot, else color[row, column, RGBA]
     """
     assert isinstance(w, np.ndarray)
     assert w.ndim == 3
-    colors = np.array(colors)
-    color_bkg = np.array(color_bkg)
+
+    from matplotlib.colors import to_rgba, to_rgba_array
+    colors = to_rgba_array(colors)
+    color_bkg = np.array(to_rgba(color_bkg))
     dcolors = np.stack([
         c - color_bkg for c in colors
     ])[None, None, :, :]  # [1, 1, w, color]
@@ -938,7 +995,11 @@ def imshow_weights(
     # ], -1)
     # color = np.clip(color, 0, 1)
     # plt.gca().set_facecolor(color_bkg)
-    return plt.imshow(color, **kwargs)
+
+    if to_plot:
+        return plt.imshow(color, **kwargs)
+    else:
+        return color
 
 
 def plot_pcolor(x, y, c=None, norm=None, cmap=None, **kwargs):
@@ -1070,6 +1131,9 @@ def colorbar(
     :param width: relative to the axes
     :param height: relative to the axes
     :param borderpad: relative to the fontsize of the axes.
+        When loc='right',
+            0 aligns the right edges of the colorbar and the parent axis.
+            Negative value pushes the colorbar to the right.
     :param kw_inset:
     :param kw_cbar:
     :return:
@@ -1299,14 +1363,112 @@ def plot_binned_ch(x0, ch, n_bin=9, **kw):
 def ____Stats_Probability____():
     pass
 
-def ecdf(x0, *args, **kw):
-    n = len(x0)
-    p = np.linspace(0, 1, n + 1)[:-1]
-    x = np.sort(x0)
-    return plt.step(np.concatenate([x[:1], x, x[-1:]], 0),
-                    np.concatenate([np.array([0.]), p, np.array([1.])
-                                    ], 0),
-                    *args, **kw)
+
+def ecdf(x0, *args, w=None, flip_y=False, **kwargs) -> List[plt.Line2D]:
+    """
+    See also np2.ecdf()
+    :param x0:
+    :param args: fed to step()
+    :param w: weight
+    :param kwargs: fed to step()
+    :return: list of lines
+    """
+    p, x = np2.ecdf(x0, w=w)
+    return step_ecdf(p, x, *args, flip_y=flip_y, **kwargs)
+
+
+def step_ecdf(
+    p: np.ndarray, x: np.ndarray, *args,
+    p_left=0., p_right=1., flip_y=False,
+    **kwargs
+) -> List[plt.Line2D]:
+    p = np.r_[p_left, p, p_right]
+    if flip_y:
+        p = 1 - p
+    return plt.step(
+        np.r_[x[0], x, x[-1]],
+        # np.concatenate([x[:1], x, x[-1:]], 0),
+        p,
+        # np.concatenate(
+        #     [np.array([0.]), p, np.array([1.])
+        #      ], 0),
+        *args, **kwargs)
+
+
+def significance(
+        x: Union[Sequence[float], np.ndarray],
+        y: Union[Sequence[float], np.ndarray],
+        text='*', kw_line=(), kw_text=(),
+        x_text=None,
+        y_text=None,
+        margin_prop=0.1,
+        margin_axis='y',
+        margin_text=0.,
+) -> (plt.Line2D, plt.Text):
+    """
+
+    :param x:
+    :param y:
+    :param text:
+    :param kw_line:
+    :param kw_text:
+    :return: h_line, h_text
+    """
+    x, y = np.broadcast_arrays(x, y)
+    x_middle = np.mean(x)
+    y_middle = np.mean(y)
+
+    if x_text is None:
+        x_text = x_middle
+    if y_text is None:
+        y_text = y_middle + margin_text
+
+    if margin_axis == 'y':
+        va = 'bottom'
+        ha = 'center'
+        # if x_text is None:
+        #     x_text = x_middle
+        # if y_text is None:
+        #     margin = np.diff(plt.ylim()) * margin_prop * (
+        #         1 if y_middle == 0 else np.sign(y_middle))
+        #     y_text = y_middle + margin
+    elif margin_axis == 'x':
+        va = 'center'
+        ha = 'left'
+        # if x_text is None:
+        #     margin = np.diff(plt.xlim()) * margin_prop * (
+        #         1 if x_middle == 0 else np.sign(x_middle))
+        #     x_text = x_middle + margin
+        # if y_text is None:
+        #     y_text = y_middle
+    else:
+        raise ValueError()
+
+    kw_line = {'color': 'k', 'linewidth': 0.5, 'linestyle': '-',
+        **dict(kw_line)}
+    kw_text = {'ha': ha, 'va': va, **dict(kw_text)}
+    h_line = plt.plot(x, y, **kw_line)
+    h_text = plt.text(x_text, y_text, text, **kw_text)
+    return h_line, h_text
+
+
+def significance_marker(
+        p: Union[float, np.ndarray],
+        thres=(0.1, 0.05, 0.01, 0.001),
+        markers=('n.s.', '+', '*', '**', '***')
+) -> Union[str, np.ndarray]:
+    """
+
+    :param p:
+    :param thres:
+    :param markers:
+    :return:
+    """
+    markers = np.array(markers)
+    p = np.array(p)
+    lessthan = np.stack([p < thres1 for thres1 in thres]).sum(0).astype(int)
+    return markers[lessthan]
+
 
 def ____Gaussian____():
     pass
@@ -1498,24 +1660,433 @@ class Animator:
         return files
 
 
+def ____COMPOSITE_FIGURES____():
+    pass
+
+
+class SimpleFilename:
+    """
+    copy files to simple names as they are appended; clean them up on del.
+    """
+    def __init__(self, file_out: str):
+        self.file_out = file_out
+        self.file_in = []
+        self.file_temp_rel = []
+        self.file_temp_abs = []
+        self.temp_dir_rel = '_temp_SimpleFilename'
+        self.temp_dir_abs = os.path.join(
+            os.path.dirname(self.file_out),
+            self.temp_dir_rel)
+        self._closed = False
+
+    def append(self, file_in) -> str:
+        self.file_in.append(file_in)
+
+        import shutil, hashlib
+
+        mkdir4file(os.path.join(self.temp_dir_abs, 'temp'))
+
+        file_name1 = (
+                hashlib.md5(file_in.encode('utf-8')).hexdigest()
+                + os.path.splitext(file_in)[1])
+        file_temp_rel = os.path.join(self.temp_dir_rel, file_name1)
+        file_temp_abs = os.path.join(self.temp_dir_abs, file_name1)
+        shutil.copy(file_in, file_temp_abs)
+        self.file_temp_rel.append(file_temp_rel)
+        self.file_temp_abs.append(file_temp_abs)
+
+        return file_temp_rel
+
+    def close(self):
+        if not self._closed:
+            from send2trash import send2trash
+            for file_abs in self.file_temp_abs:
+                if os.path.exists(file_abs):
+                    send2trash(file_abs)
+            if os.path.exists(self.temp_dir_abs):
+                send2trash(self.temp_dir_abs)
+
+            import pandas as pd
+            df = pd.DataFrame(data={
+                'file_in': self.file_in,
+                'file_temp_rel': self.file_temp_rel
+            })
+            file_csv = os.path.splitext(self.file_out)[0] + '.csv'
+            df.to_csv(file_csv)
+            print('Saved original paths to %s' % file_csv)
+            self._closed = True
+
+    def __del__(self):
+        self.close()
+
+    def __exit__(self, *args, **kwargs):
+        self.close()
+
+
+class SimpleFilenameArray:
+    def __init__(self, file_out, files):
+        """
+        rename files to simple names
+        :param file_out:
+        :param files:
+        """
+        if not isinstance(files, np.ndarray):
+            files = np.array([files])
+        if files.ndim == 1:
+            files = files[None]
+        elif files.ndim == 3:
+            files = files[0]
+        assert files.ndim == 2
+        self.files = files
+        self.file_out = file_out
+        self.files_abs = None
+        self.temp_dir_abs = None
+
+    def __enter__(self):
+        """
+
+        :return: files_rel
+        """
+        files = self.files
+        file_out = self.file_out
+
+        files_all = file_out + '\n'.join([
+            ('' if v is None else v)
+            for v in files.flatten()
+        ])
+
+        import shutil, hashlib
+        temp_name = hashlib.md5(files_all.encode('utf-8')).hexdigest()
+        temp_dir_rel = '_temp_subfig' + temp_name
+        temp_dir_abs = os.path.join(os.path.dirname(file_out), temp_dir_rel)
+        mkdir4file(os.path.join(temp_dir_abs, 'temp'))
+        files_rel = np.empty_like(files)
+        files_abs = np.empty_like(files)
+        for row in range(files.shape[0]):
+            for col in range(files.shape[1]):
+                file0 = files[row, col]
+                if file0 is None:
+                    files_rel[row, col] = None
+                    files_abs[row, col] = None
+                    continue
+                # NOTE: consider using os.path.relpath()
+                file_name1 = 'row%dcol%d%s' % (
+                    row, col, os.path.splitext(file0)[1])
+                files_rel[row, col] = os.path.join(temp_dir_rel, file_name1)
+                files_abs[row, col] = os.path.join(temp_dir_abs, file_name1)
+                shutil.copy(file0, files_abs[row, col])
+        import pandas as pd
+        df = pd.DataFrame(files)
+        file_csv = os.path.splitext(file_out)[0] + '.csv'
+        df.to_csv(file_csv)
+        print('Saved original paths to %s' % file_csv)
+
+        self.files_abs = files_abs
+        self.files_rel = files_rel
+        self.temp_dir_abs = temp_dir_abs
+        return self
+
+    def __del__(self, exc_type=None, exc_value=None, exc_traceback=None):
+        from send2trash import send2trash
+
+        files = self.files
+        files_abs = self.files_abs
+        temp_dir_abs = self.temp_dir_abs
+
+        for file0, file1 in zip(files.flatten(), files_abs.flatten()):
+            if (
+                file1 is not None and file0 != file1 and
+                os.path.exists(file1)
+            ):
+                send2trash(file1)
+        if os.path.exists(temp_dir_abs):
+            os.rmdir(temp_dir_abs)
+
+        if exc_type is not None:
+            import traceback
+            traceback.print_exception(exc_type, exc_value, exc_traceback)
+            raise RuntimeError('An exception occurred!')
+
+
+def get_pdf_size(file) -> (float, float):
+    """
+    :param file:
+    :return: width_point, height_point
+    """
+    from PyPDF2 import PdfFileReader
+    input1 = PdfFileReader(open(file, 'rb'))
+    rect = input1.getPage(0).mediaBox
+    width_document = rect[2]
+    height_document = rect[3]
+    return width_document, height_document
+
+
+def get_image_size(file) -> (int, int):
+    """
+    :param file:
+    :return: width_pixel, height_pixel
+    """
+    from PIL import Image
+    return Image.open(file).size
+
+
+class LatexDoc(ltx.Document, np2.ContextManager):
+    def __init__(
+        self,
+        *args,
+        file_out=None,
+        title='',
+        **kwargs
+    ):
+        super().__init__(
+            *args,
+            **kwargs
+        )
+        self.file_out = file_out
+        self.simple_filename = SimpleFilename(self.file_out)
+
+        self.n_row = 0
+
+        doc = self
+        doc.packages.append(ltx.Package('subcaption'))
+        doc.packages.append(
+            ltx.Package(
+                'caption', [
+                    'labelformat=parens',
+                    'labelsep=quad',
+                    'justification=centering',
+                    'font=scriptsize',
+                    'labelfont=sf',
+                    'textfont=sf',
+                ]))
+        doc.packages.append(ltx.Package('graphicx'))
+        doc.append(
+            ltx.Command(
+                'setlength', [
+                    ltx.Command('abovecaptionskip'), '0pt']))
+        doc.append(
+            ltx.Command(
+                'setlength', [
+                    ltx.Command('belowcaptionskip'), '0pt']))
+
+        if len(title) > 0:
+            doc.preamble.append(ltx.Command('title', title))
+            doc.append(ltx.Command(r'\maketitle'))
+
+    def simplify_path(self, fullpath: str) -> str:
+        return self.simple_filename.append(fullpath)
+
+    def close(self, **kwargs):
+        file_out = self.file_out
+        mkdir4file(file_out)
+        if file_out.lower().endswith('.pdf'):
+            file_out = file_out[:-4]
+        self.generate_pdf(file_out, **kwargs)
+
+        # should close simple_filename after generate_pdf()
+        # so that temporary files can be used before being deleted.
+        self.simple_filename.close()
+
+    def __exit__(self, *args, **kwargs):
+        self.close()
+        super().__exit__(*args)
+
+
+class Frame(ltx.base_classes.Environment):
+    """
+    Usage:
+    from pylatex import Command
+
+    doc = plt2.LatexDoc(
+        file_out='demo_beamer.pdf',
+        documentclass=['beamer'],
+    )
+
+    doc.append(Command('title', 'Sample title'))
+    doc.append(Command('frame', Command('titlepage')))
+
+    for i in range(3):
+        with doc.create(plt2.Frame()):
+            doc.append(f'page {i}')
+
+    doc.close()
+
+    See also: https://www.overleaf.com/learn/latex/Beamer
+    """
+    pass
+
+
+class Adjustbox(ltx.base_classes.Environment):
+    def __init__(
+            self, *args,
+            arguments=ltx.NoEscape(
+                r'max width=\textwidth, '
+                r'max totalheight=\textheight-2\baselineskip,'
+                r'keepaspectratio'
+            ), **kwargs):
+        super().__init__(*args, arguments=arguments, **kwargs)
+
+
+def latex_table(
+        doc: LatexDoc, dicts: Sequence[Dict[str, str]]):
+    """
+    Use in, e.g., "with doc.create(ltx.Table()) as table:" block
+    :param doc:
+    :param dicts: [row: int][column: str] = element
+    :return: None
+    """
+    # with doc.create(ltx.Center()):
+    with doc.create(
+            ltx.Tabular(
+                    '|' +
+                    '|'.join(['c'] * len(dicts[0]))
+                    + '|'
+            )) as tabular:
+        tabular.add_hline()
+        tabular.add_row(dicts[0].keys())
+        for row in dicts:
+            tabular.add_hline()
+            tabular.add_row(list(row.values()))
+        tabular.add_hline()
+
+
+class LatexDocStandalone(LatexDoc):
+    def __init__(self, *args, width_document_cm=21, **kwargs):
+        super().__init__(
+            *args,
+            documentclass=('standalone',),
+            document_options=[
+                'varwidth=%fcm' % width_document_cm,
+                'border=0pt'
+            ],
+            **kwargs
+        )
+        self.width_document_cm = width_document_cm
+
+    def append_subfig_row(
+        self, files_rel,
+        caption=None,
+        subcaptions=None,
+        width_column_cm=None,
+        hspace_cm=0.,
+        caption_on_top=False,
+        subcaption_on_top=False,
+        ncol=None,
+    ):
+        """
+
+        :param files_rel:
+        :param caption:
+        :param subcaptions:
+        :param width_column_cm:
+        :param hspace_cm:
+        :param caption_on_top:
+        :param subcaption_on_top:
+        :return:
+        """
+        files_rel = np.array(files_rel)
+
+        if ncol is None:
+            if files_rel.ndim == 1:
+                ncol = int(np.floor(np.sqrt(files_rel.size)))
+            else:
+                assert files_rel.ndim == 2
+                ncol = files_rel.shape[1]
+        files_rel = reshape_ragged(files_rel, ncol)
+
+        if subcaptions is not None:
+            subcaptions = np.array(subcaptions)
+            if subcaptions.ndim == 1:
+                reshape_ragged(subcaptions, files_rel.shape[1])
+            else:
+                assert files_rel.shape == subcaptions.shape
+
+        if width_column_cm is None:
+            width_column_cm = (
+                self.width_document_cm - hspace_cm * (ncol - 1)
+            ) / ncol
+        if np.isscalar(width_column_cm):
+            width_column_cm = [width_column_cm]
+        elif len(width_column_cm) > ncol:
+            width_column_cm = width_column_cm[:ncol]
+        elif len(width_column_cm) < ncol:
+            width_column_cm = (
+                list(width_column_cm)
+                * int(np.ceil(ncol / len(width_column_cm)))
+            )[:ncol]
+        width_column_cm = np.array(width_column_cm)
+        assert width_column_cm.ndim == 1
+
+        if subcaption_on_top is None:
+            subcaption_on_top = caption_on_top
+
+        doc = self
+        with doc.create(ltx.Figure()) as fig:
+            doc.append(ltx.Command('centering'))
+            if caption_on_top and caption is not None:
+                fig.add_caption(caption)
+            for row in range(files_rel.shape[0]):
+                for col in range(files_rel.shape[1]):
+                    file = files_rel[row, col]
+                    if file is None or file == '':
+                        continue
+                    with doc.create(
+                        ltx.SubFigure('%f cm' % width_column_cm[col])
+                    ) as subfig:
+                        doc.append(ltx.Command('centering'))
+                        if subcaption_on_top and subcaptions is not None:
+                            subfig.add_caption(subcaptions[row, col])
+                        subfig.add_image(
+                            file, width='%f cm' % width_column_cm[col])
+                        if (not subcaption_on_top) and subcaptions is not None:
+                            subfig.add_caption(subcaptions[row, col])
+                        doc.append(ltx.VerticalSpace('%f cm' % hspace_cm))
+                doc.append(ltx.NewLine())
+            if (not caption_on_top) and caption is not None:
+                fig.add_caption(caption)
+
+
+def convert_unit(src, src_unit, dst_unit):
+    if src_unit == 'pt':
+        inch = src / 72.
+    elif src_unit == 'in':
+        inch = src
+    elif src_unit == 'cm':
+        inch = src * 2.54
+    else:
+        raise NotImplementedError()
+    if dst_unit == 'cm':
+        dst = inch / 2.54
+    elif dst_unit == 'in':
+        dst = inch
+    elif dst_unit == 'pt':
+        dst = inch * 72
+    else:
+        raise NotImplementedError()
+    return dst
+
+
 def subfigs(
         files: Union[Sequence, np.ndarray], file_out: str,
         width_document=None,
-        width_column='2cm',
-        hspace='0pt',
+        width_column_cm=(2,),
+        hspace_cm=0.,
         ncol: int = None,
-        clean_tex=True,
         caption=None,
         subcaptions: Union[Sequence, np.ndarray] = None,
         caption_on_top=False,
         subcaption_on_top=None,
+        suptitle='',
 ):
     """
 
-    :param files: 1D or 2D array of strings. Path relative to file_out.
+    :param files: 1D or 2D array of strings.
+        if 2D, [row, col] = file path relative to file_out's folder,
+        or absolute path as obtained from os.path.abspath()
+        if '', skipped
     :param file_out:
-    :param width_document:
-    :param width_column:
+    :param width_document: in cm
+    :param width_column_cm:
     :param hspace: space between rows
     :param ncol: defaults to files.shape[1] if it is an array;
         makes the array close to square otherwise
@@ -1526,115 +2097,35 @@ def subfigs(
     :param subcaption_on_top: defaults to caption_on_top
     :return:
     """
-    if not isinstance(files, np.ndarray):
-        files = np.array(files)
-    if ncol is None:
-        if files.ndim == 1:
-            ncol = int(np.floor(np.sqrt(files.size)))
-        else:
-            assert files.ndim == 2
-            ncol = files.shape[1]
-    files = reshape_ragged(files, ncol)
-    if subcaptions is not None:
-        subcaptions = np.array(subcaptions)
-        if subcaptions.ndim == 1:
-            reshape_ragged(subcaptions, files.shape[1])
-        else:
-            assert files.shape == subcaptions.shape
     if width_document is None:
-        width_document = 'varwidth=%dcm' % (int(width_column[0]) * ncol)
-    if subcaption_on_top is None:
-        subcaption_on_top = caption_on_top
+        files = np.array(files)
+        width_document = np.sum(
+            np.array(width_column_cm) + np.zeros(files.shape[1]))
 
-    # rename files to simple names
-    import os, shutil, hashlib
-    temp_name = hashlib.md5(file_out.encode('utf-8')).hexdigest()
-
-    temp_dir_rel = '_temp_subfig' + temp_name
-    temp_dir_abs = os.path.join(os.path.dirname(file_out), temp_dir_rel)
-    mkdir4file(os.path.join(temp_dir_abs, 'temp'))
-    files_rel = np.empty_like(files)
-    files_abs = np.empty_like(files)
-    for row in range(files.shape[0]):
-        for col in range(files.shape[1]):
-            file0 = files[row, col]
-            if file0 is None:
-                files_rel[row, col] = None
-                files_abs[row, col] = None
-                continue
-            file_name1 = 'row%dcol%d%s' % (row, col, os.path.splitext(file0)[1])
-            files_rel[row, col] = os.path.join(temp_dir_rel, file_name1)
-            files_abs[row, col] = os.path.join(temp_dir_abs, file_name1)
-            shutil.copy(file0, files_abs[row, col])
-
-    import pandas as pd
-    df = pd.DataFrame(files)
-    file_csv = os.path.splitext(file_out)[0] + '.csv'
-    df.to_csv(file_csv)
-    print('Saved original paths to %s' % file_csv)
-
-    import pylatex as ltx
-    doc = ltx.Document(
-        documentclass=['standalone'],
-        document_options=[
-            width_document,
-            'border=0pt'
-        ],
-    )
-    doc.packages.append(ltx.Package('subcaption'))
-    doc.packages.append(ltx.Package(
-        'caption', [
-            'labelformat=parens',
-            'labelsep=quad',
-            'justification=centering',
-            'font=scriptsize',
-            'labelfont=sf',
-            'textfont=sf',
-        ]))
-    doc.packages.append(ltx.Package('graphicx'))
-    doc.append(ltx.Command('setlength', [
-        ltx.Command('abovecaptionskip'), '0pt']))
-    doc.append( ltx.Command('setlength', [
-        ltx.Command('belowcaptionskip'), '0pt']))
-    with doc.create(ltx.Figure()) as fig:
-        if caption_on_top and caption is not None:
-            fig.add_caption(caption)
-        for row in range(files_rel.shape[0]):
-            for col in range(files_rel.shape[1]):
-                file = files_rel[row, col]
-                if file is None:
-                    continue
-                with doc.create(ltx.SubFigure(width_column)
-                                ) as subfig:
-                    doc.append(ltx.Command('centering'))
-                    if subcaption_on_top and subcaptions is not None:
-                        subfig.add_caption(subcaptions[row, col])
-                    subfig.add_image(file, width=width_column)
-                    if (not subcaption_on_top) and subcaptions is not None:
-                        subfig.add_caption(subcaptions[row, col])
-                    doc.append(ltx.VerticalSpace(hspace))
-            doc.append(ltx.NewLine())
-        if (not caption_on_top) and caption is not None:
-            fig.add_caption(caption)
-    mkdir4file(file_out)
-    if file_out.lower().endswith('.pdf'):
-        file_out = file_out[:-4]
-    doc.generate_pdf(file_out, clean_tex=clean_tex)
-
-    from send2trash import send2trash
-    for row in range(files_abs.shape[0]):
-        for col in range(files_abs.shape[1]):
-            file0 = files[row, col]
-            file1 = files_abs[row, col]
-            if file1 is not None and file0 != file1:
-                send2trash(file1)
-    os.rmdir(temp_dir_abs)
+    with SimpleFilenameArray(file_out, files) as simplenames:
+        with LatexDocStandalone(
+            title=suptitle,
+            width_document_cm=width_document,
+            file_out=file_out,
+        ) as doc:
+            doc.append_subfig_row(
+                files_rel=simplenames.files_rel,
+                caption=caption,
+                subcaptions=subcaptions,
+                width_column_cm=width_column_cm,
+                hspace_cm=hspace_cm,
+                caption_on_top=caption_on_top,
+                subcaption_on_top=subcaption_on_top,
+                ncol=ncol
+            )
 
 
 pdfs2subfigs = subfigs  # alias for backward compatibility
 
 
-def reshape_ragged(v, ncol):
+def reshape_ragged(v, ncol=None):
+    if ncol is None:
+        ncol = int(np.ceil(np.sqrt(v)))
     return np.r_[
         v.flatten(),
         [None] * (int(np.ceil(v.size / ncol)) * ncol - v.size)
@@ -1700,3 +2191,155 @@ def subfigs_from_template(
         subcaptions=subcaptions,
         **kwargs
     )
+
+
+def subfig_rows(file_fig: str, rows_out: Iterable[dict]):
+    """
+
+    :param file_fig: combined figure name
+    :param rows_out: [row][('caption', 'files')]
+        rows_out[row]['files'][column] = subfigure file name
+    :return: None
+    """
+    assert all(['files' in row.keys() for row in rows_out])
+    assert all(['caption' in row.keys() for row in rows_out])
+
+    import contextlib
+    file_fig_name, file_fig_ext = os.path.splitext(file_fig)
+    with contextlib.ExitStack() as stack:
+        # noinspection PyTypeChecker
+        simplefiles = [
+            stack.enter_context(
+                SimpleFilenameArray(
+                    file_fig_name
+                    + '+row=' + row['caption'] + file_fig_ext,
+                    row.pop('files')))
+            for row in rows_out
+        ]
+        with LatexDocStandalone(file_out=file_fig) as doc:
+            for row, simplefile in zip(rows_out, simplefiles):
+                doc.append_subfig_row(
+                    simplefile.files_rel,
+                    **row
+                )
+
+
+def ____MODEL_COMPARISON_PLOTS____():
+    pass
+
+
+def plot_bipartite_recovery(mean_losses, model_labels=None, ax=None):
+    """
+
+    :param mean_losses: [subj, model_sim, model_fit]
+    :param model_labels: [model]
+    :return: axs
+    """
+    n_model = mean_losses.shape[1]
+    if model_labels is None:
+        model_labels = [('model %d' % i) for i in range(n_model)]
+
+    best_model_recovered = np.argmin(mean_losses, -1)
+    adj = np.zeros([n_model, n_model])
+    for src in range(n_model):
+        for dst in range(n_model):
+            adj[src, dst] = np.sum(best_model_recovered[:, src] == dst)
+
+    # === Recovery confusion plot
+    if ax is None:
+        axs = GridAxes(1, 1, widths=2, heights=2, left=2)
+        ax = axs[0, 0]
+
+    plt.sca(ax)
+    G, pos = pltn.draw_bipartite(adj)
+    ax.tick_params(
+        axis="both",
+        which="both",
+        bottom=False,
+        left=False,
+        labelbottom=False,
+        labelleft=True,
+    )
+    yticks = np.linspace(-1, 1, n_model)
+    node_ys = [pos[k][1] for k in range(n_model)]
+    labels = [model_labels[node_ys.index(y)] for y in yticks]
+    plt.yticks([-1, 1], labels)
+    return ax
+
+
+def imshow_costs_by_subj_model(
+        costs_by_subj_model: np.ndarray,
+        model_names: Sequence[str] = None,
+        subjs: Union[Sequence[int], Sequence[str]] = None,
+        label_colorbar: str = None,
+        thres_colorbar: float = None,
+        axs: GridAxes = None,
+        size_per_cell: float = 0.35,
+        subtract_min_in_row = True,
+        offset=(0., 0.),
+        to_add_colorbar=True,
+        # offset=(0.025, -0.004),
+) -> (GridAxes, mpl.colorbar.Colorbar):
+    """
+
+    :param costs_by_subj_model: [subj, model] = cost
+    :param model_names:
+    :param subjs:
+    :param label_colorbar:
+    :param thres_colorbar:
+    :param size_per_cell: in inches
+    :param subtract_min_in_row:
+    :return: (axs, colorbar)
+    """
+    if subtract_min_in_row:
+        costs_by_subj_model = (
+                costs_by_subj_model
+                - np.amin(costs_by_subj_model, -1, keepdims=True))
+    n_subj1, n_model1 = costs_by_subj_model.shape
+    if axs is None:
+        axs = GridAxes(
+            1, 1,
+            widths=[size_per_cell * n_model1],
+            heights=[size_per_cell * n_subj1],
+            right=1.5, top=1.5,
+            bottom=0.1,
+        )
+    ax = axs[0, 0]
+    plt.sca(ax)
+    im = plt.imshow(costs_by_subj_model, zorder=0)
+    if subjs is not None:
+        plt.yticks(np.arange(n_subj1), subjs)
+    if model_names is not None:
+        xticklabel_top(ax, model_names)
+    for row, loss_subj in enumerate(costs_by_subj_model):
+        best_model = np.argmin(loss_subj)
+        plt.text(best_model + offset[0], row + offset[1],
+                 '*', color='w', zorder=2, fontsize=16,
+                 ha='center', va='center')
+    if to_add_colorbar:
+        cb = colorbar(
+            ax, im, height='%d%%' % int(3 / n_subj1 * 100),
+            borderpad=-2
+        )
+        if label_colorbar is not None:
+            cb.set_label(label_colorbar)
+        if thres_colorbar is not None:
+            cb.ax.axhline(thres_colorbar, color='w')
+    else:
+        cb = None
+    plt.sca(ax)
+    return axs, cb
+
+
+def xticklabel_top(ax: plt.Axes, xtick_labels: Sequence[str]):
+    """
+
+    :param ax:
+    :param xtick_labels:
+    :return:
+    """
+    ax.xaxis.tick_top()
+    _, ticklabels = plt.xticks(np.arange(len(xtick_labels)), xtick_labels)
+    for ticklabel in ticklabels:
+        ticklabel.set_rotation(30)
+        ticklabel.set_ha('left')
