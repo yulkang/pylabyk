@@ -1784,6 +1784,7 @@ def optimize_scipy(
     #     def verbose(xk):
     #         pbar.update(1)
 
+    model.train()
     obj = PyTorchObjective(model, **dict(kw_pyobj))
     out = scioptim.minimize(
         obj.fun, obj.x0,
@@ -1801,6 +1802,15 @@ def optimize_scipy(
         },
     )
     model.load_state_dict(obj.unpack_parameters(out['x']))
+    model.eval()
+    if obj.separate_loss_for_jac:
+        _, loss_eval = model()
+    else:
+        loss_eval = model()
+    loss_eval = npy(loss_eval)
+    out['fun_train'] = out['fun']
+    out['fun_eval'] = loss_eval
+    out['fun'] = loss_eval
 
     t_en = time.time()
     t_el = t_en - t_st
@@ -1855,4 +1865,4 @@ def optimize_scipy(
             )):
                 if x11.ndim == 0:
                     print('%s[%d]: %g (%g - %g)\n' % (k, i, x11, lb11, ub11))
-    return out['x_value_vec'], out['fun'], out
+    return out['x_value_vec'], loss_eval, out
