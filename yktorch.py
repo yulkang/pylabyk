@@ -1747,6 +1747,32 @@ class DemoBoundedModule(BoundedModule):
 
         print('--')
 
+
+class ModuleWithData(BoundedModule):
+    """
+    For use with optimize_scipy, which calls forward() with no argument.
+    """
+    def __init__(
+        self, module: BoundedModule,
+        args_forward: Sequence = (),
+        kwargs_forward: Dict = None
+    ):
+        super().__init__()
+
+        if kwargs_forward is None:
+            kwargs_forward = {}
+
+        self.module = module
+        self.args_forward = args_forward
+        self.kwargs_forward = kwargs_forward
+
+    def forward(self) -> torch.Tensor:
+        """
+        :return: loss (scalar)
+        """
+        return self.module(*self.args_forward, **self.kwargs_forward)
+
+
 def ____Main____():
     pass
 

@@ -1748,6 +1748,20 @@ def meshgridflat(*args, copy=False):
     return outputs
 
 
+def fun_par_dict(fun: Callable, *args):
+    """
+    wrapper to use functions with kwargs with vectorize_par()
+    :param fun: function
+    :param args: args[-1], if exists, is the kwargs for fun()
+        args[:-1], if exists, is args for fun()
+    :return: fun() if len(args) == 0 else fun(*args[:-1], **args[-1])
+    """
+    if len(args) > 0:
+        return fun(*args[:-1], **args[-1])
+    else:
+        return fun()
+
+
 def vectorize_par(
     f: Callable, inputs: Iterable,
     pool: Pool = None, processes=None, chunksize=1,
