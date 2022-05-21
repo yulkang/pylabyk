@@ -857,12 +857,23 @@ class BoundedModule(nn.Module):
             self, param_vec: Union[torch.Tensor, np.ndarray]
     ) -> Union[torch.Tensor, np.ndarray]:
         param_vec0 = self.parameters_data_vec()
-        self.load_state_dict(self.param_vec2dict(param_vec), strict=False)
+        self.load_state_dict(
+            self.param_vec2dict(param_vec, '._param'),
+            strict=False)
         value_vec = self.parameters_data_vec()
-        self.load_state_dict(self.param_vec2dict(param_vec0), strict=False)
+        self.load_state_dict(self.param_vec2dict(param_vec0, '._param'),
+                             strict=False)
         return value_vec
 
-    def param_vec2dict(self, param_vec, suffix='._param') -> odict:
+    def param_vec2dict(self, param_vec, suffix: str) -> odict:
+        """
+
+        :param param_vec:
+        :param suffix: '._param' or '._data'
+        :return:
+        """
+        assert suffix in ['._param', '._data']
+
         dict0 = self.state_dict()  # type: Dict[str, torch.Tensor]
         dict1 = odict()
         if not torch.is_tensor(param_vec):
@@ -1849,14 +1860,16 @@ def optimize_scipy(
     out['se_param_vec'] = se_param
 
     for k in ['x', 'se']:
-        out[k + '_param_dict'] = model.param_vec2dict(out[k + '_param_vec'])
+        out[k + '_param_dict'] = model.param_vec2dict(
+            out[k + '_param_vec'], '._param')
 
     out['x_value_vec'] = npy(model.param_vec2value_vec(param))
     out['lb_value_vec'] = npy(model.param_vec2value_vec(param - se_param))
     out['ub_value_vec'] = npy(model.param_vec2value_vec(param + se_param))
 
     for k in ['x', 'lb', 'ub']:
-        out[k + '_value_dict'] = model.param_vec2dict(out[k + '_value_vec'])
+        out[k + '_value_dict'] = model.param_vec2dict(
+            out[k + '_value_vec'], suffix='._data')
 
     # NOTE: somehow this is necessary to set params to the fitted state
     model.load_state_dict(obj.unpack_parameters(out['x']))
