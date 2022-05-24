@@ -2150,6 +2150,10 @@ class AliasStr(
             for k, v in d.items()
         }
 
+    @staticmethod
+    def get_orig(s: Union[str, 'AliasStr']) -> str:
+        return s.orig if isinstance(s, AliasStr) else s
+
 
 class AliasStrAttributes(DictAttribute):
     # def __getattribute__(self, key):
