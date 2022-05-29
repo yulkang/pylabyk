@@ -85,7 +85,10 @@ def cell2mat(c: np.ndarray, dtype=np.float) -> np.ndarray:
         else np.array(v).astype(dtype)
         for v in c.flatten()
     ])
-    return np.reshape(vs, shape0 + vs[0].shape)
+    if hasattr(vs[0], 'shape'):
+        return np.reshape(vs, shape0 + vs[0].shape)
+    else:
+        return np.reshape(vs, shape0)
 
 
 def cell2mat2(l, max_len=None):
@@ -1856,10 +1859,13 @@ def vectorize_par(
         outs = pool.map(f, m, chunksize=chunksize)
 
     if nout is None:
-        try:
-            nout = len(outs[0])
-        except TypeError:
-            nout = 1
+        if otypes is not None and is_sequence(otypes):
+            nout = len(otypes)
+        else:
+            try:
+                nout = len(outs[0])
+            except TypeError:
+                nout = 1
 
     if otypes is None:
         otypes = [np.object] * nout
@@ -1885,7 +1891,7 @@ def vectorize_par(
 
     # --- outs3: set to a correct otype
     # DEF: outs3[argout][i_input1, i_input2, ...]
-    outs3 = [cell2mat(out, otype) if otype is not np.object
+    outs3 = [cell2mat(out, otype) if otype not in [np.object, object]
              else out
              for out, otype in zip(outs2, otypes)]
     return outs3
