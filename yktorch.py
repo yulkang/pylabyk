@@ -1812,6 +1812,8 @@ def optimize_scipy(
             loss_for_grad, loss = model()
         e.g., for REINFORCE
     :return: param_fit, loss, out
+        Use BoundedModule.load_state_dict(out['state_dict'])
+        to recover state, including lb and ub
     """
     kw_optim = dict(kw_optim)
     kw_optim_option = dict(kw_optim_option)
