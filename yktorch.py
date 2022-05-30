@@ -807,12 +807,22 @@ class BoundedModule(nn.Module):
     def get_n_free_param(self) -> int:
         """Number of free parameters."""
         n_free = 0
-        for name, module in self.named_modules():
+        for name, module in self.named_children():
             if module is not self and (
                     isinstance(module, OverriddenParameter)
                     or isinstance(module, BoundedModule)
             ):
-                n_free += module.get_n_free_param()
+                # if isinstance(module, BoundedModule):
+                #     # CHECKED
+                #     print(f'-- {name} BEGINS')
+                n_free1 = module.get_n_free_param()
+                n_free += n_free1
+                # if isinstance(module, BoundedModule):
+                #     # CHECKED
+                #     print(f'-- {name} ENDS: {n_free} free')
+                #     print('---------------')
+                # else:
+                #     print(f'       {name}: {n_free1} free')
         return n_free
 
     def load_state_dict_data(
