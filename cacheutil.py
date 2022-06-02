@@ -38,10 +38,15 @@ val1, val2 = cache.getvalue([subkey1, subkey2])
 # TODO: pickle dict_filename
 
 import os
+
+import numpy as np
+
 from . import zipPickle
 from collections import OrderedDict as odict
 from .argsutil import dict2fname, fname2title, kwdef, fullpath2hash
 from typing import List, Union
+
+from .numpytorch import npy
 
 ignore_cache = False
 ignored_once = []
@@ -139,6 +144,10 @@ class Cache(object):
         #         ignored_once.append(self.fullpath)
         #     else:
         #         self.dict = zipPickle.load(self.fullpath)
+
+    def clear(self):
+        """run to save memory after loading"""
+        self._dict = None
 
     @property
     def dict(self):
@@ -501,3 +510,20 @@ def example_cache_custom_file():
 #
 #     for test_param_main in range(5):
 #         fun(test_param_main)
+def skip_if_len0(v):
+    if len(v) == 0:
+        return None
+    else:
+        return v
+
+
+def scalar_if_same(v):
+    v = npy(v)
+    if len(v) == 0:
+        return None
+    elif np.isscalar(v):
+        return '%g' % v
+    elif v[0] == v[-1]:
+        return '%g' % v[0]
+    else:
+        return '-'.join(['%g' % v1 for v1 in [v[0], v[-1]]])

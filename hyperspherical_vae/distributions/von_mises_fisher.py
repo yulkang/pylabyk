@@ -5,7 +5,6 @@ from torch.distributions.kl import register_kl
 from hyperspherical_vae.ops.ive import ive
 from hyperspherical_vae.distributions import HypersphericalUniform
 
-
 class VonMisesFisher(torch.distributions.Distribution):
 
     arg_constraints = {'loc': torch.distributions.constraints.real,

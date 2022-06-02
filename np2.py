@@ -9,13 +9,16 @@ Created on Mon Mar 12 10:28:15 2018
 
 import numpy as np
 import torch
+import weightedstats as ws
 from scipy import interpolate
+from scipy.interpolate import griddata
 from scipy import stats
 import numpy_groupies as npg
 import pandas as pd
 from copy import deepcopy
 from pylabyk import numpytorch
-from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List
+from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List, \
+    Dict, Any
 from multiprocessing.pool import Pool as Pool0
 # from multiprocessing import Pool
 
@@ -26,6 +29,21 @@ npt = numpytorch.npt_torch # choose between torch and np
 #%% Shape
 def ____SHAPE____():
     pass
+
+
+def enforce_array(v):
+    """
+    :param v: scalar, iterable, or array
+    :return: np.ndarray of ndim >= 1
+    """
+    if isinstance(v, torch.Tensor):
+        v = npy(v)
+    elif not isinstance(v, np.ndarray):
+        v = np.array(v)
+    if v.ndim == 0:
+        return v[None]
+    else:
+        return v
 
 
 def cat(arrays0, dim=0, add_dim=True):
@@ -111,7 +129,7 @@ def mat2list(m: np.ndarray) -> List[np.ndarray]:
     return [v for v in m]
 
 
-def dict_shapes(d, verbose=True):
+def shapes(d, verbose=True, return_shape=False):
     if not isinstance(d, dict):
         assert is_iter(d)
         d = {k: v for k, v in enumerate(d)}
@@ -151,7 +169,11 @@ def dict_shapes(d, verbose=True):
                     str_compo = '[' + compo.__str__() + ']'
             print('%15s: %s %s%s' % (k, sh1, type(v).__name__, str_compo))
 
-    return sh
+    if return_shape:
+        return sh
+
+
+dict_shapes = shapes  # alias
 
 
 def filt_dict(d: dict, incl: np.ndarray,
@@ -163,12 +185,16 @@ def filt_dict(d: dict, incl: np.ndarray,
     @type incl: np.ndarray
     @rtype: dict
     """
+    assert np.issubdtype(incl.dtype, np.bool)
+
     if copy:
         if ignore_diff_len:
             return {
-                k: (deepcopy(v[incl]) if (isinstance(v, np.ndarray)
-                                          and v.shape[0] == incl.shape[0])
-                    else deepcopy(v))
+                k: (deepcopy(v[incl]) if (
+                    (isinstance(v, np.ndarray)
+                     or isinstance(v, torch.Tensor))
+                    and v.shape[0] == incl.shape[0]
+                ) else deepcopy(v))
                 for k, v in d.items()
             }
         else:
@@ -176,9 +202,11 @@ def filt_dict(d: dict, incl: np.ndarray,
     else:
         if ignore_diff_len:
             return {
-                k: (v[incl] if (isinstance(v, np.ndarray)
-                                          and v.shape[0] == incl.shape[0])
-                    else v)
+                k: (v[incl] if (
+                    (isinstance(v, np.ndarray)
+                     or isinstance(v, torch.Tensor))
+                    and v.shape[0] == incl.shape[0]
+                ) else v)
                 for k, v in d.items()
             }
         else:
@@ -204,7 +232,7 @@ def listdict2dictlist(listdict: list, to_array=False) -> dict:
     return d
 
 
-def dictlist2listdict(dictlist: dict) -> list:
+def dictlist2listdict(dictlist: Dict[str, list]) -> List[Dict[str, Any]]:
     keys = list(dictlist.keys())
     return [{k: dictlist[k][i] for k in keys}
             for i in range(len(dictlist[keys[0]]))]
@@ -212,6 +240,39 @@ def dictlist2listdict(dictlist: dict) -> list:
 
 def dictkeys(d, keys):
     return [d[k] for k in keys]
+
+
+def dict2array(d, key):
+    return np.vectorize(lambda d1: d1[key])(d)
+
+
+def dict_diff(d0: dict, d1: dict) -> dict:
+    d = {}
+    d_missing = {}
+    for k in d0.keys():
+        if k not in d1:
+            d[k] = (d0[k],)
+        elif (
+                (torch.is_tensor(d0[k]) or isinstance(d0[k], np.ndarray))
+                and (torch.is_tensor(d1[k]) or isinstance(d1[k], np.ndarray))
+                and np.any(npy(d0[k]) - npy(d1[k]))
+        ):
+            d[k] = (d0[k] - d1[k],)
+        else:
+            is_different = d0[k] != d1[k]
+            if is_iter(is_different):
+                is_different = np.any(npy(is_different))
+            if is_different:
+                d[k] = (d0[k], d1[k])
+            # try:
+            #     if d0[k] != d1[k]:
+            #         d[k] = (d0[k], d1[k])
+            # except Exception:
+            #     d[k] = (d0[k], d1[k])
+    for k in d1.keys():
+        if k not in d0:
+            d_missing[k] = d1[k]
+    return d, d_missing
 
 
 def rmkeys(d: dict, keys: Union[str, Iterable[str]]):
@@ -268,6 +329,38 @@ def permute2en(v, ndim_st=1):
     nd = v.ndim
     return v.transpose([*range(ndim_st, nd)] + [*range(ndim_st)])
 p2en = permute2en
+
+
+def attach_dim(v: np.ndarray, n_dim_to_prepend=0, n_dim_to_append=0
+               ) -> np.ndarray:
+    return v.reshape((1,) * n_dim_to_prepend
+                     + v.shape
+                     + (1,) * n_dim_to_append)
+
+
+def append_dim(v: np.ndarray, ndim=1) -> np.ndarray:
+    return v.reshape(v.shape + (1,) * ndim)
+
+
+def prepend_dim(v: np.ndarray, ndim=1) -> np.ndarray:
+    return v.reshape((1,) * ndim + v.shape)
+
+
+def ____INDEXING___():
+    pass
+
+
+def filter_by_match(df: pd.DataFrame, d: dict) -> np.ndarray:
+    """
+    Return (df[key0] == value0) & (df[key1] == value1) & ...
+    :param df:
+    :param d:
+    :return: incl[row] == True if to be included
+    """
+    incl = np.ones([len(df)], dtype=bool)
+    for k, v in d.items():
+        incl = incl & (df[k] == v)
+    return incl
 
 
 def ____COPY____():
@@ -451,15 +544,73 @@ def nan2v(v0, v=0):
     return v0
 
 
+def ____ALGEBRA____():
+    pass
+
+
+def issimilar(
+    a: Union[torch.Tensor, np.ndarray, float],
+    b: Union[torch.Tensor, np.ndarray, float],
+    thres=1e-6
+) -> np.ndarray:
+    return np.abs(a - b) < thres
+
+
 def ____STAT____():
     pass
 
 
-def mean_distrib(p, v, axis=None):
+def ttest_mc(
+    v: np.ndarray, alternative='two-sided', nsim=10000,
+    method='permutation'
+) -> (float, float, int):
+    """
+
+    :param v: [sample]. Perform a paired test by subtracting one from the other.
+    :param alternative:
+    :param nsim:
+    :param method: 'bootstrap'|'permutation'
+        'bootstrap': sample with replacement
+        'permutation': randomly flip signs, as if the sides are randomly
+            flipped in a paired test.
+    :return: pval, tstat, df
+    """
+    n = len(v)
+    t_null = []
+    m = np.mean(v)
+    if method == 'bootstrap':
+        for _ in range(nsim):
+            v1 = np.random.choice(v, size=n)
+            t_null.append(np.mean(v1 - m) / sem(v1))
+    elif method == 'permutation':
+        for _ in range(nsim):
+            v1 = v * np.random.choice([-1, 1], size=n)
+            t_null.append(np.mean(v1) / sem(v1))
+    else:
+        raise ValueError()
+    tstat = np.mean(v) / sem(v)
+    df = n - 1
+    pval_lt = np.mean(tstat < t_null)
+    pval_gt = np.mean(tstat > t_null)
+    if alternative == 'two-sided':
+        pval = min([pval_lt, pval_gt]) * 2
+    elif alternative == 'less':
+        pval = pval_lt
+    elif alternative == 'greater':
+        pval = pval_gt
+    else:
+        raise ValueError()
+    return pval, tstat, df
+
+
+def mean_distrib(p: np.ndarray, v=None, axis=None) -> np.ndarray:
     if axis is None:
         kw = {}
     else:
         kw = {'axis': axis}
+    if v is None:
+        assert axis is not None
+        v = vec_on(np.arange(p.shape[axis]), axis, n_dim=p.ndim)
     return (p * v).sum(**kw) / p.sum(**kw)
 
 
@@ -564,15 +715,22 @@ def uniquetol(v, tol=1e-6, return_inverse=False, **kwargs):
     return np.unique(np.round(np.array(v) / tol) * tol, 
                      return_inverse=return_inverse, **kwargs)
 
-def ecdf(x0):
+def ecdf(x0, w=None):
     """
-    Empirical distribution.
+    Empirical distribution. Supports weights.
     :param x0: a vector or a list of samples
+    :param w: weight
     :return: p[i] = Pr(x0 <= x[i]), x: sorted x0
     """
-    
     n = len(x0)
-    p = np.linspace(0, 1, n)
+
+    if w is None:
+        w = np.ones(n) / n
+    else:
+        w = w / np.sum(w)
+    p = np.cumsum(np.r_[[0], w])[:-1]
+    # p = np.linspace(0, 1, n + 1)[:-1]
+
     x = np.sort(x0)
     return p, x
 
@@ -704,7 +862,7 @@ def pearsonr_ci(x,y,alpha=0.05):
     return r, p, lo, hi
 
 
-def info_criterion(nll, n_trial, n_param, kind='BIC'):
+def info_criterion(nll, n_trial, n_param, kind='BIC', group_dim=None):
     """
 
     :param nll: negative log likelihood of the data given parameters
@@ -713,6 +871,10 @@ def info_criterion(nll, n_trial, n_param, kind='BIC'):
     :param kind: 'BIC'|'NLL'
     :return: the chosen information criterion
     """
+    if group_dim is not None:
+        n_param = np.sum(n_param, group_dim)
+        n_trial = np.sum(n_trial, group_dim)
+        nll = np.sum(nll, group_dim)
     if kind == 'AIC':
         return 2 * n_param + 2 * nll
     elif kind == 'nAIC':
@@ -728,6 +890,19 @@ def info_criterion(nll, n_trial, n_param, kind='BIC'):
         return nll
     else:
         raise ValueError()
+
+
+def thres_info_criterion(loss_kind) -> float:
+    # See np2.information_criterion() for how these losses are computed
+    if loss_kind.startswith('NLL'):
+        thres = np.log(10)  # >="Strong" (Jeffreys 1961; Kass & Raftery 1995)
+    elif loss_kind.startswith('BIC') or loss_kind.startswith('AIC'):
+        thres = 6  # (Kass & Raftery 1995))
+    elif loss_kind.startswith('nBIC') or loss_kind.startswith('nAIC'):
+        thres = 3  # (Kass & Raftery 1995))
+    else:
+        thres = None
+    return thres
 
 
 def dkl(a: np.ndarray, b: np.ndarray, axis=None) -> np.ndarray:
@@ -759,9 +934,191 @@ def wsum_rvs(mu: np.ndarray, sigma: np.ndarray, w: np.ndarray
     return mu1, sigma1
 
 
+def bonferroni_holm(p: np.ndarray, alpha=0.05, dim=None) -> np.ndarray:
+    """
+
+    :param p:
+    :return: h: same shape as p. 1 if signifiant after correction
+    """
+    # TODO: make it work with multidimensional arrays by updating how indexing
+    #   works.. use ravel/unravel, since ix_sort is only along dim,
+    #   and other indices should be preserved
+    ix_sort = np.argsort(p, axis=dim)
+    rev_ix_sort = np.argsort(ix_sort, axis=dim)
+    p_sort = p[ix_sort]
+    p_corr_sort = p_sort * np.cumsum(np.ones(p.shape), axis=dim)
+    h_sort = p_corr_sort < alpha
+    h_cum_sort = (
+            np.cumsum(h_sort, axis=dim)
+            >= np.cumsum(np.ones(p.shape), axis=dim))
+    h = h_cum_sort[rev_ix_sort]
+    return h
+
+
+#%% Weighted stats
+def ____WEIGHTED_STATS____():
+    pass
+
+
+def wmean(values: np.ndarray, weights: np.ndarray,
+          axis=None, keepdim=False) -> np.ndarray:
+    return (values * weights).sum(
+        axis=axis, keepdims=keepdim
+    ) / weights.sum(axis, keepdims=keepdim)
+
+
+def wstd(values: np.ndarray, weights: np.ndarray,
+         axis=None, keepdim=False) -> np.ndarray:
+    """
+    Return the weighted average and standard deviation.
+
+    from: https://stackoverflow.com/a/2415343/2565317
+
+    values, weights -- Numpy ndarrays with the same shape.
+    """
+    sum_wt = weights.sum(axis=axis, keepdims=True)
+    avg = (values * weights).sum(axis=axis, keepdims=True) / sum_wt
+    var = ((values - avg) ** 2 * weights).sum(axis=axis, keepdims=True) / sum_wt
+    if not keepdim:
+        var = np.squeeze(var, axis=axis)
+    return np.sqrt(var)
+
+
+def wstandardize(values: np.ndarray, weights: np.ndarray,
+                 axis=None) -> np.ndarray:
+    """
+    Standardization using weighted mean and stdev
+    :param values:
+    :param weights:
+    :param axis:
+    :return: values_standardized
+    """
+    return (
+            values - wmean(values, weights, axis, keepdim=True)
+    ) / wstd(values, weights, axis, keepdim=True)
+
+
+def weighted_median_split(
+        w: np.ndarray, v: np.ndarray, d: np.ndarray = None, to_sample=False
+) -> (np.ndarray, np.ndarray, np.ndarray, float, np.ndarray):
+    """
+    Splits weights & values when multiple cells may equal the median
+    :param w: [cell]: weight
+    :param v: [cell]: floats that determine the median
+    :param d: [cell]: data to be duplicated & split along with w & v
+    :param to_sample: if True, randomly assign elements that equals median.
+    :return: is_above_median[cell_new], w[cell_new], v[cell_new], v_median,
+        d[cell_new]
+    """
+    # NOTE:
+    #  ◦ split cells where value1 == median1 into two
+    # 		‣ such that left half is assigned
+    # 			• 0.5 - P(value1 < median1)
+    # 		‣ right half is assigned
+    # 			• 0.5 - P(value1 > median1)
+    # 	◦ when splitting, what we care about is gtm, weight, value1, value2
+    # 		‣ 1. assign sgn1 := sign( value1 - median1 )
+    # 		‣ 2. then perform splitting for instances with sgn1 == 0
+    # 			• replace sgn1 == 0 with sgn1 == -1 or 1, depending on the above criteria
+    # 			• at the same time, replace weights as above
+    w_sum = w.sum()
+    w = sumto1(w)
+
+    m = ws.numpy_weighted_median(v, w)
+
+    if to_sample:
+        # TODO: permute order among whose values equal the median,
+        #  and cut at where the cdf equals 0.5
+        #  (Assign i randomly if cumsum(p[:i]) < 0.5 and cumsum(p[:(i+1)]) > 0.5)
+
+        raise NotImplementedError()
+    else:
+        a = v > m  # Assignment: 0=lt, 1=gt
+
+        # Keep a copy of the old values before concatenation for debugging
+        # a0 = a.copy()
+        w0 = w.copy()
+        # v0 = v.copy()
+        # m0 = m + 0
+        # d0 = d.copy()
+
+        # Prepare split into lesser & greater half
+        to_split = v == m
+        p_lt = w[v < m].sum()
+        p_gt = w[v > m].sum()
+
+        p_split_lt = 0.5 - p_lt
+        p_split_gt = 0.5 - p_gt
+        p_split_sum = p_split_lt + p_split_gt
+
+        # Append weight of the greater half,
+        # and replace w[sgn0] with the lesser half's weight
+        w_gt = w0[to_split] * (p_split_gt / p_split_sum)  # weight of the greater half to append
+        w[to_split] = w0[to_split] * (p_split_lt / p_split_sum)  # weight of the lesser half: replace original
+        w = np.r_[w, w_gt]
+
+        # Concatenate original with the greater half (duplicate)
+        v_gt = v[to_split]
+        v = np.r_[v, v_gt]
+
+        a_gt = np.ones([to_split.sum()], bool)
+        a = np.r_[a, a_gt]
+
+        if d is not None:
+            d1 = d[to_split]
+            d = np.r_[d, d1]
+
+        # Check that a is indeed a median split
+        assert np.abs(w[:len(w0)][to_split].sum() + w_gt.sum() - p_split_sum) < 1e-6
+        assert np.abs(w[a].sum() - 0.5) < 1e-6
+        assert np.abs(w[~a].sum() - 0.5) < 1e-6
+        assert np.all(v[a] >= m)
+        assert np.all(v[~a] <= m)
+
+        w = w * w_sum
+    return a, w, v, m, d
+
+
+def weighted_crosstab(w: np.ndarray, v: np.ndarray, n_sample=0) -> np.ndarray:
+    """
+
+    :param w: [cell]: weight
+    :param v: [cell, (v1, v2)]
+    :param n_sample: if 0, split continuously.
+        If >0, repeat randomly sampling assignments for the elements that equal
+        median.
+    :return: n_jt[is_above_median1, is_above_median2] = sum of w,
+        a[cell_new, (v1, v2)], w[cell_new], v[cell_new, (v1, v2)]
+    """
+    assert v.ndim == 2
+    assert v.shape[1] == 2  # more general form not implemented yet
+    if n_sample == 0:
+        a0, w, _, _, v = weighted_median_split(w, v[:, 0], v)
+        a1, w, _, _, av = weighted_median_split(
+            w, v[:, 1], np.concatenate([a0[:, None], v], -1))
+        a = np.concatenate([av[:, :1], a1[:, None]], 1).astype(int)
+        v = av[:, 1:]
+    else:
+        assert n_sample > 0
+        # TODO: add n_sample>0 (=0 is the same as now; default to n_sample=100)
+        #   among outputs, I only need n_jt
+        raise NotImplementedError()
+
+    # # more general form for v.shape[1] > 2: not implemented yet
+    # i = 0
+    # while i < v.shape[-1]:
+    #     i += 1
+    #     a1, w, _, _, v = weighted_median_split(w, v[:, i], v)
+
+    nj = npg.aggregate(a.T, w, 'sum', [2] * v.shape[1])
+    # pj = sumto1(nj)
+    return nj, a, w, v
+
+
 #%% Distribution
 def ____DISTRIBUTION____():
     pass
+
 
 def pdf_trapezoid(x, center, width_top, width_bottom):
     height = 1. / ((width_top + width_bottom) / 2.)
@@ -883,6 +1240,36 @@ def ____GEOMETRY____():
     pass
 
 
+def ccw(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> np.ndarray:
+    """
+
+    :param a: [..., xy]
+    :param b: [..., xy]
+    :param c: [..., xy]
+    :return: is_counterclockwise[..., xy] = 1 if CCW, 0 if colinear, -1 if CW
+    """
+    # sign of the z component of the cross product ba x bc
+    # = sign of sin(abc), with z_a = z_b = z_c = 0
+    return np.sign(
+        (b[..., 0] - a[..., 0]) * (c[..., 1] - b[..., 1])
+        - (b[..., 1] - a[..., 1]) * (c[..., 0] - b[..., 0]))
+
+
+def intersect(
+        a: np.ndarray, b: np.ndarray, c: np.ndarray, d: np.ndarray
+) -> np.ndarray:
+    """
+
+    :param a: [..., xy]
+    :param b: [..., xy]
+    :param c: [..., xy]
+    :param d: [..., xy]
+    :return: does_intersect[...] = True if segments ab and cd meet
+    """
+    return (ccw(a, b, c) * ccw(a, b, d) <= 0) \
+           & (ccw(c, d, a) * ccw(c, d, b) <= 0)
+
+
 def lineseg_dists(p, a, b):
     """
     Cartesian distance from point to line segment
@@ -938,8 +1325,14 @@ def ____TRANSFORM____():
     pass
 
 
-def logit(v):
+def fisher_transform(r: np.ndarray) -> np.ndarray:
+    return np.arctanh(r)
+
+
+def logit(v, epsilon=0.):
     """logit function"""
+    if epsilon != 0:
+        v = (v * (1 - epsilon)) + epsilon / 2
     return np.log(v) - np.log(1 - v)
 
 
@@ -1297,7 +1690,7 @@ def fun_deal(f, inp):
     return f(*inp)
 
 
-def arrayobj1d(inp: Iterable, copy=False):
+def arrayobj1d(inp: Iterable, copy=False) -> np.ndarray:
     """
     Return a 1D np.ndarray of dtype=np.object.
     Different from np.array(inp, dtype=np.object) because the latter may
@@ -1305,6 +1698,33 @@ def arrayobj1d(inp: Iterable, copy=False):
     np.meshgrid, unlike the output from this function.
     """
     return np.array([None] + list(inp), dtype=np.object, copy=copy)[1:]
+
+
+def cell2array(v: np.ndarray) -> np.ndarray:
+    """
+    convert object arrays into arrays of v.flatten()[0].dtype
+    :param v: any array, typically object arrays from vectorize()
+    :return: array of shape = v.shape + v.flatten()[0].shape with dtype
+        = v.flatten()[0].dtype
+    """
+    shape = v.shape + v.flatten()[0].shape
+    v = v.flatten()
+    return np.stack([v1.astype(v[0].dtype) for v1 in v]).reshape(shape)
+
+
+def arrayobj(inp: np.ndarray, up_to_dim=1, copy=False) -> np.ndarray:
+    """
+    Return np.ndarray of dtype=np.object with shape=inp.shape[:up_to_dim]
+    Useful for np.vectorize()
+    :param inp:
+    :param copy:
+    :param up_to_dim:
+    :return: array
+    """
+    return arrayobj1d(
+        inp.reshape([np.prod(inp.shape[:up_to_dim]), -1]),
+        copy=copy
+    ).reshape(inp.shape[:up_to_dim])
 
 
 def scalararray(inp) -> np.ndarray:
@@ -1328,15 +1748,21 @@ def meshgridflat(*args, copy=False):
     return outputs
 
 
-def vectorize_par(f: Callable, inputs: Iterable,
-                  pool: Pool = None, processes=None, chunksize=1,
-                  nout=None, otypes: Union[Sequence[Type], Type] = None,
-                  use_starmap=True,
-                  ) -> Sequence[np.ndarray]:
+def vectorize_par(
+    f: Callable, inputs: Iterable,
+    pool: Pool = None, processes=None, chunksize=1,
+    nout=None, otypes: Union[Sequence[Type], Type] = None,
+    use_starmap=True, meshgrid_input=True,
+) -> Sequence[np.ndarray]:
     """
     Run f in parallel with meshgrid of inputs along each input's first dimension
     and return the expanded outputs.
+
     See demo_vectorize_par() for examples.
+
+    Use np2.arrayobj1d(array) as an input, along with meshgrid_input=False,
+    to enforce 1D input and output.
+
     If you get an error like __THE_PROCESS_HAS_FORKED_AND_YOU_CANNOT_USE_THIS_COREFOUNDATION_FUNCTIONALITY___YOU_MUST_EXEC__()
     then you may have to force using the 'spawn' method in your main script:
         if __name__ == '__main__':
@@ -1365,15 +1791,24 @@ def vectorize_par(f: Callable, inputs: Iterable,
         If False, an iterable containing all inputs is given as one argument
         to f.
         Ignored if processes=1 and multiprocessing is not used.
+    :param meshgrid_input: if True (default), use np.meshgrid(indexing='ij')
+            to take the factorial combination of inputs
+        if False, use np.broadcast() across inputs
     :return: (iterable of) outputs from f.
     """
-    inputs = [inp if (isinstance(inp, np.ndarray) and type(inp[0]) is np.object)
-              else (arrayobj1d(inp) if is_iter(inp)
-                    else arrayobj1d([inp]))
-              for inp in inputs]
-    lengths = [len(inp) for inp in inputs]
-    mesh_inputs = np.meshgrid(*inputs, indexing='ij')  # type: Iterable[np.ndarray]
+    if meshgrid_input:
+        inputs = [
+            inp if (isinstance(inp, np.ndarray) and type(inp[0]) is np.object)
+            else (arrayobj1d(inp) if is_iter(inp)
+                  else arrayobj1d([inp]))
+            for inp in inputs]
+        shape0 = [len(inp) for inp in inputs]
+        mesh_inputs = np.meshgrid(*inputs, indexing='ij')  # type: Iterable[np.ndarray]
+    else:
+        shape0 = broadcast_shapes(*[npy(v).shape for v in inputs])
+        mesh_inputs = [np.broadcast_to(v, shape0) for v in inputs]
     mesh_inputs = [m.flatten() for m in mesh_inputs]
+
     m = zip(*mesh_inputs)
     m = [m1 for m1 in m]
 
@@ -1387,12 +1822,22 @@ def vectorize_par(f: Callable, inputs: Iterable,
         # NOTE: this doesn't seem to work well, unlike chunksize=1.
         #   Need further experiment.
         chunksize = np.max([
-            int(np.floor(np.prod(lengths) / pool._processes)),
+            int(np.floor(np.prod(shape0) / pool._processes)),
             1
         ])
 
     if use_starmap:
-        outs = pool.starmap(f, m, chunksize=chunksize)
+        try:
+            outs = pool.starmap(f, m, chunksize=chunksize)
+        except EOFError:
+            print('EOFError from starmap! Trying again..')
+            # Just try again - this seems to fix the issue
+            try:
+                outs = pool.starmap(f, m, chunksize=chunksize)
+            except EOFError:
+                print('EOFError again after trying again.. '
+                      'Not trying again this time.')
+                raise
     else:
         outs = pool.map(f, m, chunksize=chunksize)
 
@@ -1422,7 +1867,7 @@ def vectorize_par(f: Callable, inputs: Iterable,
 
     # --- outs2: reshape to inputs' dimensions
     # DEF: outs2[argout][i_input1, i_input2, ...]
-    outs2 = [arrayobj1d(out).reshape(lengths) for out in outs1]
+    outs2 = [arrayobj1d(out).reshape(shape0) for out in outs1]
 
     # --- outs3: set to a correct otype
     # DEF: outs3[argout][i_input1, i_input2, ...]
@@ -1430,6 +1875,15 @@ def vectorize_par(f: Callable, inputs: Iterable,
              else out
              for out, otype in zip(outs2, otypes)]
     return outs3
+
+
+def broadcast_shapes(*shapes):
+    """
+
+    :param shapes:
+    :return: broadcasted shape. Similar to numpy's algorithm (version 1.22).
+    """
+    return np.broadcast(*[np.empty(shape) for shape in shapes]).shape
 
 
 def demo_vectorize_par():
@@ -1515,22 +1969,42 @@ def nanautocorr(firing_rate: np.ndarray, thres_n=2) -> np.ndarray:
     return ac
 
 
-def nansmooth(u, sigma=1.):
+def nansmooth(u, sigma=1., **kwargs):
     from scipy import ndimage
 
     isnan = np.isnan(u)
 
     v = u.copy()
     v[isnan] = 0.
-    vv = ndimage.gaussian_filter(v, sigma=sigma)
+    vv = ndimage.gaussian_filter(v, sigma=sigma, **kwargs)
 
     w = 1. - isnan
-    ww = ndimage.gaussian_filter(w, sigma=sigma)
+    ww = np.clip(
+        ndimage.gaussian_filter(w, sigma=sigma, **kwargs), a_min=0, a_max=1)
 
     r = vv / ww
     r[isnan] = np.nan
 
     return r
+
+
+def griddata_fillnearest(points, values, xi, **kwargs):
+    if not isinstance(points, np.ndarray):
+        points = np.stack(points, -1)
+    if not isinstance(xi, np.ndarray):
+        xi = np.stack(xi, -1)
+
+    v = griddata(points, values, xi, **kwargs)
+    is_nan = np.isnan(v)
+
+    if np.any(is_nan):
+        v1 = griddata(
+            points, values, xi[is_nan], **{
+                **kwargs,
+                'method': 'nearest'
+            })
+        v[is_nan] = v1
+    return v
 
 
 def convolve_time(src, kernel, dim_time=0, mode='same'):
@@ -1631,6 +2105,62 @@ def ____STRING____():
     pass
 
 
+def joinformat(v, fmt='%g', with_str=','):
+    return with_str.join([fmt % v1 for v1 in npy(v).flatten()])
+
+
+class DictAttribute:
+    @property
+    def dict(self) -> Dict[str, Any]:
+        return {
+            k: v for k, v in self.__dict__.items()
+            if not k.startswith('_')}
+
+
+class AliasStr(
+    str
+    # , DictAttribute
+):
+    def __new__(cls, alias: str, orig: str = None, **kwargs):
+        self = super().__new__(cls, alias)
+        self.orig = orig if orig is not None else alias
+        for k, v in kwargs.items():
+            self.__dict__[k] = v
+        return self
+
+    @staticmethod
+    def dict_orig(d: dict) -> dict:
+        return {
+            k.orig if hasattr(k, 'orig') else k
+            : v.orig if hasattr(v, 'orig') else v
+            for k, v in d.items()
+        }
+
+
+class AliasStrAttributes(DictAttribute):
+    # def __getattribute__(self, key):
+    #     # class attributes don't invoke __getattribute__(),
+    #     # so cannot be used
+    #     value = super().__getattribute__(key)
+    #     if (isinstance(value, AliasStr) and
+    #         not key.startswith('_')
+    #     ):
+    #         return AliasStr(key, **value.dict)
+    #     else:
+    #         return value
+
+    def __setattr__(self, key, value):
+        if (isinstance(value, AliasStr) and
+            not key.startswith('_')
+        ):
+            super().__setattr__(key, AliasStr(key, **{
+                k: v for k, v in value.__dict__.items()
+                if not k.startswith('_')
+            }))
+        else:
+            super().__setattr__(key, value)
+
+
 def truncate_at(s: str, max_len: int) -> str:
     return s[:min([max_len, len(s)])]
 
@@ -1647,11 +2177,24 @@ def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
     return s
 
 
-def shorten_dict(d: dict, src_dst=()):
-    return {k: shorten(v, src_dst) for k, v in d.items()}
+def shorten_dict(
+    d: dict, src_dst=(), shorten_key=False,
+    shorten_zero=True,
+) -> Dict[str, str]:
+    d1 = {
+        (shorten(k, src_dst) if shorten_key else k)
+        : shorten(v, src_dst)
+        for k, v in d.items()}
+    if shorten_zero:
+        d1 = {
+            k: v.replace('0.', '.') if isinstance(v, str) and v.startswith('0.')
+            else v
+            for k, v in d1.items()
+        }
+    return d1
 
 
-def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[str, None]:
+def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[AliasStr, None]:
     """
 
     :param v: string, Iterable[Number], or Number
@@ -1659,26 +2202,37 @@ def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[str, None]:
     :return: string with srcX replaced with dstX, or printed '%g,%g,...'
     """
     if isinstance(v, str):
-        return replace(v, src_dst)
+        return AliasStr(replace(v, src_dst), v)
     elif isinstance(v, bool):
-        return '%d' % int(v)
+        return AliasStr('%d' % int(v), str(v))
     elif is_iter(v):
         try:
             v = list(npy(v))
             if isinstance(v[0], str):
-                return '%s' % (','.join([
-                    ('%s' % shorten(v1, src_dst))
-                    for v1 in v]))
+                return AliasStr(
+                    ','.join([
+                        (shorten(v1, src_dst))
+                        for v1 in v
+                    ]),
+                    ','.join(shorten(v1, src_dst).orig for v1 in v)
+                )
             else:
-                return '%s' % (','.join([
-                    ('%s' % shorten(v1, src_dst))
-                    for v1 in npy(v).flatten()]))
+                return AliasStr(
+                    ','.join([
+                        (shorten(v1, src_dst))
+                        for v1 in npy(v).flatten()
+                    ]),
+                    ','.join([
+                        (shorten(v1, src_dst).orig)
+                        for v1 in npy(v).flatten()
+                    ])
+                )
         except TypeError:
-            return '%g' % v
+            return AliasStr('%g' % v)
     elif v is None:
         return None
     else:
-        return '%g' % v
+        return AliasStr('%g' % v)
 
 
 def filt_str(s, filt_preset='alphanumeric', replace_with='_'):
@@ -1692,3 +2246,18 @@ def filt_str(s, filt_preset='alphanumeric', replace_with='_'):
 
 
 make_alphanumeric = filt_str
+
+
+def ____CONTEXT_MANAGER____():
+    pass
+
+
+class ContextManager:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        if exc_type is not None:
+            import traceback
+            traceback.print_exception(exc_type, exc_value, exc_traceback)
+            raise RuntimeError('An exception occurred!')

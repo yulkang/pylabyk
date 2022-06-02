@@ -20,7 +20,13 @@ def save(object, filename, protocol = -1):
        Works well with huge objects.
     """
     file = gzip.GzipFile(filename, 'wb')
-    pickle.dump(object, file, protocol)
+    try:
+        import torch
+        torch.save(object, file, pickle_protocol=protocol)
+    except RuntimeError:
+        print('Failed to save with torch.save(); trying pickle.dump()')
+        pickle.dump(object, file, protocol)
+
     # torch.save(object, file, pickle_protocol=protocol)
     file.close()
 
@@ -28,10 +34,11 @@ def load(filename, map_location='cpu'):
     """Loads a compressed object from disk
     """
     try:
-        with gzip.GzipFile(filename, 'rb') as file:
-            object = pickle.load(file)
-    except RuntimeError:
         import torch
         with gzip.GzipFile(filename, 'rb') as file:
             object = torch.load(file, map_location=map_location)
+    except RuntimeError:
+        print('Failed to load with torch.load(); trying pickle.load()')
+        with gzip.GzipFile(filename, 'rb') as file:
+            object = pickle.load(file)
     return object
