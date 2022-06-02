@@ -7,24 +7,19 @@ Created on Mon Mar 12 10:28:15 2018
 """
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
-import numpy as np
-import torch
-import weightedstats as ws
-from scipy import interpolate
-from scipy.interpolate import griddata
-from scipy import stats
-import numpy_groupies as npg
-import pandas as pd
 from copy import deepcopy
-from pylabyk import numpytorch
+from multiprocessing.pool import Pool as Pool0
 from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List, \
     Dict, Any
-from multiprocessing.pool import Pool as Pool0
+
+import numpy as np
+import pandas as pd
+
+import torch
+from .numpytorch import npy
+from .numpytorch import npt_torch as npt
+
 # from multiprocessing import Pool
-
-from .numpytorch import npy, npys
-
-npt = numpytorch.npt_torch # choose between torch and np
 
 #%% Shape
 def ____SHAPE____():
@@ -36,6 +31,7 @@ def enforce_array(v):
     :param v: scalar, iterable, or array
     :return: np.ndarray of ndim >= 1
     """
+    import torch
     if isinstance(v, torch.Tensor):
         v = npy(v)
     elif not isinstance(v, np.ndarray):
@@ -220,6 +216,7 @@ def listdict2dictlist(listdict: list, to_array=False) -> dict:
     @return: dictlist: dict of lists of the same lengths
     @rtype: dict
     """
+    import torch
     d = {k: [d[k] for d in listdict] for k in listdict[0].keys()}
     if to_array:
         for k in d.keys():
@@ -673,6 +670,8 @@ def wsem(values: np.ndarray, weights: np.ndarray,
 
 def quantilize(v, n_quantile=5, return_summary=False, fallback_to_unique=True):
     """Quantile starting from 0. Array is flattened first."""
+    import numpy_groupies as npg
+    from scipy import stats
 
     v = np.array(v)
 
@@ -810,6 +809,8 @@ def nansem(v, axis=None, **kwargs):
 def wpercentile(w: np.ndarray, prct, axis=None):
     """
     """
+    from scipy import interpolate
+
     if axis is not None:
         raise NotImplementedError()
     cw = np.concatenate([np.zeros(1), np.cumsum(w)])
@@ -826,6 +827,8 @@ def wpercentile(w: np.ndarray, prct, axis=None):
     # cv = np.concatenate([z, cv], axis)
     # cw = np.cumsum(w, axis)
     # cw = np.concatenate
+    #
+    # from scipy import stats
     # f = stats.interpolate.interp1d(w, cv)
 
 
@@ -853,6 +856,8 @@ def pearsonr_ci(x,y,alpha=0.05):
 
     from https://gist.github.com/zhiyzuo/d38159a7c48b575af3e3de7501462e04
     """
+    from scipy import stats
+
     r, p = stats.pearsonr(x,y)
     r_z = np.arctanh(r)
     se = 1/np.sqrt(x.size-3)
@@ -1024,6 +1029,7 @@ def weighted_median_split(
     w_sum = w.sum()
     w = sumto1(w)
 
+    import weightedstats as ws
     m = ws.numpy_weighted_median(v, w)
 
     if to_sample:
@@ -1927,6 +1933,8 @@ def nanautocorr(firing_rate: np.ndarray, thres_n=2) -> np.ndarray:
     :param thres_n: Minimum number of non-NaN entries to compute autocorr with.
     :return: ac[i_dx, i_dy]
     """
+    from scipy import stats
+
     f = firing_rate
     assert f.ndim == 2
     assert thres_n >= 2, 'to compute correlation thres_n needs to be >= 2'
@@ -1989,6 +1997,8 @@ def nansmooth(u, sigma=1., **kwargs):
 
 
 def griddata_fillnearest(points, values, xi, **kwargs):
+    from scipy.interpolate import griddata
+
     if not isinstance(points, np.ndarray):
         points = np.stack(points, -1)
     if not isinstance(xi, np.ndarray):

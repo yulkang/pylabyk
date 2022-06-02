@@ -13,7 +13,6 @@ from collections import OrderedDict as odict
 import hashlib
 import os
 import textwrap
-from .np2 import AliasStr
 
 
 def varargin2props(obj, kw, skip_absent=True, error_absent=False):
@@ -125,13 +124,15 @@ def merge_fileargs(list_of_kws, **kwargs):
 
 
 def dict2fname(
-        d: Dict[Union[str, AliasStr], Union[str, AliasStr]],
+        d: Dict[str, str],
         skip_None=True, resolve_alias=False):
     """
     :type d: Union[odict, dict]
     :param skip_None:
     :return:
     """
+    from .np2 import AliasStr
+
     def to_include(k):
         if skip_None:
             return d[k] is not None

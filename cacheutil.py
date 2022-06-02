@@ -46,8 +46,6 @@ from collections import OrderedDict as odict
 from .argsutil import dict2fname, fname2title, kwdef, fullpath2hash
 from typing import List, Union
 
-from .numpytorch import npy
-
 ignore_cache = False
 ignored_once = []
 
@@ -518,6 +516,8 @@ def skip_if_len0(v):
 
 
 def scalar_if_same(v):
+    from .numpytorch import npy
+
     v = npy(v)
     if len(v) == 0:
         return None
