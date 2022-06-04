@@ -59,7 +59,7 @@ class GridAxes:
         heights: Union[float, Sequence[float]] = 0.75,
         kw_fig=(),
         kw_subplot: Union[None, Sequence[Sequence[Dict[str, Any]]]] = None,
-        close_on_del=True,
+        close_on_del=False,
     ):
         """
         Give all size arguments in inches. top and right are top and right
