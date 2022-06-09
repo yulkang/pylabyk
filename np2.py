@@ -2105,7 +2105,11 @@ def ____STRING____():
     pass
 
 
-def joinformat(v, fmt='%g', with_str=','):
+def join_nonempty(v: Iterable[str], with_str: str) -> str:
+    return with_str.join([v1 for v1 in v if v1 != ''])
+
+
+def joinformat(v: Iterable[str], fmt='%g', with_str=',') -> str:
     return with_str.join([fmt % v1 for v1 in npy(v).flatten()])
 
 
