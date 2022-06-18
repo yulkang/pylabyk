@@ -45,6 +45,7 @@ from . import zipPickle
 from collections import OrderedDict as odict
 from .argsutil import dict2fname, fname2title, kwdef, fullpath2hash
 from typing import List, Union
+from gzip import BadGzipFile
 
 from .numpytorch import npy
 
@@ -157,7 +158,11 @@ class Cache(object):
                     ignored_once.append(self.fullpath)
                     self._dict = {}
                 else:
-                    self._dict = zipPickle.load(self.fullpath)
+                    try:
+                        self._dict = zipPickle.load(self.fullpath)
+                    except:
+                        print(f'Loading {self.fullpath} failed!')
+                        raise
             else:
                 self._dict = {}
         return self._dict
