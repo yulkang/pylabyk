@@ -45,7 +45,7 @@ from . import zipPickle
 from collections import OrderedDict as odict
 from .argsutil import dict2fname, fname2title, kwdef, fullpath2hash
 from typing import List, Union
-from gzip import BadGzipFile
+# from gzip import BadGzipFile
 
 from .numpytorch import npy
 
