@@ -59,7 +59,7 @@ class GridAxes:
         heights: Union[float, Sequence[float]] = 0.75,
         kw_fig=(),
         kw_subplot: Union[None, Sequence[Sequence[Dict[str, Any]]]] = None,
-        close_on_del=True,
+        close_on_del=False,
     ):
         """
         Give all size arguments in inches. top and right are top and right
@@ -220,7 +220,7 @@ class GridAxes:
     def ncols(self):
         return self.axs.shape[1]
 
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> Union[AxesArray, AxesSlice, 'GridAxes']:
         axs = self.axs[key]
 
         if isinstance(axs, np.ndarray) and axs.ndim == 2:
@@ -1213,7 +1213,7 @@ def colorbar(
     :param borderpad: relative to the fontsize of the axes.
         When loc='right',
             0 aligns the right edges of the colorbar and the parent axis.
-            Negative value pushes the colorbar to the right.
+            Negative value pushes the colorbar further to the right.
     :param kw_inset:
     :param kw_cbar:
     :return:

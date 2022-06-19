@@ -779,6 +779,10 @@ def argmedian(v, axis=None):
 
 
 def sumto1(v, axis=None, ignore_nan=True):
+    if is_iter(axis):
+        axis = tuple(axis)
+        if len(axis) == 1:
+            axis = axis[0]
     if ignore_nan:
         if type(v) is np.ndarray:
             return v / np.nansum(v, axis=axis, keepdims=True)
@@ -792,6 +796,10 @@ def sumto1(v, axis=None, ignore_nan=True):
 
 
 def maxto1(v, axis=None, ignore_nan=True):
+    if is_iter(axis):
+        axis = tuple(axis)
+        if len(axis) == 1:
+            axis = axis[0]
     if ignore_nan:
         if type(v) is np.ndarray:
             return v / np.nanmax(v, axis=axis, keepdims=True)
