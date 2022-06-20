@@ -2385,7 +2385,7 @@ def imshow_costs_by_subj_model(
             1, 1,
             widths=[size_per_cell * n_model1],
             heights=[size_per_cell * n_subj1],
-            right=1.5, top=1.5,
+            right=1.5, top=1.5, left=0.75,
             bottom=0.1,
         )
     ax = axs[0, 0]
@@ -2394,7 +2394,7 @@ def imshow_costs_by_subj_model(
     if subjs is not None:
         plt.yticks(np.arange(n_subj1), subjs)
     if model_names is not None:
-        xticklabel_top(ax, model_names)
+        xticklabel_top(model_names, ax)
     for row, loss_subj in enumerate(costs_by_subj_model):
         best_model = np.argmin(loss_subj)
         plt.text(best_model + offset[0], row + offset[1],
@@ -2415,15 +2415,62 @@ def imshow_costs_by_subj_model(
     return axs, cb
 
 
-def xticklabel_top(ax: plt.Axes, xtick_labels: Sequence[str]):
+def xticklabel_top(xtick_labels: Sequence[str], ax: plt.Axes = None):
     """
 
     :param ax:
     :param xtick_labels:
     :return:
     """
+    if ax is None:
+        ax = plt.gca()
     ax.xaxis.tick_top()
     _, ticklabels = plt.xticks(np.arange(len(xtick_labels)), xtick_labels)
     for ticklabel in ticklabels:
         ticklabel.set_rotation(30)
         ticklabel.set_ha('left')
+
+
+def imshow_confusion(
+    best_model_sim: np.ndarray,
+    model_labels: Sequence[str] = None,
+    axs: GridAxes = None
+) -> (GridAxes, np.ndarray):
+    """
+
+    :param best_model_sim: [batch, model_sim]
+    :param model_labels: [model]
+    :return: axs, p_fit_best_gv_sim[fit, sim] = P(best_fit_model | model_sim)
+    """
+    n_model = best_model_sim.shape[-1]
+    assert best_model_sim.ndim == 2
+
+    if model_labels is None:
+        model_labels = [''] * n_model
+
+    if axs is None:
+        axs = GridAxes(
+            1, 1, widths=0.2 * n_model, heights=0.2 * n_model,
+            top=1.5, left=2, right=1
+        )
+
+    # [fit, sim]
+    n_best_fit_by_sim = npg.aggregate(
+        np.reshape(
+            np.broadcast_arrays(
+                np2.permute2en(best_model_sim)[:, None],
+                # [sim, fit, subj]
+                np.arange(n_model)[:, None, None]  # [sim, fit, subj]
+            ), [2, -1]), 1, 'sum', size=[n_model, n_model])
+    p_fit_best_gv_sim = np2.sumto1(n_best_fit_by_sim, 0)
+
+    plt.imshow(p_fit_best_gv_sim, origin='upper')
+    xticklabel_top(model_labels)
+    plt.yticks(np.arange(n_model), model_labels)
+    plt.xlabel('simulated with')
+    plt.ylabel('best fit with')
+    colorbar(axs[0, 0])
+    plt.ylabel(
+        r'$\mathrm{P}(\mathrm{best\ fit} \mid \mathrm{sim})$')
+
+    return axs, p_fit_best_gv_sim
