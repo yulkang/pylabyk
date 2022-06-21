@@ -2437,7 +2437,7 @@ def imshow_confusion(
     axs: GridAxes = None
 ) -> (GridAxes, np.ndarray):
     """
-
+    Plot a confusion matrix
     :param best_model_sim: [batch, model_sim]
     :param model_labels: [model]
     :return: axs, p_fit_best_gv_sim[fit, sim] = P(best_fit_model | model_sim)
