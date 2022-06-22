@@ -1835,6 +1835,13 @@ def optimize_scipy(
 
     model.train()
     obj = PyTorchObjective(model, **dict(kw_pyobj))
+
+    # axs = plt2.GridAxes(1, 1, widths=3, heights=3, left=3)
+    # plt.sca(axs[0, 0])
+    # print(obj.jac(obj.x0))
+    # model.plot_params()
+    # plt.show()  # CHECKED
+
     out = scioptim.minimize(
         obj.fun, obj.x0,
         jac=obj.jac,

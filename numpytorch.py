@@ -260,6 +260,18 @@ pi2 = np.pi * 2
 def ____NAN____():
     pass
 
+
+def clamp_min_log(v: torch.Tensor, vmin=None) -> torch.Tensor:
+    """
+    Take log avoiding -inf results (which will give NaN gradient)
+    :param v: tensor to take log
+    :param vmin: log(eps) by default
+    :return: v.clamp_min(vmin).log()
+    """
+    if vmin is None:
+        vmin = torch.finfo().eps
+    return v.clamp_min(vmin).log()
+
 nanint = torch.tensor(np.nan).long()
 # nanint = tensor(np.nan).long()
 def isnan(v):
