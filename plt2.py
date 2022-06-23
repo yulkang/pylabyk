@@ -2451,7 +2451,7 @@ def imshow_confusion(
     if axs is None:
         axs = GridAxes(
             1, 1, widths=0.2 * n_model, heights=0.2 * n_model,
-            top=1.5, left=2, right=1
+            top=1.5, left=2, right=1.5
         )
 
     # [fit, sim]
