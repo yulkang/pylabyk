@@ -559,6 +559,42 @@ def issimilar(
     return np.abs(a - b) < thres
 
 
+def ____CUM____():
+    pass
+
+
+def cummin(v: np.ndarray, dim: int = 0) -> np.ndarray:
+    """
+
+    :param v:
+    :param dim:
+    :return: cumulative minimum along dim
+    """
+    shape0 = v.shape
+    if dim != 0:
+        v = np.swapaxes(v, 0, dim)
+    cummin1 = v[0]
+    r = [cummin1]
+    for v1 in v[1:]:
+        cummin1 = np.amin(np.stack([cummin1, v1]), 0)
+        r.append(cummin1)
+    r = np.stack(r)
+    if dim != 0:
+        r = np.swapaxes(r, 0, dim)
+    assert r.shape == shape0
+    return r
+
+
+def cummax(v: np.ndarray, dim: int = 0) -> np.ndarray:
+    """
+
+    :param v:
+    :param dim:
+    :return: cumulative maximum along dim
+    """
+    return -cummin(-v, dim)
+
+
 def ____STAT____():
     pass
 
@@ -634,44 +670,6 @@ def sem(v, axis=0):
         return np.std(v) / np.sqrt(v.size)
     else:
         return np.std(v, axis=axis) / np.sqrt(v.shape[axis])
-
-
-def wmean(values: np.ndarray, weights: np.ndarray,
-          axis=None) -> np.ndarray:
-    return (values * weights).sum(axis=axis) / weights.sum(axis)
-
-
-def wstd(values: np.ndarray, weights: np.ndarray,
-         axis=None, keepdim=False) -> np.ndarray:
-    """
-    Return the weighted standard deviation.
-
-    from: https://stackoverflow.com/a/2415343/2565317
-
-    values, weights -- Numpy ndarrays with the same shape.
-    """
-    sum_wt = weights.sum(axis=axis, keepdims=True)
-    avg = (values * weights).sum(axis=axis, keepdims=True) / sum_wt
-    var = ((values - avg) ** 2 * weights).sum(axis=axis, keepdims=True) / sum_wt
-    if not keepdim:
-        var = np.squeeze(var, axis=axis)
-    return np.sqrt(var)
-
-
-def wsem(values: np.ndarray, weights: np.ndarray,
-         axis=None, keepdim=False) -> np.ndarray:
-    """
-    Weighted standard error of mean.
-    :param values:
-    :param weights:
-    :param axis:
-    :param keepdim:
-    :return:
-    """
-    return (
-        wstd(values, weights, axis, keepdim)
-        / np.sqrt(np.sum(weights, axis=axis, keepdims=keepdim))
-    )
 
 
 def quantilize(v, n_quantile=5, return_summary=False, fallback_to_unique=True):
@@ -818,32 +816,6 @@ def nansem(v, axis=None, **kwargs):
     return s / np.sqrt(n)
 
 
-def wpercentile(w: np.ndarray, prct, axis=None):
-    """
-    """
-    if axis is not None:
-        raise NotImplementedError()
-    cw = np.concatenate([np.zeros(1), np.cumsum(w)])
-    cw /= cw[-1]
-    f = interpolate.interp1d(cw, np.arange(len(cw)) - .5)
-    return f(prct / 100.)
-
-    # if axis is None:
-    #     axis = 0
-    #     v = v.flatten()
-    #     w = w.flatten()
-    # z = vec_on(np.zeros(v.shape[axis]), axis, v.ndim)
-    # cv = np.cumsum(v, axis)
-    # cv = np.concatenate([z, cv], axis)
-    # cw = np.cumsum(w, axis)
-    # cw = np.concatenate
-    # f = stats.interpolate.interp1d(w, cv)
-
-
-def wmedian(w, axis=None):
-    return wpercentile(w, prct=50, axis=axis)
-
-
 def pearsonr_ci(x,y,alpha=0.05):
     """
     calculate Pearson correlation along with the confidence interval using scipy and numpy
@@ -927,24 +899,6 @@ def dkl(a: np.ndarray, b: np.ndarray, axis=None) -> np.ndarray:
     return np.sum(a * (np.log(a) - np.log(b)), axis=axis)
 
 
-def wsum_rvs(mu: np.ndarray, sigma: np.ndarray, w: np.ndarray
-             ) -> (np.ndarray, np.ndarray):
-    """
-    Mean and covariance of weighted sum of random variables
-    :param mu: [..., RV]
-    :param sigma: [..., RV, RV]
-    :param w: [RV]
-    :return: mu_sum[...], variance_sum[...]
-    """
-    mu1 = mu * w  # type: np.ndarray
-    ndim = mu1.ndim
-    # not using axis=-1, to make it work with DataFrame and Series
-    mu1 = mu1.sum(axis=ndim - 1)
-    sigma1 = (sigma *  (w[..., None] * w[..., None, :])
-              ).sum(axis=ndim).sum(axis=ndim - 1)
-    return mu1, sigma1
-
-
 def bonferroni_holm(p: np.ndarray, alpha=0.05, dim=None) -> np.ndarray:
     """
 
@@ -971,6 +925,50 @@ def ____WEIGHTED_STATS____():
     pass
 
 
+def wsum_rvs(mu: np.ndarray, sigma: np.ndarray, w: np.ndarray
+             ) -> (np.ndarray, np.ndarray):
+    """
+    Mean and covariance of weighted sum of random variables
+    :param mu: [..., RV]
+    :param sigma: [..., RV, RV]
+    :param w: [RV]
+    :return: mu_sum[...], variance_sum[...]
+    """
+    mu1 = mu * w  # type: np.ndarray
+    ndim = mu1.ndim
+    # not using axis=-1, to make it work with DataFrame and Series
+    mu1 = mu1.sum(axis=ndim - 1)
+    sigma1 = (sigma *  (w[..., None] * w[..., None, :])
+              ).sum(axis=ndim).sum(axis=ndim - 1)
+    return mu1, sigma1
+
+
+def wpercentile(w: np.ndarray, prct, axis=None):
+    """
+    """
+    if axis is not None:
+        raise NotImplementedError()
+    cw = np.concatenate([np.zeros(1), np.cumsum(w)])
+    cw /= cw[-1]
+    f = interpolate.interp1d(cw, np.arange(len(cw)) - .5)
+    return f(prct / 100.)
+
+    # if axis is None:
+    #     axis = 0
+    #     v = v.flatten()
+    #     w = w.flatten()
+    # z = vec_on(np.zeros(v.shape[axis]), axis, v.ndim)
+    # cv = np.cumsum(v, axis)
+    # cv = np.concatenate([z, cv], axis)
+    # cw = np.cumsum(w, axis)
+    # cw = np.concatenate
+    # f = stats.interpolate.interp1d(w, cv)
+
+
+def wmedian(w, axis=None):
+    return wpercentile(w, prct=50, axis=axis)
+
+
 def wmean(values: np.ndarray, weights: np.ndarray,
           axis=None, keepdim=False) -> np.ndarray:
     return (values * weights).sum(
@@ -993,6 +991,22 @@ def wstd(values: np.ndarray, weights: np.ndarray,
     if not keepdim:
         var = np.squeeze(var, axis=axis)
     return np.sqrt(var)
+
+
+def wsem(values: np.ndarray, weights: np.ndarray,
+         axis=None, keepdim=False) -> np.ndarray:
+    """
+    Weighted standard error of mean.
+    :param values:
+    :param weights:
+    :param axis:
+    :param keepdim:
+    :return:
+    """
+    return (
+        wstd(values, weights, axis, keepdim)
+        / np.sqrt(np.sum(weights, axis=axis, keepdims=keepdim))
+    )
 
 
 def wstandardize(values: np.ndarray, weights: np.ndarray,
