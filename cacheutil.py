@@ -59,7 +59,7 @@ def mkdir4file(file):
         os.mkdir(pth)
 
 
-def mkdir(pth):
+def mkdir4dir(pth):
     if not os.path.exists(pth) and pth != '':
         mkdir4file(os.path.join(pth, 'file'))
 

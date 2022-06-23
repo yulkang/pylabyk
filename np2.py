@@ -2208,7 +2208,7 @@ def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
 def shorten_dict(
     d: dict, src_dst=(), shorten_key=False,
     shorten_zero=True,
-) -> Union[Dict[str, str], dict[AliasStr, str]]:
+) -> Union[Dict[str, str], Dict[AliasStr, str]]:
     d1 = {
         (shorten(k, src_dst) if shorten_key else k)
         : shorten(v, src_dst)
