@@ -213,7 +213,7 @@ def filt_dict(d: dict, incl: np.ndarray,
             return {k: v[incl] for k, v in d.items()}
 
 
-def listdict2dictlist(listdict: list, to_array=False) -> dict:
+def listdict2dictlist(listdict: Sequence[dict], to_array=False) -> dict:
     """
     @type listdict: list
     @param listdict: list of dicts with the same keys
@@ -232,7 +232,7 @@ def listdict2dictlist(listdict: list, to_array=False) -> dict:
     return d
 
 
-def dictlist2listdict(dictlist: Dict[str, list]) -> List[Dict[str, Any]]:
+def dictlist2listdict(dictlist: Dict[str, Sequence]) -> List[Dict[str, Any]]:
     keys = list(dictlist.keys())
     return [{k: dictlist[k][i] for k in keys}
             for i in range(len(dictlist[keys[0]]))]
