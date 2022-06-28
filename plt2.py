@@ -72,14 +72,13 @@ AxesArray = Mapping[Tuple[Union[int, slice], ...], plt.Axes]
 
 
 def supxy(axs: AxesArray, xprop=0.5, yprop=0.5) -> Tuple[float, float]:
-    rect_nw = axs[0, 0].get_position().bounds
-    rect_ne = axs[0, -1].get_position().bounds
     rect_sw = axs[-1, 0].get_position().bounds
+    rect_ne = axs[0, -1].get_position().bounds
 
-    x0 = rect_nw[0]
+    x0 = rect_sw[0]
     y0 = rect_sw[1]
     x1 = rect_ne[0] + rect_ne[2]
-    y1 = rect_ne[1] + rect_ne [3]
+    y1 = rect_ne[1] + rect_ne[3]
 
     return (x1 - x0) * xprop + x0, (y1 - y0) * yprop + y0
 
@@ -138,9 +137,11 @@ class GridAxes:
             kw_subplot = [[{}]]
         kw_subplot = np.broadcast_to(np.array(kw_subplot), [nrows, ncols])
         
-        # truncate if too long for convenience
+        # repeat and truncate if too long for convenience
         wspace, hspace, widths, heights = [
-            v[:l] if np2.is_sequence(v) and len(v) > l else v
+            np.array(v)[np.arange(l) % len(v)]
+            if np2.is_sequence(v) and len(v) != l
+            else v
             for v, l in [
                 (wspace, ncols - 1),
                 (hspace, nrows - 1),
@@ -308,25 +309,48 @@ class GridAxes:
     def supwidth(self):
         return self.supxy(xprop=1)[0] - self.supxy(xprop=0)[0]
 
-    def suptitle(self, txt: str,
-                 xprop=0.5, pad=0.5, fontsize=12, yprop=None,
-                 va='bottom', ha='center',
-                 **kwargs):
+    def suptitle(
+        self, txt: str,
+        preset='top',
+        pad=0.5, fontsize=12,
+        xprop=None, yprop=None,
+        va=None, ha=None,
+        **kwargs
+    ):
         """
 
         :param txt:
-        :param xprop:
+        :param preset: 'top'|'left'
         :param pad: inches
-        :param fontsize:
+        :param xprop:
         :param yprop:
         :param va:
         :param ha:
-        :param kwargs:
+        :param fontsize:
+        :param kwargs: fed to figtext()
         :return:
         """
-        if yprop is None:
-            height_axes = np.sum(self.h[1:-1])
-            yprop = 1. + pad / height_axes
+        if preset == 'top':
+            if xprop is None:
+                xprop = 0.5
+            if yprop is None:
+                height_axes = np.sum(self.h[1:-1])
+                yprop = 1. + pad / height_axes
+            if va is None:
+                va = 'bottom'
+            if ha is None:
+                ha = 'center'
+        elif preset == 'left':
+            if xprop is None:
+                xprop = -pad / np.sum(self.w[1:-1])
+            if yprop is None:
+                yprop = 0.5
+            if va is None:
+                va = 'center'
+            if ha is None:
+                ha = 'right'
+        else:
+            raise ValueError()
 
         return plt.figtext(
             *self.supxy(xprop=xprop, yprop=yprop), txt,
