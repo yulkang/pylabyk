@@ -360,7 +360,19 @@ def ____Axes_Limits____():
     pass
 
 
-def lim_margin(v, xy='y', margin=0.05, ax=None):
+def lim_margin(
+    v: np.ndarray, xy='y', margin=0.05, ax: plt.Axes = None,
+    err: np.ndarray = None
+):
+    """
+
+    :param v: [...]
+    :param xy:
+    :param margin:
+    :param ax:
+    :param err: [...] or [..., (le, re)] where le = lb - y and re = rb - y
+    :return: amin, amax
+    """
     try:
         _ = margin[1]
     except TypeError:
@@ -369,17 +381,27 @@ def lim_margin(v, xy='y', margin=0.05, ax=None):
         _ = margin[1]
     except IndexError:
         margin = list(margin) * 2
-    vmax = np.amax(v)
-    vmin = np.amin(v)
+    if err is not None:
+        err = np.nan_to_num(err)
+        if err.ndim == 1:
+            v1 = np.r_[v - err, v + err]
+        else:
+            assert err.ndim == 2
+            v1 = np.r_[v + err[..., 0], v + err[..., -1]]
+    else:
+        v1 = v
+
+    vmax = np.nanmax(v1)
+    vmin = np.nanmin(v1)
     v_range = vmax - vmin
     amin = vmin - v_range * margin[0]
     amax = vmax + v_range * margin[0]
     if ax is None:
         ax = plt.gca()
     if xy == 'x':
-        ax.set_xlim([amin, amax])
+        ax.set_xlim(amin, amax)
     elif xy == 'y':
-        ax.set_ylim([amin, amax])
+        ax.set_ylim(amin, amax)
     else:
         raise ValueError()
     return amin, amax
