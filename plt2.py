@@ -670,9 +670,11 @@ def sameaxes(ax: Union[AxesArray, GridAxes],
     return lims_res
 
 
-def same_clim(images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
-              img0: Union[mpl.image.AxesImage, plt.Axes] = None,
-              clim=None):
+def same_clim(
+    images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
+    img0: Union[mpl.image.AxesImage, plt.Axes] = None,
+    clim=None, symmetric=False
+):
     try:
         images = images.flatten()
     except:
@@ -716,6 +718,9 @@ def same_clim(images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
             if isinstance(img0, plt.Axes):
                 img0 = img0.findobj(mpl.image.AxesImage)
             clim = img0.get_clim()
+    if symmetric:
+        cmax = np.amax(np.abs(clim))
+        clim = [-cmax, +cmax]
     for img in images:
         img.set_clim(clim)
     return clim
