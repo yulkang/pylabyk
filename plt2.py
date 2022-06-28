@@ -24,6 +24,46 @@ from . import np2, plt_network as pltn
 from .cacheutil import mkdir4file
 
 
+def ____Settings____():
+    pass
+
+
+def rc_dpi(dpi=300, rc: Callable = None):
+    """
+    Set default DPI for pyplot
+    :param dpi:
+    :param rc: (optional) pass the function, pyplot.rc
+    """
+    if rc is None:
+        rc = plt.rc
+    rc('figure', dpi=dpi)
+
+
+def rc_sanslatex(rc: Callable = None):
+    """
+    Use sans-serif font in Latex
+    :param rc: (optional) pass the function, pyplot.rc
+    """
+    if rc is None:
+        rc = plt.rc
+
+    rc('text', usetex=True)
+    rc('font', family='sans-serif')
+    rc(
+        'text.latex', preamble='\n'.join(
+            [
+                r'\usepackage{amsmath}',
+                # r'\usepackage{siunitx}',
+                # # i need upright \micro symbols, but you need...
+                # r'\sisetup{detect-all}',
+                # ...this to force siunitx to actually use your fonts
+                r'\usepackage{helvet}',  # set the normal font here
+                r'\usepackage{sansmath}',
+                # load up the sansmath so that math -> helvet
+                r'\sansmath'  # <- tricky! -- gotta actually tell tex to use!
+            ]))
+
+
 def ____Subplots____():
     pass
 
