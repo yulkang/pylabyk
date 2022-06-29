@@ -24,6 +24,46 @@ from . import np2, plt_network as pltn
 from .cacheutil import mkdir4file
 
 
+def ____Settings____():
+    pass
+
+
+def rc_dpi(dpi=300, rc: Callable = None):
+    """
+    Set default DPI for pyplot
+    :param dpi:
+    :param rc: (optional) pass the function, pyplot.rc
+    """
+    if rc is None:
+        rc = plt.rc
+    rc('figure', dpi=dpi)
+
+
+def rc_sanslatex(rc: Callable = None):
+    """
+    Use sans-serif font in Latex
+    :param rc: (optional) pass the function, pyplot.rc
+    """
+    if rc is None:
+        rc = plt.rc
+
+    rc('text', usetex=True)
+    rc('font', family='sans-serif')
+    rc(
+        'text.latex', preamble='\n'.join(
+            [
+                r'\usepackage{amsmath}',
+                # r'\usepackage{siunitx}',
+                # # i need upright \micro symbols, but you need...
+                # r'\sisetup{detect-all}',
+                # ...this to force siunitx to actually use your fonts
+                r'\usepackage{helvet}',  # set the normal font here
+                r'\usepackage{sansmath}',
+                # load up the sansmath so that math -> helvet
+                r'\sansmath'  # <- tricky! -- gotta actually tell tex to use!
+            ]))
+
+
 def ____Subplots____():
     pass
 
@@ -32,14 +72,13 @@ AxesArray = Mapping[Tuple[Union[int, slice], ...], plt.Axes]
 
 
 def supxy(axs: AxesArray, xprop=0.5, yprop=0.5) -> Tuple[float, float]:
-    rect_nw = axs[0, 0].get_position().bounds
-    rect_ne = axs[0, -1].get_position().bounds
     rect_sw = axs[-1, 0].get_position().bounds
+    rect_ne = axs[0, -1].get_position().bounds
 
-    x0 = rect_nw[0]
+    x0 = rect_sw[0]
     y0 = rect_sw[1]
     x1 = rect_ne[0] + rect_ne[2]
-    y1 = rect_ne[1] + rect_ne [3]
+    y1 = rect_ne[1] + rect_ne[3]
 
     return (x1 - x0) * xprop + x0, (y1 - y0) * yprop + y0
 
@@ -98,9 +137,11 @@ class GridAxes:
             kw_subplot = [[{}]]
         kw_subplot = np.broadcast_to(np.array(kw_subplot), [nrows, ncols])
         
-        # truncate if too long for convenience
+        # repeat and truncate if too long for convenience
         wspace, hspace, widths, heights = [
-            v[:l] if np2.is_sequence(v) and len(v) > l else v
+            np.array(v)[np.arange(l) % len(v)]
+            if np2.is_sequence(v) and len(v) != l
+            else v
             for v, l in [
                 (wspace, ncols - 1),
                 (hspace, nrows - 1),
@@ -268,25 +309,48 @@ class GridAxes:
     def supwidth(self):
         return self.supxy(xprop=1)[0] - self.supxy(xprop=0)[0]
 
-    def suptitle(self, txt: str,
-                 xprop=0.5, pad=0.5, fontsize=12, yprop=None,
-                 va='bottom', ha='center',
-                 **kwargs):
+    def suptitle(
+        self, txt: str,
+        preset='top',
+        pad=0.5, fontsize=12,
+        xprop=None, yprop=None,
+        va=None, ha=None,
+        **kwargs
+    ):
         """
 
         :param txt:
-        :param xprop:
+        :param preset: 'top'|'left'
         :param pad: inches
-        :param fontsize:
+        :param xprop:
         :param yprop:
         :param va:
         :param ha:
-        :param kwargs:
+        :param fontsize:
+        :param kwargs: fed to figtext()
         :return:
         """
-        if yprop is None:
-            height_axes = np.sum(self.h[1:-1])
-            yprop = 1. + pad / height_axes
+        if preset == 'top':
+            if xprop is None:
+                xprop = 0.5
+            if yprop is None:
+                height_axes = np.sum(self.h[1:-1])
+                yprop = 1. + pad / height_axes
+            if va is None:
+                va = 'bottom'
+            if ha is None:
+                ha = 'center'
+        elif preset == 'left':
+            if xprop is None:
+                xprop = -pad / np.sum(self.w[1:-1])
+            if yprop is None:
+                yprop = 0.5
+            if va is None:
+                va = 'center'
+            if ha is None:
+                ha = 'right'
+        else:
+            raise ValueError()
 
         return plt.figtext(
             *self.supxy(xprop=xprop, yprop=yprop), txt,
@@ -360,7 +424,19 @@ def ____Axes_Limits____():
     pass
 
 
-def lim_margin(v, xy='y', margin=0.05, ax=None):
+def lim_margin(
+    v: np.ndarray, xy='y', margin=0.05, ax: plt.Axes = None,
+    err: np.ndarray = None
+):
+    """
+
+    :param v: [...]
+    :param xy:
+    :param margin:
+    :param ax:
+    :param err: [...] or [..., (le, re)] where le = lb - y and re = rb - y
+    :return: amin, amax
+    """
     try:
         _ = margin[1]
     except TypeError:
@@ -369,17 +445,27 @@ def lim_margin(v, xy='y', margin=0.05, ax=None):
         _ = margin[1]
     except IndexError:
         margin = list(margin) * 2
-    vmax = np.amax(v)
-    vmin = np.amin(v)
+    if err is not None:
+        err = np.nan_to_num(err)
+        if err.ndim == 1:
+            v1 = np.r_[v - err, v + err]
+        else:
+            assert err.ndim == 2
+            v1 = np.r_[v + err[..., 0], v + err[..., -1]]
+    else:
+        v1 = v
+
+    vmax = np.nanmax(v1)
+    vmin = np.nanmin(v1)
     v_range = vmax - vmin
     amin = vmin - v_range * margin[0]
     amax = vmax + v_range * margin[0]
     if ax is None:
         ax = plt.gca()
     if xy == 'x':
-        ax.set_xlim([amin, amax])
+        ax.set_xlim(amin, amax)
     elif xy == 'y':
-        ax.set_ylim([amin, amax])
+        ax.set_ylim(amin, amax)
     else:
         raise ValueError()
     return amin, amax
@@ -584,9 +670,11 @@ def sameaxes(ax: Union[AxesArray, GridAxes],
     return lims_res
 
 
-def same_clim(images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
-              img0: Union[mpl.image.AxesImage, plt.Axes] = None,
-              clim=None):
+def same_clim(
+    images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
+    img0: Union[mpl.image.AxesImage, plt.Axes] = None,
+    clim=None, symmetric=False
+):
     try:
         images = images.flatten()
     except:
@@ -630,6 +718,9 @@ def same_clim(images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
             if isinstance(img0, plt.Axes):
                 img0 = img0.findobj(mpl.image.AxesImage)
             clim = img0.get_clim()
+    if symmetric:
+        cmax = np.amax(np.abs(clim))
+        clim = [-cmax, +cmax]
     for img in images:
         img.set_clim(clim)
     return clim
