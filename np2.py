@@ -776,16 +776,21 @@ def argmedian(v, axis=None):
 
 
 def sumto1(v, axis=None, ignore_nan=True):
-    if ignore_nan:
-        if type(v) is np.ndarray:
-            return v / np.nansum(v, axis=axis, keepdims=True)
-        else:  # v is torch.Tensor
-            return v / v.nansum(axis, keepdim=True)
+    if isinstance(v, np.ndarray):
+        dict_axis = {} if axis is None else {'axis': axis}
     else:
-        if type(v) is np.ndarray:
-            return v / v.sum(axis=axis, keepdims=True)
+        dict_axis = {} if axis is None else {'dim': axis}
+
+    if ignore_nan:
+        if isinstance(v, np.ndarray):
+            return v / np.nansum(v, keepdims=True, **dict_axis)
         else:  # v is torch.Tensor
-            return v / v.sum(axis, keepdim=True)
+            return v / v.nansum(keepdim=True, **dict_axis)
+    else:
+        if isinstance(v, np.ndarray):
+            return v / v.sum(keepdims=True, **dict_axis)
+        else:  # v is torch.Tensor
+            return v / v.sum(keepdim=True, **dict_axis)
 
 
 def maxto1(v, axis=None, ignore_nan=True):

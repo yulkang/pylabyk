@@ -614,7 +614,7 @@ def break_axis(
 
 
 def sameaxes(ax: Union[AxesArray, GridAxes],
-             ax0: plt.Axes = None, xy='xy', lim=None):
+             ax0: plt.Axes = None, xy='xy', lim: (int, int) = None):
     """
     Match the chosen limits of axes in ax to ax0's (if given) or the max range.
     Also consider: ax1.get_shared_x_axes().join(ax1, ax2)
