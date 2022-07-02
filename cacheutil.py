@@ -44,7 +44,7 @@ import numpy as np
 from . import zipPickle
 from collections import OrderedDict as odict
 from .argsutil import dict2fname, fname2title, kwdef, fullpath2hash
-from typing import List, Union
+from typing import List, Union, Sequence
 # from gzip import BadGzipFile
 
 from .numpytorch import npy
@@ -94,6 +94,29 @@ def dict2obj(d, obj):
     for k in d:
         obj.__dict__[k] = d[k]
     return obj
+
+
+def find(pth: str, contains: str = None) -> Sequence[str]:
+    """
+    find files within PTH whose names contain CONTAINS
+    :param pth:
+    :param contains:
+    :return:
+    """
+    from os import listdir
+    from os.path import isfile
+    fs0 = listdir(pth)
+    fs0 = [os.path.join(pth, v) for v in fs0]
+    fs0 = [v for v in fs0 if isfile(v)]
+    if contains is None:
+        return fs0
+
+    fs = []
+    for f in fs0:
+        vs = os.path.splitext(os.path.split(f)[1])[0].split('+')
+        if np.isin(contains, vs):
+            fs.append(f)
+    return fs
 
 
 class Cache(object):
