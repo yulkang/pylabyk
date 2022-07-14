@@ -591,8 +591,8 @@ def ttest_mc(
     if n == 1:
         pval = 1.
     else:
-        pval_lt = np.mean(tstat <= t_null)
-        pval_gt = np.mean(tstat >= t_null)
+        pval_lt = np.mean(~(tstat > t_null))  # to handle NaNs
+        pval_gt = np.mean(~(tstat < t_null))  # to handle NaNs
         if alternative == 'two-sided':
             pval = min([min([pval_lt, pval_gt]) * 2, 1.])
         elif alternative == 'less':
