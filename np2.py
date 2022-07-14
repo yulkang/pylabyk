@@ -576,30 +576,31 @@ def ttest_mc(
     :return: pval, tstat, df
     """
     n = len(v)
-    t_null = []
     m = np.mean(v)
     if method == 'bootstrap':
-        for _ in range(nsim):
-            v1 = np.random.choice(v, size=n)
-            t_null.append(np.mean(v1 - m) / sem(v1))
+        v1 = np.random.choice(v, size=[n, nsim])
+        t_null = np.mean(v1 - m, axis=0) / sem(v1, axis=0)
     elif method == 'permutation':
-        for _ in range(nsim):
-            v1 = v * np.random.choice([-1, 1], size=n)
-            t_null.append(np.mean(v1) / sem(v1))
+        v1 = v[:, None] * np.random.choice([-1, 1], size=[n, nsim])
+        t_null = np.mean(v1, axis=0) / sem(v1, axis=0)
     else:
         raise ValueError()
     tstat = np.mean(v) / sem(v)
     df = n - 1
-    pval_lt = np.mean(tstat < t_null)
-    pval_gt = np.mean(tstat > t_null)
-    if alternative == 'two-sided':
-        pval = min([pval_lt, pval_gt]) * 2
-    elif alternative == 'less':
-        pval = pval_lt
-    elif alternative == 'greater':
-        pval = pval_gt
+
+    if n == 1:
+        pval = 1.
     else:
-        raise ValueError()
+        pval_lt = np.mean(tstat <= t_null)
+        pval_gt = np.mean(tstat >= t_null)
+        if alternative == 'two-sided':
+            pval = min([min([pval_lt, pval_gt]) * 2, 1.])
+        elif alternative == 'less':
+            pval = pval_lt
+        elif alternative == 'greater':
+            pval = pval_gt
+        else:
+            raise ValueError()
     return pval, tstat, df
 
 
