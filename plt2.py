@@ -2434,14 +2434,17 @@ def xticklabel_top(xtick_labels: Sequence[str], ax: plt.Axes = None):
 def imshow_confusion(
     best_model_sim: np.ndarray,
     model_labels: Sequence[str] = None,
-    axs: GridAxes = None
+    axs: GridAxes = None,
+    kind: str = 'p_best_given_true'
 ) -> (GridAxes, np.ndarray):
     """
     Plot a confusion matrix
     :param best_model_sim: [batch, model_sim]
     :param model_labels: [model]
-    :return: axs, p_fit_best_gv_sim[fit, sim] = P(best_fit_model | model_sim)
+    :return: axs, p_plot_fit_sim[fit, sim] = P(best_fit_model | model_sim)
     """
+    assert kind in ['p_best_given_true', 'p_true_given_best']
+
     n_model = best_model_sim.shape[-1]
     assert best_model_sim.ndim == 2
 
@@ -2462,15 +2465,21 @@ def imshow_confusion(
                 # [sim, fit, subj]
                 np.arange(n_model)[:, None, None]  # [sim, fit, subj]
             ), [2, -1]), 1, 'sum', size=[n_model, n_model])
-    p_fit_best_gv_sim = np2.sumto1(n_best_fit_by_sim, 0)
 
-    plt.imshow(p_fit_best_gv_sim, origin='upper')
+    if kind == 'p_best_given_true':
+        p_plot_fit_sim = np2.sumto1(n_best_fit_by_sim, 0)
+    elif kind == 'p_true_given_best':
+        p_plot_fit_sim = np2.sumto1(n_best_fit_by_sim, 1)
+    else:
+        raise ValueError()
+
+    plt.imshow(p_plot_fit_sim, origin='upper')
 
     for i_model_sim in range(n_model):
         for i_model_fit in range(n_model):
             plt.text(
                 i_model_fit, i_model_sim,
-                f'{p_fit_best_gv_sim[i_model_sim, i_model_fit]:.2f}'
+                f'{p_plot_fit_sim[i_model_sim, i_model_fit]:.2f}'
                 .lstrip('0'),
                 color='w', va='center', ha='center', fontsize=5)
 
@@ -2479,7 +2488,14 @@ def imshow_confusion(
     plt.xlabel('simulated with')
     plt.ylabel('best fit with')
     colorbar(axs[0, 0])
-    plt.ylabel(
-        r'$\mathrm{P}(\mathrm{best\ fit} \mid \mathrm{sim})$')
 
-    return axs, p_fit_best_gv_sim
+    if kind == 'p_best_given_true':
+        plt.ylabel(
+            r'$\mathrm{P}(\mathrm{best\ fit} \mid \mathrm{sim})$')
+    elif kind == 'p_true_given_best':
+        plt.ylabel(
+            r'$\mathrm{P}(\mathrm{sim} \mid \mathrm{best\ fit})$')
+    else:
+        raise ValueError()
+
+    return axs, p_plot_fit_sim
