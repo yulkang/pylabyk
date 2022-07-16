@@ -2465,6 +2465,15 @@ def imshow_confusion(
     p_fit_best_gv_sim = np2.sumto1(n_best_fit_by_sim, 0)
 
     plt.imshow(p_fit_best_gv_sim, origin='upper')
+
+    for i_model_sim in range(n_model):
+        for i_model_fit in range(n_model):
+            plt.text(
+                i_model_fit, i_model_sim,
+                f'{p_fit_best_gv_sim[i_model_sim, i_model_fit]:.2f}'
+                .lstrip('0'),
+                color='w', va='center', ha='center', fontsize=5)
+
     xticklabel_top(model_labels)
     plt.yticks(np.arange(n_model), model_labels)
     plt.xlabel('simulated with')
