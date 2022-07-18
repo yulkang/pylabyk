@@ -81,7 +81,7 @@ def dict_except(d, keys_to_excl):
     return {k:d[k] for k in d if k not in keys_to_excl}
 
 
-def obj2dict(obj, keys_to_excl=[], exclude_hidden=True):
+def obj2dict(obj, keys_to_excl=(), exclude_hidden=True):
     d = obj.__dict__
     if exclude_hidden:
         d = {k:d[k] for k in d if k[0] != '_'}
