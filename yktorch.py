@@ -890,18 +890,18 @@ class BoundedModule(nn.Module):
 
     def freeze_(self):
         """Freeze all parameters (set requires_grad=False)"""
-        raise DeprecationWarning('use requires_grad_(False) instead!')
+        print('use requires_grad_(False) instead!')
         self.set_requires_grad_(False)
         return self
 
     def unfreeze_(self):
         """Unfreeze all parameters (set requires_grad=True)"""
-        raise DeprecationWarning('use requires_grad_(True) instead!')
+        print('use requires_grad_(True) instead!')
         self.set_requires_grad_(True)
         return self
 
     def set_requires_grad_(self, requires_grad: bool):
-        raise DeprecationWarning('use requires_grad_() instead!')
+        print('use requires_grad_() instead!')
         npt.set_requires_grad(self, requires_grad)
 
 
