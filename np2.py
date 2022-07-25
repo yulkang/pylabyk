@@ -18,7 +18,7 @@ import pandas as pd
 from copy import deepcopy
 from . import numpytorch
 from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List, \
-    Dict, Any
+    Dict, Any, Mapping
 from multiprocessing.pool import Pool as Pool0
 # from multiprocessing import Pool
 
@@ -1759,7 +1759,7 @@ def vectorize_par(
     pool: Pool = None, processes=None, chunksize=1,
     nout=None, otypes: Union[Sequence[Type], Type] = None,
     use_starmap=True, meshgrid_input=True,
-) -> Sequence[np.ndarray]:
+) -> Sequence[Union[Mapping[Any, Any], np.ndarray, Sequence[Any]]]:
     """
     Run f in parallel with meshgrid of inputs along each input's first dimension
     and return the expanded outputs.
