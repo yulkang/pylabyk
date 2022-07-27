@@ -2362,6 +2362,7 @@ def imshow_costs_by_subj_model(
         subtract_min_in_row = True,
         offset=(0., 0.),
         to_add_colorbar=True,
+        mask_below_thres=True,
         # offset=(0.025, -0.004),
 ) -> (GridAxes, mpl.colorbar.Colorbar):
     """
@@ -2378,7 +2379,7 @@ def imshow_costs_by_subj_model(
     if subtract_min_in_row:
         costs_by_subj_model = (
                 costs_by_subj_model
-                - np.amin(costs_by_subj_model, -1, keepdims=True))
+                - np.nanmin(costs_by_subj_model, -1, keepdims=True))
     n_subj1, n_model1 = costs_by_subj_model.shape
     if axs is None:
         axs = GridAxes(
@@ -2390,25 +2391,38 @@ def imshow_costs_by_subj_model(
         )
     ax = axs[0, 0]
     plt.sca(ax)
-    im = plt.imshow(costs_by_subj_model, zorder=0)
+    cost_plot = costs_by_subj_model.copy()
+    if mask_below_thres and thres_colorbar is not None:
+        cost_plot[cost_plot < thres_colorbar] = np.nan
+    im = plt.imshow(
+        cost_plot, zorder=0, vmin=0.)
     if subjs is not None:
         plt.yticks(np.arange(n_subj1), subjs)
     if model_names is not None:
         xticklabel_top(model_names, ax)
     for row, loss_subj in enumerate(costs_by_subj_model):
-        best_model = np.argmin(loss_subj)
+        best_model = np.nanargmin(loss_subj)
         plt.text(best_model + offset[0], row + offset[1],
-                 '*', color='w', zorder=2, fontsize=16,
+                 '*',
+                 color='k' if mask_below_thres else 'w',
+                 zorder=2, fontsize=16,
                  ha='center', va='center')
     if to_add_colorbar:
         cb = colorbar(
-            ax, im, height='%d%%' % int(3 / n_subj1 * 100),
+            ax, im, height=f'{int(3 / n_subj1 * 100)}%',
             borderpad=-2
         )
         if label_colorbar is not None:
             cb.set_label(label_colorbar)
         if thres_colorbar is not None:
-            cb.ax.axhline(thres_colorbar, color='w')
+            import matplotlib.patches as patches
+            ax_cbar = cb.ax  # type: plt.Axes
+            ax_cbar.add_patch(
+                patches.Rectangle(
+                    (0, 0), 1., thres_colorbar, ls='None', fc='w',
+                    zorder=2
+                ))
+            # cb.ax.axhline(thres_colorbar, color='w', lw=0.5)
     else:
         cb = None
     plt.sca(ax)
