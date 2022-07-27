@@ -542,8 +542,15 @@ def ____NAN____():
     pass
 
 
-def nan2v(v0, v=0):
+def nan2v(v0: np.ndarray, v=0):
+    v0 = v0.copy()  # DEBUGGED to prevent changing input
     v0[np.isnan(v0)] = v
+    return v0
+
+
+def inf2v(v0: np.ndarray, v=0):
+    v0 = v0.copy()  # DEBUGGED to prevent changing input
+    v0[np.isinf(v0)] = v
     return v0
 
 
