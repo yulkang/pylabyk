@@ -2417,9 +2417,11 @@ def imshow_costs_by_subj_model(
         if thres_colorbar is not None:
             import matplotlib.patches as patches
             ax_cbar = cb.ax  # type: plt.Axes
+            x_lim = ax_cbar.get_xlim()
             ax_cbar.add_patch(
                 patches.Rectangle(
-                    (0, 0), 1., thres_colorbar, ls='None', fc='w',
+                    (x_lim[0], 0), x_lim[1] - x_lim[0],
+                    thres_colorbar, ls='None', fc='w',
                     zorder=2
                 ))
             # cb.ax.axhline(thres_colorbar, color='w', lw=0.5)
