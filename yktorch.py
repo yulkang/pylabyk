@@ -338,6 +338,7 @@ class BoundedParameter(OverriddenParameter):
 
 class ProbabilityParameter(OverriddenParameter):
     def __init__(self, prob, probdim=0, requires_grad=True, randomize=False,
+                 lb=0., ub=1.,
                  **kwargs):
         """
 
@@ -347,8 +348,8 @@ class ProbabilityParameter(OverriddenParameter):
         """
         super().__init__(**kwargs)
         self.probdim = probdim
-        self.lb = npt.zeros(1)
-        self.ub = npt.ones(1)
+        self.lb = npt.zeros(1) + lb
+        self.ub = npt.zeros(1) + ub
 
         if randomize:
             prob1 = np.swapaxes(npy(prob), probdim, -1)
@@ -365,17 +366,14 @@ class ProbabilityParameter(OverriddenParameter):
         self.skip_loading_lbub = True
 
     def data2param(self, prob):
-        probdim = self.probdim
         prob = enforce_float_tensor(prob)
-
-        prob[prob < self.epsilon] = self.epsilon
-        prob[prob > 1. - self.epsilon] = 1. - self.epsilon
-        prob = prob / torch.sum(prob, dim=probdim, keepdim=True)
-
+        prob = prob * (1. - self.epsilon) + self.epsilon / prob.shape[self.probdim]
         return torch.log(prob)
 
     def param2data(self, conf):
-        return F.softmax(enforce_float_tensor(conf), dim=self.probdim)
+        prob = F.softmax(enforce_float_tensor(conf), dim=self.probdim)
+        prob = prob * (1. - self.epsilon) + self.epsilon / prob.shape[self.probdim]
+        return prob
 
     def get_n_free_param(self) -> int:
         """Number of free parameters after considering that probdim sums to 1"""
