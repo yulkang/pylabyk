@@ -743,7 +743,7 @@ def ecdf(x0, w=None):
     return p, x
 
 def argmax_margin(v, margin=0.1, margin_from='second', 
-                  fillvalue=-1, axis=None, out=None):
+                  fillvalue=-1, axis=None, out=None) -> np.ndarray:
     """
     argmax with margin; If within margin, use fillvalue instead.
     margin_from: 'second' or 'last'.
@@ -773,17 +773,17 @@ def argmax_margin(v, margin=0.1, margin_from='second',
     return a
 
 
-def argmin_margin(v, **kw):
+def argmin_margin(v, **kw) -> np.ndarray:
     """argmin with margin. See argmax_margin for details."""
     return argmax_margin(-v, **kw)
 
 
-def argmedian(v, axis=None):
+def argmedian(v, axis=None) -> np.ndarray:
     median = np.median(v, axis=axis, keepdims=True)
     return np.argmin(np.abs(v - median), axis=axis)
 
 
-def sumto1(v, axis=None, ignore_nan=True):
+def sumto1(v, axis=None, ignore_nan=True) -> np.ndarray:
     if is_iter(axis):
         axis = tuple(axis)
         if len(axis) == 1:
