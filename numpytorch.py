@@ -711,7 +711,7 @@ def maxto1(v, dim=None, ignore_nan=True):
         else:  # v is torch.Tensor
             # TODO: implement as in nansum, nanmean
             return torch.tensor(
-                v / np.nanmax(npy(v), axis=dim, keepdims=True))
+                npy(v) / np.nanmax(npy(v), axis=dim, keepdims=True))
     else:
         if type(v) is np.ndarray:
             return v / np.amax(v, axis=dim, keepdims=True)
