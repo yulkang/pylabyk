@@ -1,5 +1,5 @@
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
-from . import cacheutil
+from . import cacheutil, np2
 from . import argsutil
 from .cacheutil import Cache
 import os, shutil
@@ -50,24 +50,31 @@ class LocalFile(object):
     replace_ext = replace_ext
 
     def __init__(
-            self,
-            pth_root='../Data',
-            subdir_default='',
-            cache_dir='cache',
-            ext_fig='.png',  # .png is much faster than .pdf (~5x)
-            kind2subdir=False,
+        self,
+        pth_root='../Data',
+        subdir_default='',
+        cache_dir='cache',
+        ext_fig='.png',  # .png is much faster than .pdf (~5x)
+        kind2subdir=False,
+        shorten_dict=False,
     ):
         self.pth_root = pth_root
         self.subdir_default = subdir_default
         self.cache_dir = cache_dir
         self.ext_fig = ext_fig
         self.kind2subdir=kind2subdir
+        self.shorten_dict = shorten_dict
+
+    def dict2fname(self, d: dict) -> dict:
+        if self.shorten_dict:
+            d = np2.shorten_dict(d)
+        return dict2fname(d)
 
     def get_pth_out(self, subdir=None):
         if subdir is None:
             subdir = self.subdir_default
         if isinstance(subdir, dict):
-            subdir = dict2fname(subdir)
+            subdir = self.dict2fname(subdir)
         pth_out = os.path.join(self.pth_root, subdir)
         return pth_out
 
@@ -88,7 +95,7 @@ class LocalFile(object):
         """
         return os.path.join(
             self.get_pth_cache(subdir, cache_dir=cache_dir),
-            cacheutil.dict2fname(d) + '.zpkl'
+            self.dict2fname(d) + '.zpkl'
         )
 
     def get_file0(self, file: str, subdir=''):
@@ -123,7 +130,7 @@ class LocalFile(object):
                     {},
                     sort_merged=False, sort_given=True, def_bef_given=True
                 )
-            fname = cacheutil.dict2fname(merge_fileargs(kw_fname))
+            fname = self.dict2fname(merge_fileargs(kw_fname))
 
         if len(filekind) > 0 or len(kind) > 0:
             fname = '%s=%s+%s' % (filekind, kind, fname)

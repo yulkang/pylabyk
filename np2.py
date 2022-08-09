@@ -2193,7 +2193,10 @@ def shorten_dict(
         for k, v in d.items()}
     if shorten_zero:
         d1 = {
-            k: v.replace('0.', '.') if isinstance(v, str) and v.startswith('0.')
+            k: replace(v, [
+                (',0.', ',.'),
+            ]).replace('0.', '.')
+                if isinstance(v, str) and v.startswith('0.')
             else v
             for k, v in d1.items()
         }
