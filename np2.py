@@ -1994,18 +1994,31 @@ def nansmooth(u, sigma=1., **kwargs):
     return r
 
 
-def griddata_fillnearest(points, values, xi, **kwargs):
-    if not isinstance(points, np.ndarray):
-        points = np.stack(points, -1)
-    if not isinstance(xi, np.ndarray):
-        xi = np.stack(xi, -1)
+def griddata_fillnearest(
+    coord_in, values, coord_out,
+    method='nearest', **kwargs
+):
+    """
+    First run griddata, and then fill NaNs with nearest values
+    :param coord_in: [dim, ix_in] = i_along_dim
+    :param values: [ix_in]
+    :param coord_out: [dim, ix_out] = i_along_dim
+    :param method: for the first griddata().
+        For the second griddata() to fill in NaNs, 'nearest' is always used.
+    :param kwargs: common for the first and second griddata()
+    :return: values[ix_out] with NaNs replaced with nearest values
+    """
+    if not isinstance(coord_in, np.ndarray):
+        coord_in = np.stack(coord_in, -1)
+    if not isinstance(coord_out, np.ndarray):
+        coord_out = np.stack(coord_out, -1)
 
-    v = griddata(points, values, xi, **kwargs)
+    v = griddata(coord_in, values, coord_out, method=method, **kwargs)
     is_nan = np.isnan(v)
 
     if np.any(is_nan):
         v1 = griddata(
-            points, values, xi[is_nan], **{
+            coord_in, values, coord_out[is_nan], **{
                 **kwargs,
                 'method': 'nearest'
             })
