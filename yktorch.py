@@ -165,8 +165,8 @@ class BoundedParameter(OverriddenParameter):
         """
 
         :param data:
-        :param lb: None or -np.inf to skip
-        :param ub: None or np.inf to skip
+        :param lb: None to allow -np.inf
+        :param ub: None to allow +np.inf
         :param skip_loading_lbub:
         :param requires_grad:
         :param randomize: True to randomize within lb and ub.
@@ -174,7 +174,9 @@ class BoundedParameter(OverriddenParameter):
         :param kwargs:
         """
         super().__init__(**kwargs)
-        self.lb = None if lb is None else enforce_float_tensor(lb)  # lb == -np.inf doesn't allow for non-scalar lb
+        self.lb = (
+            None if lb is None else enforce_float_tensor(lb)
+        )  # lb == -np.inf doesn't allow for non-scalar lb
         self.ub = None if ub is None else enforce_float_tensor(ub)
 
         self.lb_random = self.lb if lb_random is None else lb_random
