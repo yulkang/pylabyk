@@ -699,6 +699,14 @@ class BoundedModule(nn.Module):
             cmap='coolwarm',
             ax: plt.Axes = None
     ) -> mpl.container.BarContainer:
+        """
+
+        :param named_bounded_params:
+        :param exclude:
+        :param cmap:
+        :param ax:
+        :return:
+        """
         if ax is None:
             ax = plt.gca()
 
@@ -1759,12 +1767,13 @@ if __name__ == 'main':
 
 
 def optimize_scipy(
-        model: BoundedModule,
-        maxiter=400,
-        verbose=True,
-        kw_optim=(),
-        kw_optim_option=(),
-        kw_pyobj=(),
+    model: BoundedModule,
+    maxiter=400,
+    verbose=True,
+    kw_optim=(),
+    kw_optim_option=(),
+    kw_pyobj=(),
+    seeds=None,
 ) -> (torch.Tensor, torch.Tensor, np.array):
     """
 
@@ -1778,6 +1787,29 @@ def optimize_scipy(
         e.g., for REINFORCE
     :return: param_fit, loss, out
     """
+    if seeds is not None:
+        if np.isscalar(seeds):
+            torch.manual_seed(seeds)
+            model.randomize()
+        else:
+            params, losses, outs = np.vectorize(
+                lambda seed: optimize_scipy(
+                    model=model,
+                    maxiter=maxiter,
+                    verbose=verbose,
+                    kw_optim=kw_optim,
+                    kw_optim_option=kw_optim_option,
+                    kw_pyobj=kw_pyobj,
+                    seeds=seed
+                ), otypes=(object, float, object)
+            )(seeds)
+            best_seed = np.nanargmin(losses)
+            out = outs[best_seed]
+            out['seeds'] = seeds
+            out['loss_by_seed'] = losses  # [i_seed]
+            model.load_state_dict(out['state_dict'])
+            return params[best_seed], losses[best_seed], out
+
     kw_optim = dict(kw_optim)
     kw_optim_option = dict(kw_optim_option)
 
