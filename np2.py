@@ -786,12 +786,12 @@ def sumto1(v, axis=None, ignore_nan=True):
         if isinstance(v, np.ndarray):
             return v / np.nansum(v, keepdims=True, **dict_axis)
         else:  # v is torch.Tensor
-            return v / v.nansum(keepdim=True, **dict_axis)
+            return v / torch.nansum(v, keepdim=True, **dict_axis)
     else:
         if isinstance(v, np.ndarray):
-            return v / v.sum(keepdims=True, **dict_axis)
+            return v / np.sum(v, keepdims=True, **dict_axis)
         else:  # v is torch.Tensor
-            return v / v.sum(keepdim=True, **dict_axis)
+            return v / torch.sum(v, keepdim=True, **dict_axis)
 
 
 def maxto1(v, axis=None, ignore_nan=True):
