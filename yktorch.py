@@ -297,8 +297,10 @@ class BoundedParameter(OverriddenParameter):
             return lb + torch.exp(param)
         elif self._fix_subset:
             data = npt.empty(self.shape)
-            data[self._is_fixed] = self._fixed_data
-            is_free = ~self._is_fixed
+            device = data.device
+            is_fixed = self._is_fixed.to(device)
+            data[is_fixed] = self._fixed_data.to(device)
+            is_free = ~is_fixed
             data[is_free] = (
                 (1 / (1 + torch.exp(-param)))
                 * (ub[is_free] - lb[is_free]) + lb[is_free]  # noqa
