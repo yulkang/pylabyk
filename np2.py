@@ -32,28 +32,32 @@ def ____DEBUG____():
 
 
 class MonitorChange:
-    def __init__(self, attr_to_monitor: Sequence[str] = ()):
-        self.attr_to_monitor = attr_to_monitor
+    def __init__(
+        self, attr_const: Sequence[str] = ()
+    ):
+        self.attr_const = attr_const
 
     def __setattr__(self, key, value):
         if (
-            (key != 'attr_to_monitor')
-            and (hasattr(self, 'attr_to_monitor'))
-            and (key in self.attr_to_monitor)
+            (key != 'attr_const')
+            and (hasattr(self, 'attr_const'))
+            and (key in self.attr_const)
             and (key in self.__dict__)
         ):
-            value0 = self.__dict__[key]
-            try:
-                assert value0 == value
-            except (ValueError, RuntimeError):
-                try:
-                    assert all(value0 == value)
-                except (ValueError, RuntimeError):
-                    try:
-                        assert (value0 == value).all()
-                    except AssertionError:
-                        print(key)
-                        raise
+            raise RuntimeError(
+                f'{key} must not be changed after being assigned!')
+            # value0 = self.__dict__[key]
+            # try:
+            #     assert value0 == value
+            # except (ValueError, RuntimeError):
+            #     try:
+            #         assert all(value0 == value)
+            #     except (ValueError, RuntimeError):
+            #         try:
+            #             assert (value0 == value).all()
+            #         except AssertionError:
+            #             print(key)
+            #             raise
         super().__setattr__(key, value)
 
 
