@@ -595,6 +595,57 @@ def ____STAT____():
     pass
 
 
+def beta_pseudocount2meanvar(
+    a: np.ndarray, b: np.ndarray
+) -> (np.ndarray, np.ndarray):
+    """
+
+    :param a: pseudocount
+    :param b: pseudocount
+    :return: mean, variance of the beta distribution
+    """
+    return a / (a + b), a * b / ((a + b) ** 2 * (a + b + 1))
+
+
+def beta_meanvar2pseudocount(
+    m: np.ndarray, v: np.ndarray
+) -> (np.ndarray, np.ndarray):
+    """
+
+    :param m: mean
+    :param v: variance
+    :return: a, b
+    """
+    ab0 = m * (1. - m) / v - 1
+    a = ab0 * m
+    b = ab0 * (1 - m)
+    return a, b
+
+
+def beta_mean_samplesize2pseudocount(
+    m: np.ndarray, s: np.ndarray
+) -> (np.ndarray, np.ndarray):
+    """
+
+    :param m: mean of the beta distribution
+    :param s: sum of pseudocounts
+    :return: a, b (pseudocount)
+    """
+    return m * s, s - (m * s)
+
+
+def beta_pseudocount2mean_samplesize(
+    a: np.ndarray, b: np.ndarray
+) -> (np.ndarray, np.ndarray):
+    """
+
+    :param a:
+    :param b:
+    :return: m (mean of the beta distribution), s (sum of pseudocounts)
+    """
+    return a / (a + b), a + b
+
+
 def ttest_mc(
     v: np.ndarray, alternative='two-sided', nsim=10000,
     method='permutation'
