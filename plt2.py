@@ -1192,15 +1192,18 @@ def multiline(xs, ys, c=None, ax=None, **kwargs):
 
 
 def colorbar(
-        ax: plt.Axes = None,
-        mappable: mpl.cm.ScalarMappable = None,
-        loc='right',
-        width='5%', height='100%',
-        borderpad=-1,
-        label='',
-        orientation='vertical',
-        kw_inset=(),
-        kw_cbar=(),
+    ax: plt.Axes = None,
+    mappable: mpl.cm.ScalarMappable = None,
+    loc='right',
+    width='5%', height='100%',
+    borderpad=-1,
+    label='',
+    orientation='vertical',
+    kw_inset=(),
+    kw_cbar=(),
+    to_mark_range=False,
+    range_lim=None,
+    kw_mark_rage=()
 ) -> mpl.colorbar.Colorbar:
     """
     Add a colorbar aligned to the mappable (e.g., image)
@@ -1240,6 +1243,34 @@ def colorbar(
         mappable, cax=axins,
         label=label, orientation=orientation, **dict(kw_cbar)
     )
+
+    if to_mark_range:
+        if range_lim is None:
+            range_lim = (
+                np.nanmin(mappable.get_array()),
+                np.nanmax(mappable.get_array()))
+
+        if orientation == 'vertical':
+            plt.plot(
+                np.mean(cb.ax.xaxis.get_data_interval()) + np.zeros(2),
+                range_lim,
+                **{
+                    'color': 'k',
+                    'lw': 0.5,
+                    **dict(kw_mark_rage)
+                }
+            )
+        else:
+            plt.plot(
+                range_lim,
+                np.mean(cb.ax.yaxis.get_data_interval()) + np.zeros(2),
+                **{
+                    'color': 'k',
+                    'lw': 0.5,
+                    **dict(kw_mark_rage)
+                }
+            )
+
     return cb
 
 
