@@ -1256,7 +1256,7 @@ def colorbar(
                 range_lim,
                 **{
                     'color': 'k',
-                    'lw': 0.5,
+                    'lw': 2.,
                     **dict(kw_mark_rage)
                 }
             )
