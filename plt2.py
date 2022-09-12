@@ -1843,7 +1843,7 @@ class SimpleFilename:
     """
     copy files to simple names as they are appended; clean them up on del.
     """
-    def __init__(self, file_out: str):
+    def __init__(self, file_out: str, to_save_csv=True):
         self.file_out = file_out
         self.file_in = []
         self.file_temp_rel = []
@@ -1852,6 +1852,7 @@ class SimpleFilename:
         self.temp_dir_abs = os.path.join(
             os.path.dirname(self.file_out),
             self.temp_dir_rel)
+        self.to_save_csv = to_save_csv
         self._closed = False
 
     def append(self, file_in) -> str:
@@ -1881,14 +1882,15 @@ class SimpleFilename:
             if os.path.exists(self.temp_dir_abs):
                 send2trash(self.temp_dir_abs)
 
-            import pandas as pd
-            df = pd.DataFrame(data={
-                'file_in': self.file_in,
-                'file_temp_rel': self.file_temp_rel
-            })
-            file_csv = os.path.splitext(self.file_out)[0] + '.csv'
-            df.to_csv(file_csv)
-            print('Saved original paths to %s' % file_csv)
+            if self.to_save_csv:
+                import pandas as pd
+                df = pd.DataFrame(data={
+                    'file_in': self.file_in,
+                    'file_temp_rel': self.file_temp_rel
+                })
+                file_csv = os.path.splitext(self.file_out)[0] + '.csv'
+                df.to_csv(file_csv)
+                print('Saved original paths to %s' % file_csv)
             self._closed = True
 
     def __del__(self):
@@ -1899,7 +1901,10 @@ class SimpleFilename:
 
 
 class SimpleFilenameArray:
-    def __init__(self, file_out, files):
+    def __init__(
+        self, file_out, files,
+        to_save_csv=True,
+    ):
         """
         rename files to simple names
         :param file_out:
@@ -1916,6 +1921,8 @@ class SimpleFilenameArray:
         self.file_out = file_out
         self.files_abs = None
         self.temp_dir_abs = None
+
+        self.to_save_csv = to_save_csv
 
     def __enter__(self):
         """
@@ -1950,18 +1957,20 @@ class SimpleFilenameArray:
                 files_rel[row, col] = os.path.join(temp_dir_rel, file_name1)
                 files_abs[row, col] = os.path.join(temp_dir_abs, file_name1)
                 shutil.copy(file0, files_abs[row, col])
-        import pandas as pd
-        df = pd.DataFrame(files)
-        file_csv = os.path.splitext(file_out)[0] + '.csv'
-        df.to_csv(file_csv)
-        print('Saved original paths to %s' % file_csv)
+
+        if self.to_save_csv:
+            import pandas as pd
+            df = pd.DataFrame(files)
+            file_csv = os.path.splitext(file_out)[0] + '.csv'
+            df.to_csv(file_csv)
+            print('Saved original paths to %s' % file_csv)
 
         self.files_abs = files_abs
         self.files_rel = files_rel
         self.temp_dir_abs = temp_dir_abs
         return self
 
-    def __del__(self, exc_type=None, exc_value=None, exc_traceback=None):
+    def __exit__(self, exc_type=None, exc_value=None, exc_traceback=None):
         from send2trash import send2trash
 
         files = self.files
@@ -2011,6 +2020,7 @@ class LatexDoc(ltx.Document, np2.ContextManager):
         *args,
         file_out=None,
         title='',
+        to_save_csv=True,
         **kwargs
     ):
         super().__init__(
@@ -2018,7 +2028,10 @@ class LatexDoc(ltx.Document, np2.ContextManager):
             **kwargs
         )
         self.file_out = file_out
-        self.simple_filename = SimpleFilename(self.file_out)
+        self.simple_filename = SimpleFilename(
+            self.file_out,
+            to_save_csv=to_save_csv
+        )
 
         self.n_row = 0
 
@@ -2242,16 +2255,18 @@ def convert_unit(src, src_unit, dst_unit):
 
 
 def subfigs(
-        files: Union[Sequence, np.ndarray], file_out: str,
-        width_document=None,
-        width_column_cm=(2,),
-        hspace_cm=0.,
-        ncol: int = None,
-        caption=None,
-        subcaptions: Union[Sequence, np.ndarray] = None,
-        caption_on_top=False,
-        subcaption_on_top=None,
-        suptitle='',
+    files: Union[Sequence, np.ndarray],
+    file_out: str,
+    width_document=None,
+    width_column_cm=(2,),
+    hspace_cm=0.,
+    ncol: int = None,
+    caption=None,
+    subcaptions: Union[Sequence, np.ndarray] = None,
+    caption_on_top=False,
+    subcaption_on_top=None,
+    suptitle='',
+    to_save_csv=True,
 ):
     """
 
@@ -2277,11 +2292,14 @@ def subfigs(
         width_document = np.sum(
             np.array(width_column_cm) + np.zeros(files.shape[1]))
 
-    with SimpleFilenameArray(file_out, files) as simplenames:
+    with SimpleFilenameArray(
+        file_out, files, to_save_csv=to_save_csv
+    ) as simplenames:
         with LatexDocStandalone(
             title=suptitle,
             width_document_cm=width_document,
             file_out=file_out,
+            to_save_csv=to_save_csv,
         ) as doc:
             doc.append_subfig_row(
                 files_rel=simplenames.files_rel,
@@ -2368,7 +2386,10 @@ def subfigs_from_template(
     )
 
 
-def subfig_rows(file_fig: str, rows_out: Iterable[dict]):
+def subfig_rows(
+    file_fig: str, rows_out: Iterable[dict],
+    to_save_csv=True,
+):
     """
 
     :param file_fig: combined figure name
@@ -2388,10 +2409,15 @@ def subfig_rows(file_fig: str, rows_out: Iterable[dict]):
                 SimpleFilenameArray(
                     file_fig_name
                     + '+row=' + row['caption'] + file_fig_ext,
-                    row.pop('files')))
+                    row.pop('files'),
+                    to_save_csv=to_save_csv
+                ))
             for row in rows_out
         ]
-        with LatexDocStandalone(file_out=file_fig) as doc:
+        with LatexDocStandalone(
+            file_out=file_fig,
+            to_save_csv=to_save_csv,
+        ) as doc:
             for row, simplefile in zip(rows_out, simplefiles):
                 doc.append_subfig_row(
                     simplefile.files_rel,
