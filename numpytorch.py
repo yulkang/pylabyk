@@ -745,10 +745,12 @@ def sum_log_prob(
 ) -> torch.Tensor:
     """
     log of sum of probabilities given in log probabilities, avoiding underflow.
+
     :param log_prob:
     :param dim:
     :param keepdim:
-    :param robust: if False, use simple and straightforward expressions that
+    :param robust:
+        if False, use simple and straightforward expressions that
         does not protect against over/underflow.
     :return: sum(log_prob.exp(), dim, keepdim).log()
     """
@@ -1399,7 +1401,7 @@ def delta(levels, v, dlevel=None):
     return 1. - ((levels - v) / dlevel).abs().clamp(0., 1.)
 
 
-def rand(shape, low=0., high=1.):
+def rand(shape=(), low=0., high=1.):
     d = Uniform(low=low, high=high)
     return d.rsample(shape)
 
