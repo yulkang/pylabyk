@@ -1836,6 +1836,7 @@ def optimize_scipy(
             **kw_optim_option
         },
     )
+    model.zero_grad(set_to_none=True)  # to free memory
     model.load_state_dict(obj.unpack_parameters(out['x']))
 
     t_en = time.time()
