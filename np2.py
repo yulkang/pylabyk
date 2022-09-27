@@ -1804,19 +1804,24 @@ def cell2array(v: np.ndarray) -> np.ndarray:
     return np.stack([v1.astype(v[0].dtype) for v1 in v]).reshape(shape)
 
 
-def arrayobj(inp: np.ndarray, up_to_dim=1, copy=False) -> np.ndarray:
+def arrayobj(
+    inp: Union[np.ndarray, Sequence],
+    ndim_objarray=1, copy=False
+) -> np.ndarray:
     """
     Return np.ndarray of dtype=np.object with shape=inp.shape[:up_to_dim]
     Useful for np.vectorize()
     :param inp:
     :param copy:
-    :param up_to_dim:
+    :param ndim_objarray: 
     :return: array
     """
+    if not isinstance(inp, np.ndarray):
+        inp = np.array(inp)
     return arrayobj1d(
-        inp.reshape([np.prod(inp.shape[:up_to_dim]), -1]),
+        inp.reshape([np.prod(inp.shape[:ndim_objarray]), -1]),
         copy=copy
-    ).reshape(inp.shape[:up_to_dim])
+    ).reshape(inp.shape[:ndim_objarray])
 
 
 def scalararray(inp) -> np.ndarray:
