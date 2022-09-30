@@ -174,10 +174,17 @@ class BoundedParameter(OverriddenParameter):
         :param kwargs:
         """
         super().__init__(**kwargs)
+
+        self.shape = data.shape
+
         self.lb = (
-            None if lb is None else enforce_float_tensor(lb)
-        )  # lb == -np.inf doesn't allow for non-scalar lb
-        self.ub = None if ub is None else enforce_float_tensor(ub)
+            enforce_float_tensor(-np.inf) if lb is None
+            else enforce_float_tensor(lb)
+        ).expand(self.shape)  # lb == -np.inf doesn't allow for non-scalar lb
+        self.ub = (
+            enforce_float_tensor(np.inf) if ub is None
+            else enforce_float_tensor(ub)
+        ).expand(self.shape)
 
         self.lb_random = self.lb if lb_random is None else lb_random
         self.ub_random = self.ub if ub_random is None else ub_random
@@ -191,7 +198,6 @@ class BoundedParameter(OverriddenParameter):
             data = enforce_float_tensor(data)
 
         # To allow fixing a subset of the parameter
-        self.shape = data.shape
         self.update_is_fixed()
 
         self._param = nn.Parameter(
@@ -225,91 +231,150 @@ class BoundedParameter(OverriddenParameter):
                 self._is_fixed = None
                 self._fixed_data = None
 
+    @staticmethod
+    def categorize_lb_ub(lb: torch.Tensor, ub: torch.Tensor) -> (
+        torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,
+    ):
+        unbounded = (lb == -np.inf) & (ub == np.inf)
+        lb_only = (lb > -np.inf) & (ub == np.inf)
+        ub_only = (lb == -np.inf) & (ub < np.inf)
+        free_lb_ub = (lb > -np.inf) & (ub < np.inf) & (lb < ub)
+        fixed = lb == ub
+
+        return unbounded, lb_only, ub_only, free_lb_ub, fixed
+
     def data2param(self, data) -> torch.Tensor:
-        # TODO: allow for non-scalar lb and ub
-        #  to have -np.inf and np.inf elements.
-        lb = npt.tensor(self.lb)
-        ub = npt.tensor(self.ub)
+        lb = npt.tensor(enforce_float_tensor(self.lb))
+        ub = npt.tensor(enforce_float_tensor(self.ub))
         data = npt.tensor(enforce_float_tensor(data))
 
-        if lb is not None and ub is not None and (lb == ub).all():
-            if (data != lb).any():
-                print('Out of lb=ub assignment to %s!' % type(self))
-            return npt.zeros_like(data)
+        lb = lb.to(data.device)
+        ub = ub.to(data.device)
 
-        if lb is not None:
-            too_small = data < lb + self.epsilon
-            if too_small.any():
-                print('Out of lb assignment to %s!' % type(self))
-        else:
-            too_small = None
+        too_small = data < lb
+        too_big = data > ub
+        if too_small.any():
+            print('Out of lb assignment to %s!' % type(self))
+        if too_big.any():
+            print('Out of ub assignment to %s!' % type(self))
 
-        if ub is not None:
-            too_big = data > ub - self.epsilon
-            if too_big.any():
-                print('Out of ub assignment to %s!' % type(self))
-        else:
-            too_big = None
+        data[too_big] = ub[too_big]
+        data[too_small] = lb[too_small]
 
-        if (lb is None) and (ub is None):  # Unbounded
-            return data
-        elif lb is None:
-            data[too_big] = ub - self.epsilon
-            return torch.log(ub - data)
-        elif ub is None:
-            data[too_small] = lb + self.epsilon
-            return torch.log(data - lb)
-        else:
-            try:
-                data[too_small] = lb + self.epsilon
-            except RuntimeError:
-                data[too_small] = (lb + self.epsilon)[too_small]
+        param = npt.zeros_like(data)
 
-            try:
-                data[too_big] = ub - self.epsilon
-            except RuntimeError:
-                data[too_big] = (ub - self.epsilon)[too_big]
+        (
+            unbounded, lb_only, ub_only, free_lb_ub, _
+        ) = BoundedParameter.categorize_lb_ub(lb, ub)
 
-            if self._fix_subset:
-                is_free = ~self._is_fixed
-                p = (data[is_free] - lb[is_free]) / (ub[is_free] - lb[is_free])
-            else:
-                p = (data - lb) / (ub - lb)
-            return torch.log(p) - torch.log(1. - p)
+        param[unbounded] = data[unbounded]
+        param[lb_only] = torch.log(data[lb_only] - lb[lb_only])
+        param[ub_only] = torch.log(ub[ub_only] - data[ub_only])
+        p = (
+                (data[free_lb_ub] - lb[free_lb_ub])
+                / (ub[free_lb_ub] - lb[free_lb_ub])
+        )
+        param[free_lb_ub] = torch.log(p) - torch.log(1. - p)
+
+        return param
+
+        # if lb is not None and ub is not None and (lb == ub).all():
+        #     if (data != lb).any():
+        #         print('Out of lb=ub assignment to %s!' % type(self))
+        #     return npt.zeros_like(data)
+        #
+        # if lb is not None and self._is_fixed is not None:
+        #     too_small = (
+        #         (~self._is_fixed & (data < lb + self.epsilon))
+        #         | (self._is_fixed & (data < lb))
+        #     )
+        #     if too_small.any():
+        #         print('Out of lb assignment to %s!' % type(self))
+        # else:
+        #     too_small = None
+        #
+        # if ub is not None:
+        #     too_big = (
+        #         (~self._is_fixed & (data > ub - self.epsilon))
+        #         | (self._is_fixed & (data > ub))
+        #     )
+        #     if too_big.any():
+        #         print('Out of ub assignment to %s!' % type(self))
+        # else:
+        #     too_big = None
+        #
+        # if (lb is None) and (ub is None):  # Unbounded
+        #     return data
+        # elif lb is None:
+        #     data[too_big] = ub - self.epsilon
+        #     return torch.log(ub - data)
+        # elif ub is None:
+        #     data[too_small] = lb + self.epsilon
+        #     return torch.log(data - lb)
+        # else:
+        #     try:
+        #         data[too_small] = lb + self.epsilon
+        #     except RuntimeError:
+        #         data[too_small] = (lb + self.epsilon)[too_small]
+        #
+        #     try:
+        #         data[too_big] = ub - self.epsilon
+        #     except RuntimeError:
+        #         data[too_big] = (ub - self.epsilon)[too_big]
+        #
+        #     if self._fix_subset:
+        #         is_free = ~self._is_fixed
+        #         p = (data[is_free] - lb[is_free]) / (ub[is_free] - lb[is_free])
+        #     else:
+        #         p = (data - lb) / (ub - lb)
+        #     return torch.log(p) - torch.log(1. - p)
 
     def param2data(self, param):
-        lb = self.lb
-        ub = self.ub
         param = enforce_float_tensor(param)
+        lb = self.lb.to(param.device)
+        ub = self.ub.to(param.device)
 
-        def tensor1(v):
-            return npt.tensor(v).to(param.device)
-        if lb is not None:
-            lb = tensor1(lb)
-        if ub is not None:
-            ub = tensor1(ub)
+        (
+            unbounded, lb_only, ub_only, free_lb_ub, fixed
+        ) = BoundedParameter.categorize_lb_ub(lb, ub)
 
-        if lb is None and ub is None: # Unbounded
-            return param
-        elif lb is None:
-            return ub - torch.exp(param)
-        elif ub is None:
-            return lb + torch.exp(param)
-        elif self._fix_subset:
-            data = npt.empty(self.shape)
-            device = data.device
-            is_fixed = self._is_fixed.to(device)
-            data[is_fixed] = self._fixed_data.to(device)
-            is_free = ~is_fixed
-            data[is_free] = (
-                (1 / (1 + torch.exp(-param)))
-                * (ub[is_free] - lb[is_free]) + lb[is_free]  # noqa
-            )
-            return data
-        elif (lb == ub).all():
-            return npt.zeros_like(param) + lb
-        else:
-            return (1 / (1 + torch.exp(-param))) * (ub - lb) + lb  # noqa
+        data = npt.zeros_like(param)
+        data[unbounded] = param[unbounded]
+        data[lb_only] = lb[lb_only] + torch.exp(param[lb_only])
+        data[ub_only] = ub[ub_only] - torch.exp(param[ub_only])
+        data[fixed] = lb[fixed]
+        data[free_lb_ub] = (
+            (1. / (1. + torch.exp(param[free_lb_ub])))
+            * (ub[free_lb_ub] - lb[free_lb_ub]) + lb[free_lb_ub]
+        )
+        return data
+
+        # if lb is not None:
+        #     lb = tensor1(lb)
+        # if ub is not None:
+        #     ub = tensor1(ub)
+        #
+        # if lb is None and ub is None: # Unbounded
+        #     return param
+        # elif lb is None:
+        #     return ub - torch.exp(param)
+        # elif ub is None:
+        #     return lb + torch.exp(param)
+        # elif self._fix_subset:
+        #     data = npt.empty(self.shape)
+        #     device = data.device
+        #     is_fixed = self._is_fixed.to(device)
+        #     data[is_fixed] = self._fixed_data.to(device)
+        #     is_free = ~is_fixed
+        #     data[is_free] = (
+        #         (1 / (1 + torch.exp(-param)))
+        #         * (ub[is_free] - lb[is_free]) + lb[is_free]  # noqa
+        #     )
+        #     return data
+        # elif (lb == ub).all():
+        #     return npt.zeros_like(param) + lb
+        # else:
+        #     return (1 / (1 + torch.exp(-param))) * (ub - lb) + lb  # noqa
 
     def get_n_free_param(self) -> int:
         """Number of free parameters"""
@@ -917,19 +982,22 @@ class BoundedModule(nn.Module):
         npt.set_requires_grad(self, requires_grad)
 
 
-def enforce_float_tensor(v: Union[torch.Tensor, np.ndarray], device=None
-                         ) -> torch.Tensor:
+def enforce_float_tensor(
+    v: Union[torch.Tensor, np.ndarray],
+    device=None,
+    dtype=None) -> torch.Tensor:
     """
     :rtype: torch.DoubleTensor, torch.FloatTensor
     """
     if device is None:
         device = default_device
+    if dtype is None:
+        dtype = torch.get_default_dtype()
     if not torch.is_tensor(v):
-        return npt.tensor(v, dtype=torch.get_default_dtype(), device=device)
-    elif not torch.is_floating_point(v):
-        return v.float()
-    else:
-        return v
+        v = npt.tensor(v, dtype=torch.get_default_dtype(), device=device)
+    if v.dtype != dtype:
+        v = v.type(dtype)
+    return v
 
 #%% Test bounded module
 import unittest
