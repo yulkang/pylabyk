@@ -344,7 +344,7 @@ class BoundedParameter(OverriddenParameter):
         data[ub_only] = ub[ub_only] - torch.exp(param[ub_only])
         data[fixed] = lb[fixed]
         data[free_lb_ub] = (
-            (1. / (1. + torch.exp(param[free_lb_ub])))
+            (1. - 1. / (1. + torch.exp(param[free_lb_ub])))
             * (ub[free_lb_ub] - lb[free_lb_ub]) + lb[free_lb_ub]
         )
         return data

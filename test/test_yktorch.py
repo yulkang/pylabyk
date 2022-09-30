@@ -1,6 +1,6 @@
 #  Copyright (c) 2022  Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
-# import pytest
+import pytest
 
 import numpy as np
 import torch
@@ -19,28 +19,28 @@ class TestBoundedParameter:
     def test_unbounded(self, shape=(10,)):
         self.check_given_lb_ub(
             torch.zeros(shape) - np.inf,
-            torch.zeros(shape) + np.inf
+            torch.ones(shape) + np.inf
         )
 
     def test_lb_only(self, shape=(10,)):
         self.check_given_lb_ub(
             torch.zeros(shape),
-            torch.zeros(shape) + np.inf
+            torch.ones(shape) + np.inf
         )
 
     def test_ub_only(self, shape=(10,)):
         self.check_given_lb_ub(
             torch.zeros(shape) - np.inf,
-            torch.zeros(shape)
+            torch.ones(shape)
         )
 
-    def free_lb_ub(self, shape=(10,)):
+    def test_free_lb_ub(self, shape=(10,)):
         self.check_given_lb_ub(
             torch.zeros(shape),
             torch.ones(shape)
         )
 
-    def fixed(self, shape=(10,)):
+    def test_fixed(self, shape=(10,)):
         v0 = torch.rand(shape)
         self.check_given_lb_ub(
             v0, v0, v0
