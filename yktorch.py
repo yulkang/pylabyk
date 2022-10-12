@@ -20,7 +20,6 @@ from scipy import optimize as scioptim
 from torch import nn
 from torch.nn import functional as F
 from torch import optim
-from torch.utils.tensorboard import SummaryWriter
 
 from pytorchobjective.obj_torch import PyTorchObjective
 
@@ -1224,6 +1223,7 @@ def optimize(
     losses_valid = []
 
     if to_plot_progress and max_epoch > 0:
+        from torch.utils.tensorboard import SummaryWriter
         writer = SummaryWriter(comment=comment)
     t_st = time.time()
     epoch = 0
