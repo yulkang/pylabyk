@@ -702,7 +702,8 @@ def same_clim(
         if img0 is None:
             img0 = images
             try:
-                img0.flatten()
+                if isinstance(img0, np.ndarray):
+                    img0.flatten()
             except:
                 img0 = [img0]
         if isinstance(img0[0], plt.Axes):
