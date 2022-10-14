@@ -675,6 +675,15 @@ def same_clim(
     img0: Union[mpl.image.AxesImage, plt.Axes] = None,
     clim=None, symmetric=False
 ):
+    """
+    Unify color axis
+    :param images: images whose clim will be unified
+    :param img0: image(s) whose maximum clim will be used to unify clims.
+        If None, images is used.
+    :param clim: If provided, img0 is ignored
+    :param symmetric: If True, clim=[-max(abs(clim)), +max(abs(clim))] is used
+    :return: clim
+    """
     try:
         images = images.flatten()
     except:
@@ -691,33 +700,38 @@ def same_clim(
 
     if clim is None:
         if img0 is None:
-            # # DEBUGGED: just using array min and max ignores existing
-            # #  non-None clims
-            # arrays = np.concatenate([
-            #     im.get_array().flatten() for im in images], 0)
-            # clim = [np.amin(arrays), np.amax(arrays)]
+            img0 = images
+            try:
+                img0.flatten()
+            except:
+                img0 = [img0]
+        if isinstance(img0[0], plt.Axes):
+            img0 = [img1.findobj(mpl.image.AxesImage)[0] for img1 in img0]
 
-            # # DEBUGGED: np.amax(clims) doesn't work when either clim is None.
-            clims = np.array([im.get_clim() for im in images], dtype=np.object)
-            def fun_or_val(fun, v, im):
-                if v is not None:
-                    return v
+        # # DEBUGGED: just using array min and max ignores existing
+        # #  non-None clims
+        # arrays = np.concatenate([
+        #     im.get_array().flatten() for im in images], 0)
+        # clim = [np.amin(arrays), np.amax(arrays)]
+
+        # # DEBUGGED: np.amax(clims) doesn't work when either clim is None.
+        clims = np.array([im.get_clim() for im in img0], dtype=np.object)
+        def fun_or_val(fun, v, im):
+            if v is not None:
+                return v
+            else:
+                a = im.get_array()
+                if a.size > 0:
+                    return fun(a)
                 else:
-                    a = im.get_array()
-                    if a.size > 0:
-                        return fun(a)
-                    else:
-                        return np.nan
-            clims[:, 0] = [fun_or_val(np.nanmin, v, im)
-                           for v, im in zip(clims[:, 0], images)]
-            clims[:, 1] = [fun_or_val(np.nanmax, v, im)
-                           for v, im in zip(clims[:, 1], images)]
-            clims = clims.astype(float)
-            clim = [np.nanmin(clims[:,0]), np.nanmax(clims[:,1])]
-        else:
-            if isinstance(img0, plt.Axes):
-                img0 = img0.findobj(mpl.image.AxesImage)
-            clim = img0.get_clim()
+                    return np.nan
+        clims[:, 0] = [fun_or_val(np.nanmin, v, im)
+                       for v, im in zip(clims[:, 0], images)]
+        clims[:, 1] = [fun_or_val(np.nanmax, v, im)
+                       for v, im in zip(clims[:, 1], images)]
+        clims = clims.astype(float)
+        clim = [np.nanmin(clims[:,0]), np.nanmax(clims[:,1])]
+
     if symmetric:
         cmax = np.amax(np.abs(clim))
         clim = [-cmax, +cmax]
