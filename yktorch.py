@@ -698,7 +698,6 @@ class BoundedModule(nn.Module):
         if ax is None:
             ax = plt.gca()
 
-        ax = plt.gca()
         names, v, grad, lb, ub, requires_grad = self.get_named_bounded_params(
             named_bounded_params, exclude=exclude)
         max_grad = np.amax(np.abs(grad))
