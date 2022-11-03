@@ -932,12 +932,12 @@ def ____WEIGHTED_STATS____():
     pass
 
 
-def wsum_rvs(mu: np.ndarray, sigma: np.ndarray, w: np.ndarray
+def wsum_rvs(mu: np.ndarray, cov: np.ndarray, w: np.ndarray
              ) -> (np.ndarray, np.ndarray):
     """
     Mean and covariance of weighted sum of random variables
     :param mu: [..., RV]
-    :param sigma: [..., RV, RV]
+    :param cov: [..., RV, RV]
     :param w: [RV]
     :return: mu_sum[...], variance_sum[...]
     """
@@ -945,9 +945,9 @@ def wsum_rvs(mu: np.ndarray, sigma: np.ndarray, w: np.ndarray
     ndim = mu1.ndim
     # not using axis=-1, to make it work with DataFrame and Series
     mu1 = mu1.sum(axis=ndim - 1)
-    sigma1 = (sigma *  (w[..., None] * w[..., None, :])
+    cov1 = (cov *  (w[..., None] * w[..., None, :])
               ).sum(axis=ndim).sum(axis=ndim - 1)
-    return mu1, sigma1
+    return mu1, cov1
 
 
 def wpercentile(w: np.ndarray, prct, axis=None):
@@ -2018,18 +2018,18 @@ def nanautocorr(firing_rate: np.ndarray, thres_n=2) -> np.ndarray:
     return ac
 
 
-def nansmooth(u, sigma=1., **kwargs):
+def nansmooth(u, stdev=1., **kwargs):
     from scipy import ndimage
 
     isnan = np.isnan(u)
 
     v = u.copy()
     v[isnan] = 0.
-    vv = ndimage.gaussian_filter(v, sigma=sigma, **kwargs)
+    vv = ndimage.gaussian_filter(v, sigma=stdev, **kwargs)
 
     w = 1. - isnan
     ww = np.clip(
-        ndimage.gaussian_filter(w, sigma=sigma, **kwargs), a_min=0, a_max=1)
+        ndimage.gaussian_filter(w, sigma=stdev, **kwargs), a_min=0, a_max=1)
 
     r = vv / ww
     r[isnan] = np.nan

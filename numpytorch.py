@@ -1355,9 +1355,9 @@ def inv_gaussian_pmf_mean_stdev(
 
 def lognorm_params_given_mean_stdev(mean: torch.Tensor, stdev: torch.Tensor
                                     ) -> (torch.Tensor, torch.Tensor):
-    sigma = torch.sqrt(torch.log(1 + (stdev / mean) ** 2))
-    mu = torch.log(mean) - sigma ** 2 / 2.
-    return mu, sigma
+    stdev = torch.sqrt(torch.log(1 + (stdev / mean) ** 2))
+    mu = torch.log(mean) - stdev ** 2 / 2.
+    return mu, stdev
 
 
 def lognorm_pmf(x: torch.Tensor, mean: torch.Tensor, stdev: torch.Tensor,
@@ -1370,14 +1370,14 @@ def lognorm_pmf(x: torch.Tensor, mean: torch.Tensor, stdev: torch.Tensor,
     :return: p[k] = P(x[k] < X < x[k + 1]; mean, stdev)
     """
 
-    mu, sigma = lognorm_params_given_mean_stdev(mean, stdev)
+    mu, stdev = lognorm_params_given_mean_stdev(mean, stdev)
 
     dx = x[[1]] - x[[0]]
     x = torch.cat([x, x[[-1]] + dx], dim=0)
-    x, mu, sigma = expand_all(x, mu, sigma)
+    x, mu, stdev = expand_all(x, mu, stdev)
     c = zeros_like(x)
     incl = x > 0
-    c[incl] = torch.distributions.LogNormal(mu[incl], sigma[incl]).cdf(
+    c[incl] = torch.distributions.LogNormal(mu[incl], stdev[incl]).cdf(
         x[incl]
     )
     p = c[1:] - c[:-1]
@@ -1406,13 +1406,13 @@ def rand(shape=(), low=0., high=1.):
     return d.rsample(shape)
 
 
-def mvnrnd(mu, sigma, sample_shape=()):
-    d = MultivariateNormal(loc=mu, covariance_matrix=sigma)
+def mvnrnd(mu, cov, sample_shape=()):
+    d = MultivariateNormal(loc=mu, covariance_matrix=cov)
     return d.rsample(sample_shape)
 
 
 def normrnd(
-        mu=0., sigma=1., sample_shape=(), return_distrib=False
+        mu=0., stdev=1., sample_shape=(), return_distrib=False
 ) -> Union[
     Tuple[torch.Tensor, torch.distributions.Distribution],
     torch.Tensor
@@ -1420,11 +1420,11 @@ def normrnd(
     """
 
     @param mu:
-    @param sigma:
+    @param stdev:
     @param sample_shape:
     @type return_distrib: bool
     """
-    d = Normal(loc=tensor(mu), scale=tensor(sigma))
+    d = Normal(loc=tensor(mu), scale=tensor(stdev))
     s = d.rsample(sample_shape)
     if return_distrib:
         return s, d
@@ -1432,8 +1432,8 @@ def normrnd(
         return s
 
 
-def log_normpdf(sample, mu=0., sigma=1.):
-    return Normal(loc=mu, scale=sigma).log_prob(sample)
+def log_normpdf(sample, mu=0., stdev=1.):
+    return Normal(loc=mu, scale=stdev).log_prob(sample)
 
 
 # def categrnd(probs):
@@ -1452,19 +1452,19 @@ def onehotrnd(probs=None, logits=None, sample_shape=()):
     ).sample(sample_shape=sample_shape)
 
 
-def mvnpdf_log(x, mu=None, sigma=None) -> torch.Tensor:
+def mvnpdf_log(x, mu=None, cov=None) -> torch.Tensor:
     """
     :param x: [batch, ndim]
     :param mu: [batch, ndim]
-    :param sigma: [batch, ndim, ndim]
+    :param cov: [batch, ndim, ndim]
     :return: log_prob [batch]
     """
     if mu is None:
         mu = tensor([0.])
-    if sigma is None:
-        sigma = eye(len(mu))
+    if cov is None:
+        cov = eye(len(mu))
     d = MultivariateNormal(loc=mu,
-                           covariance_matrix=sigma)
+                           covariance_matrix=cov)
     return d.log_prob(x)
 
 

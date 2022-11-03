@@ -1588,10 +1588,10 @@ def significance_marker(
 def ____Gaussian____():
     pass
 
-def plot_centroid(mu=np.zeros(2), sigma=np.eye(2),
+def plot_centroid(mu=np.zeros(2), cov=np.eye(2),
                   add_axis=True, *args, **kwargs):
     th = np.linspace(0, 2*np.pi, 100)[np.newaxis,:]
-    u, s, _ = np.linalg.svd(sigma)
+    u, s, _ = np.linalg.svd(cov)
     x = np.concatenate((np.cos(th), np.sin(th)), axis=0)
     us = u @ np.diag(np.sqrt(s))
     x = us @ x + mu[:,np.newaxis]
