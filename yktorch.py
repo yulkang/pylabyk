@@ -1802,7 +1802,7 @@ if __name__ == 'main':
 
 def optimize_scipy(
         model: BoundedModule,
-        maxiter=400,
+        maxiter=None,
         verbose=True,
         kw_optim=(),
         kw_optim_option=(),
@@ -1849,7 +1849,10 @@ def optimize_scipy(
             **kw_optim
         }, options={
             # 'gtol': 1e-16, # 12,
-            'disp': True, 'maxiter': maxiter,
+            'disp': True, **(
+                {} if maxiter is None else
+                {'maxiter': maxiter}
+            ),
             # 'finite_diff_rel_step': 1e-6,
             **kw_optim_option
         },
