@@ -379,6 +379,18 @@ def copy_via_pickle(obj):
     return pickle.load(buf)
 
 
+def ____DATACLASS____():
+    pass
+
+
+def update_copy(obj, kw: dict):
+    from copy import copy
+    obj = copy(obj)
+    for k, v in kw.items():
+        setattr(obj, k, v)
+    return obj
+
+
 def ____BATCH____():
     pass
 
