@@ -366,6 +366,23 @@ def filter_by_match(df: pd.DataFrame, d: dict) -> np.ndarray:
     return incl
 
 
+def index_arg(v: np.ndarray, i: np.ndarray) -> np.ndarray:
+    """
+    Given v.shape == SHAPE and i.shape == SHAPE[:-1],
+    return v[..., i[...]]
+    :param v: array to be indexed along the last dimension
+    :param i: index of the last dimension of v
+    :return: v[..., i[...]]
+    """
+    assert v.shape[:-1] == i.shape
+    indexes = np.meshgrid(
+        *[np.arange(s) for s in v.shape[:-1]],
+        indexing='ij'
+    )
+    indexes = (*indexes, i)
+    return v[indexes]
+
+
 def ____COPY____():
     pass
 
