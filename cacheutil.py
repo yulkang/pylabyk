@@ -56,7 +56,10 @@ def mkdir4file(file):
     pth = os.path.dirname(file)
     if not os.path.exists(pth):
         mkdir4file(pth)
-        os.mkdir(pth)
+        try:
+            os.mkdir(pth)
+        except FileExistsError:
+            pass
 
 
 def mkdir4dir(pth):
