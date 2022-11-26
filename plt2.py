@@ -2084,7 +2084,16 @@ class LatexDoc(ltx.Document, np2.ContextManager):
         mkdir4file(file_out)
         if file_out.lower().endswith('.pdf'):
             file_out = file_out[:-4]
-        self.generate_pdf(file_out, **kwargs)
+        self.generate_pdf(
+            file_out,
+            **{
+                **dict(
+                    clean=True,
+                    clean_tex=True,
+                ),
+                **kwargs
+              }
+        )
 
         # should close simple_filename after generate_pdf()
         # so that temporary files can be used before being deleted.
