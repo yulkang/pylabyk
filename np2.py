@@ -1705,7 +1705,7 @@ def pearsonr(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 
     threshold = 1e-13
     import warnings
-    from scipy.stats import PearsonRNearConstantInputWarning
+    # from scipy.stats import PearsonRNearConstantInputWarning
     if (
         np.any(normxm < threshold * np.abs(xmean)) or
         np.any(normym < threshold * np.abs(ymean))
@@ -1713,7 +1713,8 @@ def pearsonr(x: np.ndarray, y: np.ndarray) -> np.ndarray:
         # If all the values in x (likewise y) are very close to the mean,
         # the loss of precision that occurs in the subtraction xm = x - xmean
         # might result in large errors in r.
-        warnings.warn(PearsonRNearConstantInputWarning())
+        # warnings.warn(PearsonRNearConstantInputWarning())
+        warnings.warn('near constant input!')
 
     # YK: Assume dot product along the last dim;
     #   the preceding dims are considered batch
