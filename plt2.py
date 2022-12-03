@@ -1591,7 +1591,7 @@ def significance(
         text='*', kw_line=(), kw_text=(),
         x_text=None,
         y_text=None,
-        margin_prop=0.1,
+        # margin_prop=0.1,
         margin_axis='y',
         margin_text=0.,
 ) -> (plt.Line2D, plt.Text):
