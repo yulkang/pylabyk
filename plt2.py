@@ -985,6 +985,24 @@ def winter2_rev(n_lev: int) -> CMapType:
     return cmap1
 
 
+def cmap2rgba(cmap: mpl.colors.Colormap, n: int = None, prop: Sequence[float] = None) -> np.ndarray:
+    """
+    Following https://stackoverflow.com/a/26109298/2565317
+    :param cmap:
+    :param prop: [i] = between 0 and 1
+    :return: rgb[i, (r,g,b)]
+    """
+    if n is not None:
+        prop = np.linspace(0., 1., n)
+    else:
+        assert prop is not None
+
+    from matplotlib import cm
+    norm = mpl.colors.Normalize(vmin=0, vmax=1.)
+    scalar_map = cm.ScalarMappable(norm=norm, cmap=cmap)
+    return scalar_map.to_rgba(prop)
+
+
 def cmap_alpha(cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
                n: int = None,
                alpha_max=1.,
