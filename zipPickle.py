@@ -30,6 +30,7 @@ def save(object, filename, protocol = -1):
     # torch.save(object, file, pickle_protocol=protocol)
     file.close()
 
+
 def load(filename, map_location='cpu'):
     """Loads a compressed object from disk
     """

@@ -9,6 +9,7 @@ Created on Tue Feb 13 10:42:06 2018
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 import os
 from typing import List, Callable, Sequence, Mapping, Tuple, Dict, Any
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -17,9 +18,9 @@ from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
 from copy import copy
 import pylatex as ltx
-
 import numpy_groupies as npg
 
+from pylabyk import zipPickle as zpkl
 from . import np2, plt_network as pltn
 from .cacheutil import mkdir4file
 
@@ -62,6 +63,37 @@ def rc_sanslatex(rc: Callable = None):
                 # load up the sansmath so that math -> helvet
                 r'\sansmath'  # <- tricky! -- gotta actually tell tex to use!
             ]))
+
+
+def ____Saving____():
+    pass
+
+
+def savefig(
+    fname: str, *args,
+    fig: mpl.figure.Figure = None, ext=('pdf',), to_pickle=True, **kwargs
+):
+    if fig is None:
+        fig = plt.gcf()
+        fig0 = None
+    else:
+        fig0 = plt.gcf()
+        plt.figure(fig.number)
+
+    fname1, _ = os.path.splitext(fname)
+    for ext1 in ext:
+        plt.savefig(fname1 + ext1, *args, **kwargs)
+    if to_pickle:
+        zpkl.save(fig, fname1 + '.fig')
+
+    if fig0 is not None:
+        plt.figure(fig0.number)
+
+
+def loadfig(fname: str) -> mpl.figure.Figure:
+    v = zpkl.load(fname)
+    assert isinstance(v, mpl.figure.Figure)
+    return v
 
 
 def ____Subplots____():
