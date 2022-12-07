@@ -90,9 +90,9 @@ def savefig(
         if verbose:
             print(f'Saved image to {fname1 + ext1}')
     if to_pickle:
-        zpkl.save(fig, fname1 + '.fig')
+        zpkl.save(fig, fname1 + '.mpl')
         if verbose:
-            print(f'Pickled figure to {fname1}.fig')
+            print(f'Pickled figure to {fname1}.mpl')
 
     if fig0 is not None:
         plt.figure(fig0.number)
