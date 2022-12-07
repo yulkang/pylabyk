@@ -71,7 +71,11 @@ def ____Saving____():
 
 def savefig(
     fname: str, *args,
-    fig: mpl.figure.Figure = None, ext=('pdf',), to_pickle=True, **kwargs
+    fig: mpl.figure.Figure = None,
+    ext=('.pdf',),
+    to_pickle=True,
+    verbose=True,
+    **kwargs
 ):
     if fig is None:
         fig = plt.gcf()
@@ -83,8 +87,12 @@ def savefig(
     fname1, _ = os.path.splitext(fname)
     for ext1 in ext:
         plt.savefig(fname1 + ext1, *args, **kwargs)
+        if verbose:
+            print(f'Saved image to {fname1 + ext1}')
     if to_pickle:
         zpkl.save(fig, fname1 + '.fig')
+        if verbose:
+            print(f'Pickled figure to {fname1}.fig')
 
     if fig0 is not None:
         plt.figure(fig0.number)
