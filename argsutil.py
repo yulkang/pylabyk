@@ -126,7 +126,7 @@ def merge_fileargs(list_of_kws, **kwargs):
 
 def dict2fname(
         d: Dict[Union[str, AliasStr], Union[str, AliasStr]],
-        skip_None=True, resolve_alias=False):
+        skip_None=True, resolve_alias=False) -> str:
     """
     :type d: Union[odict, dict]
     :param skip_None:

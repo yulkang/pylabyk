@@ -65,7 +65,7 @@ class LocalFile(object):
         self.kind2subdir=kind2subdir
         self.shorten_dict = shorten_dict
 
-    def dict2fname(self, d: dict) -> dict:
+    def dict2fname(self, d: dict) -> str:
         if self.shorten_dict:
             d = np2.shorten_dict(d)
         return dict2fname(d)
