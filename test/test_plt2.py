@@ -8,9 +8,9 @@ import numpy as np
 # import matplotlib.pyplot as plt
 from matplotlib import pyplot as plt
 from PIL import Image
-from importlib import reload
+# from importlib import reload
 
-def check_savefig() -> str:
+def test_savefig() -> str:
     dir = pathlib.Path(__file__).parent.resolve()
     fname = os.path.join(dir, 'test_plt2/test_fig')
 
@@ -31,11 +31,11 @@ def check_savefig() -> str:
     return fname
 
 
-def check_loadfig(fname: str = None):
+def test_loadfig(fname: str = None):
     if fname is None:
         dir = pathlib.Path(__file__).parent.resolve()
-        # fname = os.path.join(dir, 'test_plt2/test_fig')
-        fname = os.path.join(dir, 'test_plt2/plt=traj_posterior+bi=0+bl=2+ct=.2+cw=.2+df=1.0+dp=1+dr=.75+dx=.04+eb=tknr+et=tknr+ig=2+iu=al+nb=1+nk=n+no=.99+ns=.15+nt=400+pc=goal+pn=from_prev_goal+pt=dense+rd=0.75+rf=2+s0=1948+sd=0+si=0+tp=.99+tr=.1+vf=40')
+        fname = os.path.join(dir, 'test_plt2/test_fig')
+        # fname = os.path.join(dir, 'test_plt2/plt=traj_posterior+bi=0+bl=2+ct=.2+cw=.2+df=1.0+dp=1+dr=.75+dx=.04+eb=tknr+et=tknr+ig=2+iu=al+nb=1+nk=n+no=.99+ns=.15+nt=400+pc=goal+pn=from_prev_goal+pt=dense+rd=0.75+rf=2+s0=1948+sd=0+si=0+tp=.99+tr=.1+vf=40')
 
     fig_copy = plt2.loadfig(fname + '.mpl')
     fname_copy = fname + ' (2)'
@@ -48,6 +48,6 @@ def check_loadfig(fname: str = None):
 
 
 if __name__ == '__main__':
-    # fname = check_savefig()
+    # test_savefig()  # NOTE: should run test_savefig() and test_loadfig() on different runs of python to really test the persistence
     # reload(mpl)
-    check_loadfig()
+    test_loadfig()

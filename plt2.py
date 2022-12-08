@@ -70,21 +70,6 @@ def ____Saving____():
     pass
 
 
-# class FigurePickler():
-#     def __init__(self, figure: mpl.figure.Figure):
-#         self.figure = figure
-#
-#     def __getstate__(self):
-#         state = self.figure.__getstate__()
-#         state.pop('figure')
-#         state['_restore_to_pylab'] = False
-#         return state
-#
-#     def __setstate__(self, state):
-#         fig = plt.figure()
-#         fig.__setstate__(state)
-
-
 def savefig(
     fname: str, *args,
     fig: mpl.figure.Figure = None,
@@ -116,17 +101,23 @@ def savefig(
             print(f'Saved image to {fname1 + ext1}')
     if to_pickle:
         # manager0 = fig.canvas.manager
-        # fig.canvas.manager = None  # DEBUG: uncommenting this line is critical
+        # fig.canvas.manager = None  # DEBUGGED: using this line seemed to help but it now runs without it
         with open(fname1 + '.mpl', 'wb') as file:
             pickle.dump(
                 fig,
-                # {
-                #     'matplotlib.__version__': mpl.__version__,
-                #     'figure': fig,
-                # },
                 file
             )
         # fig.canvas.manager = manager0
+
+        # # saving matplotlib version perhaps not necessary - matplotlib checks it by itself
+        # with open(fname1 + '.mpl', 'wb') as file:
+        #     pickle.dump(
+        #         {
+        #             'matplotlib.__version__': mpl.__version__,
+        #             'figure': fig,
+        #         },
+        #         file
+        #     )
         # zpkl.save({
         #     'matplotlib.__version__': mpl.__version__,
         #     'figure': fig,
@@ -139,14 +130,15 @@ def savefig(
 
 
 def loadfig(fname: str) -> mpl.figure.Figure:
-    # fig_dummy = plt.figure()
     with open(fname, 'rb') as file:
         fig = pickle.load(file)
-        # v = v.figure
+
+    # fig_dummy = plt.figure()  # UNUSED: using these lines seemed to help but they seem not needed any more.
     # new_manager = fig_dummy.canvas.manager
     # new_manager.canvas.figure = fig
-    # fig.set_canvas(new_manager.canvas)  # DEBUG: uncommenting this line is critical
+    # fig.set_canvas(new_manager.canvas)
     return fig
+
     # with open(fname, 'rb') as file:
     #     v = pickle.load(file)
     # # v = zpkl.load(fname, use_torch=False)
