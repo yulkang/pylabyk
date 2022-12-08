@@ -31,15 +31,19 @@ def save(object, filename, protocol = -1):
     file.close()
 
 
-def load(filename, map_location='cpu'):
+def load(filename, map_location='cpu', use_torch=True):
     """Loads a compressed object from disk
     """
-    try:
-        import torch
-        with gzip.GzipFile(filename, 'rb') as file:
-            object = torch.load(file, map_location=map_location)
-    except RuntimeError:
-        print('Failed to load with torch.load(); trying pickle.load()')
+    if use_torch:
+        try:
+            import torch
+            with gzip.GzipFile(filename, 'rb') as file:
+                object = torch.load(file, map_location=map_location)
+        except RuntimeError:
+            print('Failed to load with torch.load(); trying pickle.load()')
+            with gzip.GzipFile(filename, 'rb') as file:
+                object = pickle.load(file)
+    else:
         with gzip.GzipFile(filename, 'rb') as file:
             object = pickle.load(file)
     return object
