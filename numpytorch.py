@@ -218,6 +218,14 @@ def linspace(*args, **kwargs):
     return torch.linspace(*args, **{'device': get_device(), **kwargs})
 
 
+def rand(*args, **kwargs):
+    return torch.rand(*args, **{'device': get_device(), **kwargs})
+
+
+def randint(*args, **kwargs):
+    return torch.randint(*args, **{'device': get_device(), **kwargs})
+
+
 def float(v):
     return v.type(torch.get_default_dtype())
 
@@ -1399,9 +1407,9 @@ def delta(levels, v, dlevel=None):
     return 1. - ((levels - v) / dlevel).abs().clamp(0., 1.)
 
 
-def rand(shape, low=0., high=1.):
-    d = Uniform(low=low, high=high)
-    return d.rsample(shape)
+# def rand(shape, low=0., high=1.):
+#     d = Uniform(low=low, high=high)
+#     return d.rsample(shape)
 
 
 def mvnrnd(mu, sigma, sample_shape=()):
