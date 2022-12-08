@@ -90,7 +90,10 @@ def savefig(
         if verbose:
             print(f'Saved image to {fname1 + ext1}')
     if to_pickle:
-        zpkl.save(fig, fname1 + '.mpl')
+        zpkl.save({
+            'matplotlib.__version__': mpl.__version__,
+            'figure': fig,
+        }, fname1 + '.mpl')
         if verbose:
             print(f'Pickled figure to {fname1}.mpl')
 
@@ -100,8 +103,14 @@ def savefig(
 
 def loadfig(fname: str) -> mpl.figure.Figure:
     v = zpkl.load(fname)
-    assert isinstance(v, mpl.figure.Figure)
-    return v
+    if v['matplotlib.__version__'] != mpl.__version__:
+        import warnings
+        warnings.warn(f'Current matplotlib version ({mpl.__version__}) '
+                      f'!= version that pickled the figure '
+                      f'({v["matplotlib.__version__"]}) loaded from '
+                      f'{fname}')
+    assert isinstance(v['figure'], mpl.figure.Figure)
+    return v['figure']
 
 
 def ____Subplots____():
