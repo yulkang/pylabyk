@@ -9,11 +9,12 @@ Created on Tue Feb 13 10:42:06 2018
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 import os
 from typing import List, Callable, Sequence, Mapping, Tuple, Dict, Any
+import pickle
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from matplotlib import patches, pyplot as plt
+from matplotlib import patches
 from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
 from copy import copy
@@ -72,7 +73,7 @@ def ____Saving____():
 def savefig(
     fname: str, *args,
     fig: mpl.figure.Figure = None,
-    ext=('.pdf',),
+    ext: Union[str, Iterable[str]] = None,
     to_pickle=True,
     verbose=True,
     **kwargs
@@ -84,16 +85,43 @@ def savefig(
         fig0 = plt.gcf()
         plt.figure(fig.number)
 
-    fname1, _ = os.path.splitext(fname)
+    if ext is None:
+        fname1, ext1 = os.path.splitext(fname)
+        ext = (ext1,)
+    else:
+        fname1 = fname
+        if isinstance(ext, str):
+            ext = (ext,)
+        else:
+            assert np.all([isinstance(v, str) for v in ext])
+
     for ext1 in ext:
         plt.savefig(fname1 + ext1, *args, **kwargs)
         if verbose:
             print(f'Saved image to {fname1 + ext1}')
     if to_pickle:
-        zpkl.save({
-            'matplotlib.__version__': mpl.__version__,
-            'figure': fig,
-        }, fname1 + '.mpl')
+        # manager0 = fig.canvas.manager
+        # fig.canvas.manager = None  # DEBUGGED: using this line seemed to help but it now runs without it
+        with open(fname1 + '.mpl', 'wb') as file:
+            pickle.dump(
+                fig,
+                file
+            )
+        # fig.canvas.manager = manager0
+
+        # # saving matplotlib version perhaps not necessary - matplotlib checks it by itself
+        # with open(fname1 + '.mpl', 'wb') as file:
+        #     pickle.dump(
+        #         {
+        #             'matplotlib.__version__': mpl.__version__,
+        #             'figure': fig,
+        #         },
+        #         file
+        #     )
+        # zpkl.save({
+        #     'matplotlib.__version__': mpl.__version__,
+        #     'figure': fig,
+        # }, fname1 + '.mpl')
         if verbose:
             print(f'Pickled figure to {fname1}.mpl')
 
@@ -102,15 +130,26 @@ def savefig(
 
 
 def loadfig(fname: str) -> mpl.figure.Figure:
-    v = zpkl.load(fname)
-    if v['matplotlib.__version__'] != mpl.__version__:
-        import warnings
-        warnings.warn(f'Current matplotlib version ({mpl.__version__}) '
-                      f'!= version that pickled the figure '
-                      f'({v["matplotlib.__version__"]}) loaded from '
-                      f'{fname}')
-    assert isinstance(v['figure'], mpl.figure.Figure)
-    return v['figure']
+    with open(fname, 'rb') as file:
+        fig = pickle.load(file)
+
+    # fig_dummy = plt.figure()  # UNUSED: using these lines seemed to help but they seem not needed any more.
+    # new_manager = fig_dummy.canvas.manager
+    # new_manager.canvas.figure = fig
+    # fig.set_canvas(new_manager.canvas)
+    return fig
+
+    # with open(fname, 'rb') as file:
+    #     v = pickle.load(file)
+    # # v = zpkl.load(fname, use_torch=False)
+    # if v['matplotlib.__version__'] != mpl.__version__:
+    #     import warnings
+    #     warnings.warn(f'Current matplotlib version ({mpl.__version__}) '
+    #                   f'!= version that pickled the figure '
+    #                   f'({v["matplotlib.__version__"]}) loaded from '
+    #                   f'{fname}')
+    # assert isinstance(v['figure'], mpl.figure.Figure)
+    # return v['figure']
 
 
 def ____Subplots____():
