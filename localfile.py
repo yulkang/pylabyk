@@ -50,12 +50,14 @@ class LocalFile(object):
     replace_ext = replace_ext
 
     def __init__(
-            self,
-            pth_root='../Data',
-            subdir_default='',
-            cache_dir='cache',
-            ext_fig='.png',  # .png is much faster than .pdf (~5x)
-            kind2subdir=False,
+        self,
+        pth_root='../Data',
+        subdir_default='',
+        cache_dir='cache',
+        ext_fig='.png',  # .png is much faster than .pdf (~5x)
+        # ext_fig='.pdf',
+        kind2subdir=False,
+        shorten_dict=False,
     ):
         self.pth_root = pth_root
         self.subdir_default = subdir_default
