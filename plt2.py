@@ -9,19 +9,147 @@ Created on Tue Feb 13 10:42:06 2018
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 import os
 from typing import List, Callable, Sequence, Mapping, Tuple, Dict, Any
+import pickle
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from matplotlib import patches, pyplot as plt
+from matplotlib import patches
 from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
 from copy import copy
 import pylatex as ltx
-
 import numpy_groupies as npg
 
+from pylabyk import zipPickle as zpkl
 from . import np2, plt_network as pltn
 from .cacheutil import mkdir4file
+
+
+def ____Settings____():
+    pass
+
+
+def rc_dpi(dpi=300, rc: Callable = None):
+    """
+    Set default DPI for pyplot
+    :param dpi:
+    :param rc: (optional) pass the function, pyplot.rc
+    """
+    if rc is None:
+        rc = plt.rc
+    rc('figure', dpi=dpi)
+
+
+def rc_sanslatex(rc: Callable = None):
+    """
+    Use sans-serif font in Latex
+    :param rc: (optional) pass the function, pyplot.rc
+    """
+    if rc is None:
+        rc = plt.rc
+
+    rc('text', usetex=True)
+    rc('font', family='sans-serif')
+    rc(
+        'text.latex', preamble='\n'.join(
+            [
+                r'\usepackage{amsmath}',
+                # r'\usepackage{siunitx}',
+                # # i need upright \micro symbols, but you need...
+                # r'\sisetup{detect-all}',
+                # ...this to force siunitx to actually use your fonts
+                r'\usepackage{helvet}',  # set the normal font here
+                r'\usepackage{sansmath}',
+                # load up the sansmath so that math -> helvet
+                r'\sansmath'  # <- tricky! -- gotta actually tell tex to use!
+            ]))
+
+
+def ____Saving____():
+    pass
+
+
+def savefig(
+    fname: str, *args,
+    fig: mpl.figure.Figure = None,
+    ext: Union[str, Iterable[str]] = None,
+    to_pickle=True,
+    verbose=True,
+    **kwargs
+):
+    if fig is None:
+        fig = plt.gcf()
+        fig0 = None
+    else:
+        fig0 = plt.gcf()
+        plt.figure(fig.number)
+
+    if ext is None:
+        fname1, ext1 = os.path.splitext(fname)
+        ext = (ext1,)
+    else:
+        fname1 = fname
+        if isinstance(ext, str):
+            ext = (ext,)
+        else:
+            assert np.all([isinstance(v, str) for v in ext])
+
+    for ext1 in ext:
+        plt.savefig(fname1 + ext1, *args, **kwargs)
+        if verbose:
+            print(f'Saved image to {fname1 + ext1}')
+    if to_pickle:
+        # manager0 = fig.canvas.manager
+        # fig.canvas.manager = None  # DEBUGGED: using this line seemed to help but it now runs without it
+        with open(fname1 + '.mpl', 'wb') as file:
+            pickle.dump(
+                fig,
+                file
+            )
+        # fig.canvas.manager = manager0
+
+        # # saving matplotlib version perhaps not necessary - matplotlib checks it by itself
+        # with open(fname1 + '.mpl', 'wb') as file:
+        #     pickle.dump(
+        #         {
+        #             'matplotlib.__version__': mpl.__version__,
+        #             'figure': fig,
+        #         },
+        #         file
+        #     )
+        # zpkl.save({
+        #     'matplotlib.__version__': mpl.__version__,
+        #     'figure': fig,
+        # }, fname1 + '.mpl')
+        if verbose:
+            print(f'Pickled figure to {fname1}.mpl')
+
+    if fig0 is not None:
+        plt.figure(fig0.number)
+
+
+def loadfig(fname: str) -> mpl.figure.Figure:
+    with open(fname, 'rb') as file:
+        fig = pickle.load(file)
+
+    # fig_dummy = plt.figure()  # UNUSED: using these lines seemed to help but they seem not needed any more.
+    # new_manager = fig_dummy.canvas.manager
+    # new_manager.canvas.figure = fig
+    # fig.set_canvas(new_manager.canvas)
+    return fig
+
+    # with open(fname, 'rb') as file:
+    #     v = pickle.load(file)
+    # # v = zpkl.load(fname, use_torch=False)
+    # if v['matplotlib.__version__'] != mpl.__version__:
+    #     import warnings
+    #     warnings.warn(f'Current matplotlib version ({mpl.__version__}) '
+    #                   f'!= version that pickled the figure '
+    #                   f'({v["matplotlib.__version__"]}) loaded from '
+    #                   f'{fname}')
+    # assert isinstance(v['figure'], mpl.figure.Figure)
+    # return v['figure']
 
 
 def ____Subplots____():
@@ -32,14 +160,13 @@ AxesArray = Mapping[Tuple[Union[int, slice], ...], plt.Axes]
 
 
 def supxy(axs: AxesArray, xprop=0.5, yprop=0.5) -> Tuple[float, float]:
-    rect_nw = axs[0, 0].get_position().bounds
-    rect_ne = axs[0, -1].get_position().bounds
     rect_sw = axs[-1, 0].get_position().bounds
+    rect_ne = axs[0, -1].get_position().bounds
 
-    x0 = rect_nw[0]
+    x0 = rect_sw[0]
     y0 = rect_sw[1]
     x1 = rect_ne[0] + rect_ne[2]
-    y1 = rect_ne[1] + rect_ne [3]
+    y1 = rect_ne[1] + rect_ne[3]
 
     return (x1 - x0) * xprop + x0, (y1 - y0) * yprop + y0
 
@@ -59,7 +186,7 @@ class GridAxes:
         heights: Union[float, Sequence[float]] = 0.75,
         kw_fig=(),
         kw_subplot: Union[None, Sequence[Sequence[Dict[str, Any]]]] = None,
-        close_on_del=True,
+        close_on_del=False,
     ):
         """
         Give all size arguments in inches. top and right are top and right
@@ -98,9 +225,11 @@ class GridAxes:
             kw_subplot = [[{}]]
         kw_subplot = np.broadcast_to(np.array(kw_subplot), [nrows, ncols])
         
-        # truncate if too long for convenience
+        # repeat and truncate if too long for convenience
         wspace, hspace, widths, heights = [
-            v[:l] if np2.is_sequence(v) and len(v) > l else v
+            np.array(v)[np.arange(l) % len(v)]
+            if np2.is_sequence(v) and len(v) != l
+            else v
             for v, l in [
                 (wspace, ncols - 1),
                 (hspace, nrows - 1),
@@ -268,25 +397,48 @@ class GridAxes:
     def supwidth(self):
         return self.supxy(xprop=1)[0] - self.supxy(xprop=0)[0]
 
-    def suptitle(self, txt: str,
-                 xprop=0.5, pad=0.5, fontsize=12, yprop=None,
-                 va='bottom', ha='center',
-                 **kwargs):
+    def suptitle(
+        self, txt: str,
+        preset='top',
+        pad=0.5, fontsize=12,
+        xprop=None, yprop=None,
+        va=None, ha=None,
+        **kwargs
+    ):
         """
 
         :param txt:
-        :param xprop:
+        :param preset: 'top'|'left'
         :param pad: inches
-        :param fontsize:
+        :param xprop:
         :param yprop:
         :param va:
         :param ha:
-        :param kwargs:
+        :param fontsize:
+        :param kwargs: fed to figtext()
         :return:
         """
-        if yprop is None:
-            height_axes = np.sum(self.h[1:-1])
-            yprop = 1. + pad / height_axes
+        if preset == 'top':
+            if xprop is None:
+                xprop = 0.5
+            if yprop is None:
+                height_axes = np.sum(self.h[1:-1])
+                yprop = 1. + pad / height_axes
+            if va is None:
+                va = 'bottom'
+            if ha is None:
+                ha = 'center'
+        elif preset == 'left':
+            if xprop is None:
+                xprop = -pad / np.sum(self.w[1:-1])
+            if yprop is None:
+                yprop = 0.5
+            if va is None:
+                va = 'center'
+            if ha is None:
+                ha = 'right'
+        else:
+            raise ValueError()
 
         return plt.figtext(
             *self.supxy(xprop=xprop, yprop=yprop), txt,
@@ -360,7 +512,19 @@ def ____Axes_Limits____():
     pass
 
 
-def lim_margin(v, xy='y', margin=0.05, ax=None):
+def lim_margin(
+    v: np.ndarray, xy='y', margin=0.05, ax: plt.Axes = None,
+    err: np.ndarray = None
+):
+    """
+
+    :param v: [...]
+    :param xy:
+    :param margin:
+    :param ax:
+    :param err: [...] or [..., (le, re)] where le = lb - y and re = rb - y
+    :return: amin, amax
+    """
     try:
         _ = margin[1]
     except TypeError:
@@ -369,17 +533,27 @@ def lim_margin(v, xy='y', margin=0.05, ax=None):
         _ = margin[1]
     except IndexError:
         margin = list(margin) * 2
-    vmax = np.amax(v)
-    vmin = np.amin(v)
+    if err is not None:
+        err = np.nan_to_num(err)
+        if err.ndim == 1:
+            v1 = np.r_[v - err, v + err]
+        else:
+            assert err.ndim == 2
+            v1 = np.r_[v + err[..., 0], v + err[..., -1]]
+    else:
+        v1 = v
+
+    vmax = np.nanmax(v1)
+    vmin = np.nanmin(v1)
     v_range = vmax - vmin
     amin = vmin - v_range * margin[0]
     amax = vmax + v_range * margin[0]
     if ax is None:
         ax = plt.gca()
     if xy == 'x':
-        ax.set_xlim([amin, amax])
+        ax.set_xlim(amin, amax)
     elif xy == 'y':
-        ax.set_ylim([amin, amax])
+        ax.set_ylim(amin, amax)
     else:
         raise ValueError()
     return amin, amax
@@ -528,7 +702,7 @@ def break_axis(
 
 
 def sameaxes(ax: Union[AxesArray, GridAxes],
-             ax0: plt.Axes = None, xy='xy', lim=None):
+             ax0: plt.Axes = None, xy='xy', lim: (int, int) = None):
     """
     Match the chosen limits of axes in ax to ax0's (if given) or the max range.
     Also consider: ax1.get_shared_x_axes().join(ax1, ax2)
@@ -584,9 +758,20 @@ def sameaxes(ax: Union[AxesArray, GridAxes],
     return lims_res
 
 
-def same_clim(images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
-              img0: Union[mpl.image.AxesImage, plt.Axes] = None,
-              clim=None):
+def same_clim(
+    images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
+    img0: Union[mpl.image.AxesImage, plt.Axes] = None,
+    clim=None, symmetric=False
+):
+    """
+    Unify color axis
+    :param images: images whose clim will be unified
+    :param img0: image(s) whose maximum clim will be used to unify clims.
+        If None, images is used.
+    :param clim: If provided, img0 is ignored
+    :param symmetric: If True, clim=[-max(abs(clim)), +max(abs(clim))] is used
+    :return: clim
+    """
     try:
         images = images.flatten()
     except:
@@ -603,33 +788,42 @@ def same_clim(images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
 
     if clim is None:
         if img0 is None:
-            # # DEBUGGED: just using array min and max ignores existing
-            # #  non-None clims
-            # arrays = np.concatenate([
-            #     im.get_array().flatten() for im in images], 0)
-            # clim = [np.amin(arrays), np.amax(arrays)]
+            img0 = images
+            try:
+                if isinstance(img0, np.ndarray):
+                    img0.flatten()
+            except:
+                img0 = [img0]
+        if isinstance(img0[0], plt.Axes):
+            img0 = [img1.findobj(mpl.image.AxesImage)[0] for img1 in img0]
 
-            # # DEBUGGED: np.amax(clims) doesn't work when either clim is None.
-            clims = np.array([im.get_clim() for im in images], dtype=np.object)
-            def fun_or_val(fun, v, im):
-                if v is not None:
-                    return v
+        # # DEBUGGED: just using array min and max ignores existing
+        # #  non-None clims
+        # arrays = np.concatenate([
+        #     im.get_array().flatten() for im in images], 0)
+        # clim = [np.amin(arrays), np.amax(arrays)]
+
+        # # DEBUGGED: np.amax(clims) doesn't work when either clim is None.
+        clims = np.array([im.get_clim() for im in img0], dtype=np.object)
+        def fun_or_val(fun, v, im):
+            if v is not None:
+                return v
+            else:
+                a = im.get_array()
+                if a.size > 0:
+                    return fun(a)
                 else:
-                    a = im.get_array()
-                    if a.size > 0:
-                        return fun(a)
-                    else:
-                        return np.nan
-            clims[:, 0] = [fun_or_val(np.nanmin, v, im)
-                           for v, im in zip(clims[:, 0], images)]
-            clims[:, 1] = [fun_or_val(np.nanmax, v, im)
-                           for v, im in zip(clims[:, 1], images)]
-            clims = clims.astype(float)
-            clim = [np.nanmin(clims[:,0]), np.nanmax(clims[:,1])]
-        else:
-            if isinstance(img0, plt.Axes):
-                img0 = img0.findobj(mpl.image.AxesImage)
-            clim = img0.get_clim()
+                    return np.nan
+        clims[:, 0] = [fun_or_val(np.nanmin, v, im)
+                       for v, im in zip(clims[:, 0], images)]
+        clims[:, 1] = [fun_or_val(np.nanmax, v, im)
+                       for v, im in zip(clims[:, 1], images)]
+        clims = clims.astype(float)
+        clim = [np.nanmin(clims[:,0]), np.nanmax(clims[:,1])]
+
+    if symmetric:
+        cmax = np.amax(np.abs(clim))
+        clim = [-cmax, +cmax]
     for img in images:
         img.set_clim(clim)
     return clim
@@ -877,6 +1071,24 @@ def winter2_rev(n_lev: int) -> CMapType:
     def cmap1(lev):
         return np.linspace([0., 0.8, 0.25], [0., 0.4, 1.], n_lev)[lev]
     return cmap1
+
+
+def cmap2rgba(cmap: mpl.colors.Colormap, n: int = None, prop: Sequence[float] = None) -> np.ndarray:
+    """
+    Following https://stackoverflow.com/a/26109298/2565317
+    :param cmap:
+    :param prop: [i] = between 0 and 1
+    :return: rgb[i, (r,g,b)]
+    """
+    if n is not None:
+        prop = np.linspace(0., 1., n)
+    else:
+        assert prop is not None
+
+    from matplotlib import cm
+    norm = mpl.colors.Normalize(vmin=0, vmax=1.)
+    scalar_map = cm.ScalarMappable(norm=norm, cmap=cmap)
+    return scalar_map.to_rgba(prop)
 
 
 def cmap_alpha(cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
@@ -1485,7 +1697,7 @@ def significance(
         text='*', kw_line=(), kw_text=(),
         x_text=None,
         y_text=None,
-        margin_prop=0.1,
+        # margin_prop=0.1,
         margin_axis='y',
         margin_text=0.,
 ) -> (plt.Line2D, plt.Text):
@@ -1752,7 +1964,7 @@ class SimpleFilename:
     """
     copy files to simple names as they are appended; clean them up on del.
     """
-    def __init__(self, file_out: str):
+    def __init__(self, file_out: str, to_save_csv=True):
         self.file_out = file_out
         self.file_in = []
         self.file_temp_rel = []
@@ -1761,6 +1973,7 @@ class SimpleFilename:
         self.temp_dir_abs = os.path.join(
             os.path.dirname(self.file_out),
             self.temp_dir_rel)
+        self.to_save_csv = to_save_csv
         self._closed = False
 
     def append(self, file_in) -> str:
@@ -1790,14 +2003,15 @@ class SimpleFilename:
             if os.path.exists(self.temp_dir_abs):
                 send2trash(self.temp_dir_abs)
 
-            import pandas as pd
-            df = pd.DataFrame(data={
-                'file_in': self.file_in,
-                'file_temp_rel': self.file_temp_rel
-            })
-            file_csv = os.path.splitext(self.file_out)[0] + '.csv'
-            df.to_csv(file_csv)
-            print('Saved original paths to %s' % file_csv)
+            if self.to_save_csv:
+                import pandas as pd
+                df = pd.DataFrame(data={
+                    'file_in': self.file_in,
+                    'file_temp_rel': self.file_temp_rel
+                })
+                file_csv = os.path.splitext(self.file_out)[0] + '.csv'
+                df.to_csv(file_csv)
+                print('Saved original paths to %s' % file_csv)
             self._closed = True
 
     def __del__(self):
@@ -1808,7 +2022,10 @@ class SimpleFilename:
 
 
 class SimpleFilenameArray:
-    def __init__(self, file_out, files):
+    def __init__(
+        self, file_out, files,
+        to_save_csv=True,
+    ):
         """
         rename files to simple names
         :param file_out:
@@ -1825,6 +2042,8 @@ class SimpleFilenameArray:
         self.file_out = file_out
         self.files_abs = None
         self.temp_dir_abs = None
+
+        self.to_save_csv = to_save_csv
 
     def __enter__(self):
         """
@@ -1859,18 +2078,20 @@ class SimpleFilenameArray:
                 files_rel[row, col] = os.path.join(temp_dir_rel, file_name1)
                 files_abs[row, col] = os.path.join(temp_dir_abs, file_name1)
                 shutil.copy(file0, files_abs[row, col])
-        import pandas as pd
-        df = pd.DataFrame(files)
-        file_csv = os.path.splitext(file_out)[0] + '.csv'
-        df.to_csv(file_csv)
-        print('Saved original paths to %s' % file_csv)
+
+        if self.to_save_csv:
+            import pandas as pd
+            df = pd.DataFrame(files)
+            file_csv = os.path.splitext(file_out)[0] + '.csv'
+            df.to_csv(file_csv)
+            print('Saved original paths to %s' % file_csv)
 
         self.files_abs = files_abs
         self.files_rel = files_rel
         self.temp_dir_abs = temp_dir_abs
         return self
 
-    def __del__(self, exc_type=None, exc_value=None, exc_traceback=None):
+    def __exit__(self, exc_type=None, exc_value=None, exc_traceback=None):
         from send2trash import send2trash
 
         files = self.files
@@ -1920,6 +2141,7 @@ class LatexDoc(ltx.Document, np2.ContextManager):
         *args,
         file_out=None,
         title='',
+        to_save_csv=True,
         **kwargs
     ):
         super().__init__(
@@ -1927,7 +2149,10 @@ class LatexDoc(ltx.Document, np2.ContextManager):
             **kwargs
         )
         self.file_out = file_out
-        self.simple_filename = SimpleFilename(self.file_out)
+        self.simple_filename = SimpleFilename(
+            self.file_out,
+            to_save_csv=to_save_csv
+        )
 
         self.n_row = 0
 
@@ -1965,7 +2190,16 @@ class LatexDoc(ltx.Document, np2.ContextManager):
         mkdir4file(file_out)
         if file_out.lower().endswith('.pdf'):
             file_out = file_out[:-4]
-        self.generate_pdf(file_out, **kwargs)
+        self.generate_pdf(
+            file_out,
+            **{
+                **dict(
+                    clean=True,
+                    clean_tex=True,
+                ),
+                **kwargs
+              }
+        )
 
         # should close simple_filename after generate_pdf()
         # so that temporary files can be used before being deleted.
@@ -2151,16 +2385,18 @@ def convert_unit(src, src_unit, dst_unit):
 
 
 def subfigs(
-        files: Union[Sequence, np.ndarray], file_out: str,
-        width_document=None,
-        width_column_cm=(2,),
-        hspace_cm=0.,
-        ncol: int = None,
-        caption=None,
-        subcaptions: Union[Sequence, np.ndarray] = None,
-        caption_on_top=False,
-        subcaption_on_top=None,
-        suptitle='',
+    files: Union[Sequence, np.ndarray],
+    file_out: str,
+    width_document=None,
+    width_column_cm=(2,),
+    hspace_cm=0.,
+    ncol: int = None,
+    caption=None,
+    subcaptions: Union[Sequence, np.ndarray] = None,
+    caption_on_top=False,
+    subcaption_on_top=None,
+    suptitle='',
+    to_save_csv=True,
 ):
     """
 
@@ -2186,11 +2422,14 @@ def subfigs(
         width_document = np.sum(
             np.array(width_column_cm) + np.zeros(files.shape[1]))
 
-    with SimpleFilenameArray(file_out, files) as simplenames:
+    with SimpleFilenameArray(
+        file_out, files, to_save_csv=to_save_csv
+    ) as simplenames:
         with LatexDocStandalone(
             title=suptitle,
             width_document_cm=width_document,
             file_out=file_out,
+            to_save_csv=to_save_csv,
         ) as doc:
             doc.append_subfig_row(
                 files_rel=simplenames.files_rel,
@@ -2277,7 +2516,10 @@ def subfigs_from_template(
     )
 
 
-def subfig_rows(file_fig: str, rows_out: Iterable[dict]):
+def subfig_rows(
+    file_fig: str, rows_out: Iterable[dict],
+    to_save_csv=True,
+):
     """
 
     :param file_fig: combined figure name
@@ -2297,10 +2539,15 @@ def subfig_rows(file_fig: str, rows_out: Iterable[dict]):
                 SimpleFilenameArray(
                     file_fig_name
                     + '+row=' + row['caption'] + file_fig_ext,
-                    row.pop('files')))
+                    row.pop('files'),
+                    to_save_csv=to_save_csv
+                ))
             for row in rows_out
         ]
-        with LatexDocStandalone(file_out=file_fig) as doc:
+        with LatexDocStandalone(
+            file_out=file_fig,
+            to_save_csv=to_save_csv,
+        ) as doc:
             for row, simplefile in zip(rows_out, simplefiles):
                 doc.append_subfig_row(
                     simplefile.files_rel,

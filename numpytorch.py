@@ -24,8 +24,16 @@ def get_device(device=None):
     # device = torch.device('cpu')  # CHECKED
     if device is None:
         if _device0 is None:
-            device = torch.device('cuda:0' if torch.cuda.is_available()
-                                  else 'cpu')
+            if (
+                hasattr(torch.backends, 'mps')
+                and torch.backends.mps.is_available()
+                and torch.backends.mps.is_built()
+            ):
+                device = torch.device('mps')
+                torch.set_default_dtype(torch.float32)
+            else:
+                device = torch.device('cuda:0' if torch.cuda.is_available()
+                                      else 'cpu')
         else:
             device = _device0
     return device
@@ -151,7 +159,11 @@ def tensor(v: Union[float, np.ndarray, torch.Tensor],
             if v.device != device:
                 v = v.to(device)
         else:
-            v = torch.tensor(v, device=device, **kwargs)
+            try:
+                v = torch.tensor(v, device=device, **kwargs)
+            except TypeError:
+                v = torch.tensor(
+                    v, device=device, dtype=torch.float32, **kwargs)
         if v.ndimension() < min_ndim:
             v = v.expand(v.shape
                          + torch.Size([1] * (min_ndim - v.ndimension())))
@@ -204,6 +216,14 @@ def arange(*args, **kwargs):
 
 def linspace(*args, **kwargs):
     return torch.linspace(*args, **{'device': get_device(), **kwargs})
+
+
+def rand(*args, **kwargs):
+    return torch.rand(*args, **{'device': get_device(), **kwargs})
+
+
+def randint(*args, **kwargs):
+    return torch.randint(*args, **{'device': get_device(), **kwargs})
 
 
 def float(v):
@@ -711,7 +731,7 @@ def maxto1(v, dim=None, ignore_nan=True):
         else:  # v is torch.Tensor
             # TODO: implement as in nansum, nanmean
             return torch.tensor(
-                v / np.nanmax(npy(v), axis=dim, keepdims=True))
+                npy(v) / np.nanmax(npy(v), axis=dim, keepdims=True))
     else:
         if type(v) is np.ndarray:
             return v / np.amax(v, axis=dim, keepdims=True)
@@ -1387,9 +1407,9 @@ def delta(levels, v, dlevel=None):
     return 1. - ((levels - v) / dlevel).abs().clamp(0., 1.)
 
 
-def rand(shape, low=0., high=1.):
-    d = Uniform(low=low, high=high)
-    return d.rsample(shape)
+# def rand(shape, low=0., high=1.):
+#     d = Uniform(low=low, high=high)
+#     return d.rsample(shape)
 
 
 def mvnrnd(mu, sigma, sample_shape=()):
