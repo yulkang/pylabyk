@@ -138,7 +138,7 @@ def float(v):
 def tensor(v: Union[float, np.ndarray, torch.Tensor],
            min_ndim=1,
            device=None,
-           **kwargs) -> torch.Tensor:
+           **kwargs) -> Union[torch.Tensor, torch.LongTensor]:
     """
     Construct a tensor if the input is not; otherwise return the input as is,
     but return None as is for convenience when input is not passed.
@@ -256,7 +256,7 @@ def npys(*args) -> Tuple[np.ndarray, ...]:
     return tuple([npy(v) for v in args])
 
 
-def dclone(v: torch.Tensor):
+def dclone(v: torch.Tensor) -> torch.Tensor:
     """
     Returns a new tensor that is detached and cloned
     """
