@@ -1408,7 +1408,8 @@ def colorbar(
         mappable: mpl.cm.ScalarMappable = None,
         loc='right',
         width='5%', height='100%',
-        borderpad=-1,
+        borderpad=None,
+        offset_inch=0.1,
         label='',
         orientation='vertical',
         kw_inset=(),
@@ -1434,20 +1435,43 @@ def colorbar(
         ax = plt.gca()
     if mappable is None:
         mappable = ax.findobj(mpl.image.AxesImage)[0]
+    if borderpad is not None:
+        raise DeprecationWarning(
+            'borderpad is used with inset_axes, '
+            'which makes the figure unpicklable '
+            '- use offset_inch instead!')
     fig = ax.figure
+    fig_width_inch, fig_height_inch = fig.get_size_inches()
+
+    bbox = ax.get_position()  # type: mpl.transforms.Bbox
+    xmin_ax, ymin_ax, width_ax, height_ax = bbox.bounds
 
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     if orientation == 'horizontal':
-        temp = width
-        width = height
-        height = temp
-    axins = inset_axes(
-        ax, width=width, height=height, loc=loc,
-        bbox_to_anchor=(0., 0., 1., 1.),
-        bbox_transform=ax.transAxes,
-        borderpad=borderpad,
-        **dict(kw_inset)
-    )
+        width, height = height, width
+
+    width_bar = float(width[:-1]) / 100 * width_ax
+    height_bar = float(height[:-1]) / 100 * height_ax
+
+    if loc == 'right':
+        bounds = [
+            xmin_ax + width_ax + offset_inch / fig_width_inch,
+            ymin_ax + (height_ax - height_bar) / 2,
+            width_bar,
+            height_bar
+        ]
+    else:
+        raise NotImplementedError()
+
+    axins = fig.add_axes(rect=bounds)
+
+    # axins = inset_axes(
+    #     ax, width=width, height=height, loc=loc,
+    #     bbox_to_anchor=(0., 0., 1., 1.),
+    #     bbox_transform=ax.transAxes,
+    #     borderpad=borderpad,
+    #     **dict(kw_inset)
+    # )
     cb = fig.colorbar(
         mappable, cax=axins,
         label=label, orientation=orientation, **dict(kw_cbar)
