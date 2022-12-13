@@ -17,6 +17,9 @@ def colors_given_contrast(
     """
     Use right square bipyramid (dual of a square prism) in the color space
     to give colors of a given contrast.
+    All four walls have the same summed absolute difference of (R, G, B)
+    from ground & ceiling to ensure that under Poisson noise,
+    each wall gives the same contrast.
     To fit within 3-dimensions (R, G, B), the contrasts must meet the following
     conditions:
         contrast_ground >= contrast_btw_walls  / sqrt(2)
