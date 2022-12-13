@@ -1440,13 +1440,7 @@ def colorbar(
             'borderpad is used with inset_axes, '
             'which makes the figure unpicklable '
             '- use offset_inch instead!')
-    fig = ax.figure
-    fig_width_inch, fig_height_inch = fig.get_size_inches()
 
-    bbox = ax.get_position()  # type: mpl.transforms.Bbox
-    xmin_ax, ymin_ax, width_ax, height_ax = bbox.bounds
-
-    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     if orientation is None:
         if loc in ['right']:
             orientation = 'vertical'
@@ -1454,13 +1448,64 @@ def colorbar(
             orientation = 'horizontal'
         else:
             raise ValueError()
-
     if orientation == 'horizontal':
         width, height = height, width
+    axins = add_inset(
+        width=width, height=height, ax=ax, loc=loc, offset_inch=offset_inch
+    )
+    # # UNUSED: produces an unpicklable object
+    # axins = inset_axes(
+    #     ax, width=width, height=height, loc=loc,
+    #     bbox_to_anchor=(0., 0., 1., 1.),
+    #     bbox_transform=ax.transAxes,
+    #     borderpad=borderpad,
+    #     **dict(kw_inset)
+    # )
 
-    width_bar = float(width[:-1]) / 100 * width_ax
-    height_bar = float(height[:-1]) / 100 * height_ax
+    fig = ax.figure
+    cb = fig.colorbar(
+        mappable, cax=axins,
+        label=label, orientation=orientation, **dict(kw_cbar)
+    )
+    return cb
 
+
+def add_inset(
+    width: str, height: str,
+    ax: plt.Axes = None,
+    loc='right',
+    offset_inch=0.1,
+) -> plt.Axes:
+    """
+
+    :param width: '100%' (relative to the axes) or '0.1in', etc.
+    :param height: '100%' (relative to the axes) or '0.1in', etc.
+    :param ax:
+    :param loc: as for legend. 'right', 'lower center', ...
+    :param offset_inch:
+    :return:
+    """
+
+    if ax is None:
+        ax = plt.gca()
+    fig = ax.figure
+    fig_width_inch, fig_height_inch = fig.get_size_inches()
+    bbox = ax.get_position()  # type: mpl.transforms.Bbox
+    xmin_ax, ymin_ax, width_ax, height_ax = bbox.bounds
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+
+    def parse_unit(s: str, v0: float):
+        if s.endswith('%'):
+            v = float(s[:-1]) / 100 * v0
+        elif s.endswith('in'):
+            v = float(s[:-2]) / 100 * v0
+        else:
+            raise ValueError()
+        return v
+
+    width_bar, height_bar = [
+        parse_unit(s, v0) for s, v0 in [(width, width_ax), (height, height_ax)]
+    ]
     if loc == 'right':
         bounds = [
             xmin_ax + width_ax + offset_inch / fig_width_inch,
@@ -1477,21 +1522,8 @@ def colorbar(
         ]
     else:
         raise NotImplementedError()
-
     axins = fig.add_axes(rect=bounds)
-
-    # axins = inset_axes(
-    #     ax, width=width, height=height, loc=loc,
-    #     bbox_to_anchor=(0., 0., 1., 1.),
-    #     bbox_transform=ax.transAxes,
-    #     borderpad=borderpad,
-    #     **dict(kw_inset)
-    # )
-    cb = fig.colorbar(
-        mappable, cax=axins,
-        label=label, orientation=orientation, **dict(kw_cbar)
-    )
-    return cb
+    return axins
 
 
 def ____Errorbar____():
