@@ -1411,7 +1411,7 @@ def colorbar(
         borderpad=None,
         offset_inch=0.1,
         label='',
-        orientation='vertical',
+        orientation=None, # 'vertical',
         kw_inset=(),
         kw_cbar=(),
 ) -> mpl.colorbar.Colorbar:
@@ -1420,7 +1420,7 @@ def colorbar(
 
     :param ax:
     :param mappable: defaults to image in the axes
-    :param loc: as for legend
+    :param loc: as for legend. 'right', 'lower center', ...
     :param width: relative to the axes
     :param height: relative to the axes
     :param borderpad: relative to the fontsize of the axes.
@@ -1447,6 +1447,14 @@ def colorbar(
     xmin_ax, ymin_ax, width_ax, height_ax = bbox.bounds
 
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    if orientation is None:
+        if loc in ['right']:
+            orientation = 'vertical'
+        elif loc in ['lower center']:
+            orientation = 'horizontal'
+        else:
+            raise ValueError()
+
     if orientation == 'horizontal':
         width, height = height, width
 
@@ -1457,6 +1465,13 @@ def colorbar(
         bounds = [
             xmin_ax + width_ax + offset_inch / fig_width_inch,
             ymin_ax + (height_ax - height_bar) / 2,
+            width_bar,
+            height_bar
+        ]
+    elif loc == 'lower center':
+        bounds = [
+            xmin_ax + (width_ax - width_bar) / 2,
+            ymin_ax - offset_inch / fig_height_inch - height_bar,
             width_bar,
             height_bar
         ]
