@@ -2216,6 +2216,11 @@ def ____STRING____():
     pass
 
 
+def simple_hash(v) -> str:
+    import hashlib
+    return hashlib.md5(v.__str__().encode('utf-8')).hexdigest()
+
+
 def join_nonempty(v: Iterable[str], with_str: str) -> str:
     return with_str.join([v1 for v1 in v if v1 != ''])
 
