@@ -73,11 +73,25 @@ def ____Saving____():
 def savefig(
     fname: str, *args,
     fig: mpl.figure.Figure = None,
-    ext: Union[str, Iterable[str]] = None,
+    ext: Union[str, Iterable[str]] = ('.pdf', '.png'),
     to_pickle=True,
     verbose=True,
     **kwargs
 ):
+    """
+
+    :param fname:
+        if ext is not None, use it after removing recognized extensions
+            from fname
+        otherwise, use the extension recognized from fname
+    :param args:
+    :param fig:
+    :param ext:
+    :param to_pickle:
+    :param verbose:
+    :param kwargs:
+    :return:
+    """
     if fig is None:
         fig = plt.gcf()
         fig0 = None
@@ -85,20 +99,31 @@ def savefig(
         fig0 = plt.gcf()
         plt.figure(fig.number)
 
+    fname11, ext11 = os.path.splitext(fname)
+    recognized_ext = ext11 in ['.pdf', '.png']
     if ext is None:
-        fname1, ext1 = os.path.splitext(fname)
-        ext = (ext1,)
-    else:
-        fname1 = fname
-        if isinstance(ext, str):
-            ext = (ext,)
+        fname1 = fname11
+        if recognized_ext:
+            ext1 = ext11
         else:
-            assert np.all([isinstance(v, str) for v in ext])
+            raise ValueError(f'Unrecognized extension: {ext11}')
+    else:
+        ext1 = ext
+        # remove recognized extension
+        if recognized_ext:
+            fname1 = fname11
+        else:
+            fname1 = fname
 
-    for ext1 in ext:
-        plt.savefig(fname1 + ext1, *args, **kwargs)
+    if isinstance(ext1, str):
+        ext1 = (ext1,)
+    else:
+        assert np.all([isinstance(v, str) for v in ext1])
+
+    for ext11 in ext1:
+        plt.savefig(fname1 + ext11, *args, **kwargs)
         if verbose:
-            print(f'Saved image to {fname1 + ext1}')
+            print(f'Saved image to {fname1 + ext11}')
     if to_pickle:
         # manager0 = fig.canvas.manager
         # fig.canvas.manager = None  # DEBUGGED: using this line seemed to help but it now runs without it
