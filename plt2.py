@@ -23,7 +23,7 @@ import numpy_groupies as npg
 
 from pylabyk import zipPickle as zpkl
 from . import np2, plt_network as pltn
-from .cacheutil import mkdir4file
+from .cacheutil import mkdir4file, Cache
 
 
 def ____Settings____():
@@ -68,6 +68,25 @@ def rc_sanslatex(rc: Callable = None):
 
 def ____Saving____():
     pass
+
+
+def savefig_w_data(fname: str, fun: Callable, kw_fun: Dict[str, Any] = None):
+    """
+
+    :param fname: file name for figures.
+        Omit extension to avoid overlong cache file name.
+    :param fun: can be called with fun(**kw_fun)
+    :param kw_fun: if None, loaded from fname.zpkl
+    :return: None
+    """
+
+    with Cache(fname + '.zpkl', ignore_key=True) as cache:
+        if kw_fun is None:
+            kw_fun = cache.get()
+        else:
+            cache.set(kw_fun)
+    fun(**kw_fun)
+    savefig(fname)
 
 
 def savefig(
