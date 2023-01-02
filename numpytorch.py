@@ -6,7 +6,7 @@ import torch
 from torch.nn import functional as F
 import numpy_groupies as npg
 from matplotlib import pyplot as plt
-from typing import Union, Iterable, Tuple, Dict, Sequence
+from typing import Union, Iterable, Tuple, Dict, Sequence, List
 
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
     Categorical, OneHotCategorical, VonMises, Gamma
@@ -129,6 +129,36 @@ def ____TYPE____():
 
 
 TensorLike = Union[torch.Tensor, np.ndarray]
+
+
+def list_tensors(device=None) -> List[torch.Tensor]:
+    """
+    from https://discuss.pytorch.org/t/how-to-debug-causes-of-gpu-memory-leaks/6741/3
+    :param device:
+    :return:
+    """
+    # prints currently alive Tensors and Variables
+    import gc
+
+    res = []
+    for obj in gc.get_objects():
+        try:
+            if torch.is_tensor(obj):
+                pass
+            elif hasattr(obj, 'data') and torch.is_tensor(obj.data):
+                obj = obj.data
+            else:
+                continue
+
+            if device is not None:
+                if obj.device != device:
+                    continue
+
+            res.append(obj)
+            # print(type(obj), obj.size())
+        except:
+            pass
+    return res
 
 
 def float(v):
