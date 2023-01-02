@@ -144,6 +144,20 @@ def dict2fname(
     )) for k in d if to_include(k))
 
 
+def fname2dict(
+    fname: str,
+) -> Dict[str, str]:
+    """
+
+    :param fname: 'key1=value1+key2=value2+ ...'
+    :return: {key1: value1, key2: value2, ...}
+    """
+    entries = fname.split('+')
+    k_v = [entry.split('=', maxsplit=1) for entry in entries]
+    d = {k: v for k, v in k_v}
+    return d
+
+
 def fname2title(fname: str, wrapat=30):
     return '\n'.join(textwrap.wrap(
         fname.replace('_', '-'), wrapat))
