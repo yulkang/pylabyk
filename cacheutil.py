@@ -55,9 +55,12 @@ ignored_once = []
 
 def mkdir4file(file):
     pth = os.path.dirname(file)
-    if not os.path.exists(pth):
-        mkdir4file(pth)
-        os.mkdir(pth)
+    try:
+        if not os.path.exists(pth):
+            os.mkdir(pth)
+    except FileNotFoundError:
+        if len(pth) > 0:
+            mkdir4file(pth)
 
 
 def mkdir(pth):
