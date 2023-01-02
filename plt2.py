@@ -2140,12 +2140,16 @@ class SimpleFilenameArray:
     def __init__(
         self, file_out, files,
         to_save_csv=True,
+        to_skip_absent=False,
     ):
         """
         rename files to simple names
         :param file_out:
         :param files:
         """
+        self.to_save_csv = to_save_csv
+        self.to_skip_absent = to_skip_absent
+
         if not isinstance(files, np.ndarray):
             files = np.array([files])
         if files.ndim == 1:
@@ -2157,8 +2161,6 @@ class SimpleFilenameArray:
         self.file_out = file_out
         self.files_abs = None
         self.temp_dir_abs = None
-
-        self.to_save_csv = to_save_csv
 
     def __enter__(self):
         """
@@ -2192,7 +2194,11 @@ class SimpleFilenameArray:
                     row, col, os.path.splitext(file0)[1])
                 files_rel[row, col] = os.path.join(temp_dir_rel, file_name1)
                 files_abs[row, col] = os.path.join(temp_dir_abs, file_name1)
-                shutil.copy(file0, files_abs[row, col])
+                try:
+                    shutil.copy(file0, files_abs[row, col])
+                except FileNotFoundError:
+                    if not self.to_skip_absent:
+                        raise
 
         if self.to_save_csv:
             import pandas as pd
@@ -2405,6 +2411,7 @@ class LatexDocStandalone(LatexDoc):
         caption_on_top=False,
         subcaption_on_top=False,
         ncol=None,
+        to_skip_absent=False,
     ):
         """
 
@@ -2469,8 +2476,14 @@ class LatexDocStandalone(LatexDoc):
                         doc.append(ltx.Command('centering'))
                         if subcaption_on_top and subcaptions is not None:
                             subfig.add_caption(subcaptions[row, col])
-                        subfig.add_image(
-                            file, width='%f cm' % width_column_cm[col])
+                        if not to_skip_absent or os.path.exists(
+                            os.path.join(
+                                os.path.dirname(self.file_out),
+                                file
+                            )
+                        ):
+                            subfig.add_image(
+                                file, width='%f cm' % width_column_cm[col])
                         if (not subcaption_on_top) and subcaptions is not None:
                             subfig.add_caption(subcaptions[row, col])
                         doc.append(ltx.VerticalSpace('%f cm' % hspace_cm))
@@ -2512,6 +2525,7 @@ def subfigs(
     subcaption_on_top=None,
     suptitle='',
     to_save_csv=True,
+    to_skip_absent=False,
 ):
     """
 
@@ -2538,13 +2552,15 @@ def subfigs(
             np.array(width_column_cm) + np.zeros(files.shape[1]))
 
     with SimpleFilenameArray(
-        file_out, files, to_save_csv=to_save_csv
+        file_out, files,
+        to_save_csv=to_save_csv,
+        to_skip_absent=to_skip_absent,
     ) as simplenames:
         with LatexDocStandalone(
             title=suptitle,
             width_document_cm=width_document,
             file_out=file_out,
-            to_save_csv=to_save_csv,
+            to_save_csv=False,  # duplicate with SimpleFilenameArray
         ) as doc:
             doc.append_subfig_row(
                 files_rel=simplenames.files_rel,
@@ -2554,7 +2570,8 @@ def subfigs(
                 hspace_cm=hspace_cm,
                 caption_on_top=caption_on_top,
                 subcaption_on_top=subcaption_on_top,
-                ncol=ncol
+                ncol=ncol,
+                to_skip_absent=to_skip_absent,
             )
 
 
