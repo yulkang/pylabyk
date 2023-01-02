@@ -1820,7 +1820,7 @@ def arrayobj(
     if not isinstance(inp, np.ndarray):
         inp = np.array(inp)
     return arrayobj1d(
-        inp.reshape([np.prod(inp.shape[:ndim_objarray]), -1]),
+        inp.reshape([np.prod(inp.shape[:ndim_objarray]).astype(int), -1]),
         copy=copy
     ).reshape(inp.shape[:ndim_objarray])
 
