@@ -61,6 +61,7 @@ def mkdir4file(file):
     except FileNotFoundError:
         if len(pth) > 0:
             mkdir4file(pth)
+            os.mkdir(pth)
 
 
 def mkdir(pth):
@@ -212,10 +213,11 @@ class Cache(object):
         return self
 
     def __exit__(self, *args, **kwargs):
-        try:
-            self.__del__()  # duplicate
-        except:
-            raise Warning()
+        # try:
+        self.__del__()  # duplicate
+        # except:
+        #     raise
+            # raise Warning()
 
     def format_key(self, key):
         """
@@ -342,7 +344,6 @@ class Cache(object):
         pass
 
     def save(self):
-        mkdir4file(self.fullpath)
         self.dict['_fullpath_orig'] = self.fullpath_orig
 
         if self.save_to_cpu:
@@ -350,6 +351,7 @@ class Cache(object):
         else:
             d = self.dict
 
+        mkdir4file(self.fullpath)
         zipPickle.save(d, self.fullpath)
         self.to_save = False
         if self.verbose:
