@@ -1748,6 +1748,54 @@ def meshgridflat(*args, copy=False):
     return outputs
 
 
+# # Stopped while writing vectorize_into_df - perhaps too specialized
+# def vectorize_into_df(
+#     f: Callable,
+#     kw: Dict[str, Any],
+#     otypes: Union[Dict[str, Type], Sequence[str], Sequence[Type]],
+#     processes=None,
+#     chunksize=1,
+#
+# ) -> pd.DataFrame:
+#     """
+#
+#
+#     :param f:
+#     :param kw:
+#     :param otypes: [key] = type or [i_out] = key (type is set to object)
+#     :param processes:
+#     :param chunksize:
+#     :return: dataframe with keys in kw paired with
+#         output in each row
+#     """
+#     raise DeprecationWarning('Too complicated - just use vectorize_par()')
+#
+#     inputs = np.broadcast_arrays(*kw.values())
+#     if not isinstance(otypes, dict):
+#         assert isinstance(otypes, Sequence)
+#         if isinstance(otypes[0], str):  # otypes[i_out] = key -> [key] = type
+#             otypes = {k: object for k in otypes}
+#         elif isinstance(otypes[0], type):  # otypes[i_out] = type -> ['outI'] = type
+#             otypes = {f'out{i}': v for i, v in enumerate(otypes)}
+#         else:
+#             raise ValueError()
+#
+#     outputs = vectorize_par(
+#         fun_kw,
+#         inputs,
+#         otypes=otypes.values(),
+#         processes=processes, chunksize=chunksize,
+#     )
+#     d = {k: v.flatten() for k, v in zip(kw.keys(), inputs)}
+#     d = {**d, **{k: v.flatten() for k, v in zip(otypes.keys(), outputs)}}
+#     df = pd.DataFrame.from_dict(d)
+#     return df
+#
+#
+# def fun_kw(f: Callable, kw: dict):
+#     return f(**kw)
+#
+#
 def vectorize_par(
     f: Callable, inputs: Iterable,
     pool: Pool = None, processes=None, chunksize=1,
