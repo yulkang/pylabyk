@@ -44,7 +44,8 @@ import numpy as np
 from . import zipPickle
 from collections import OrderedDict as odict
 from .argsutil import dict2fname, fname2title, kwdef, fullpath2hash
-from typing import List, Union
+from typing import List, Union, Sequence
+# from gzip import BadGzipFile
 
 from .numpytorch import npy
 
@@ -54,9 +55,13 @@ ignored_once = []
 
 def mkdir4file(file):
     pth = os.path.dirname(file)
-    if not os.path.exists(pth):
-        mkdir4file(pth)
-        os.mkdir(pth)
+    try:
+        if not os.path.exists(pth):
+            os.mkdir(pth)
+    except FileNotFoundError:
+        if len(pth) > 0:
+            mkdir4file(pth)
+            os.mkdir(pth)
 
 
 def mkdir(pth):
@@ -80,7 +85,7 @@ def dict_except(d, keys_to_excl):
     return {k:d[k] for k in d if k not in keys_to_excl}
 
 
-def obj2dict(obj, keys_to_excl=[], exclude_hidden=True):
+def obj2dict(obj, keys_to_excl=(), exclude_hidden=True):
     d = obj.__dict__
     if exclude_hidden:
         d = {k:d[k] for k in d if k[0] != '_'}
@@ -93,6 +98,29 @@ def dict2obj(d, obj):
     for k in d:
         obj.__dict__[k] = d[k]
     return obj
+
+
+def find(pth: str, contains: str = None) -> Sequence[str]:
+    """
+    find files within PTH whose names contain CONTAINS
+    :param pth:
+    :param contains:
+    :return:
+    """
+    from os import listdir
+    from os.path import isfile
+    fs0 = listdir(pth)
+    fs0 = [os.path.join(pth, v) for v in fs0]
+    fs0 = [v for v in fs0 if isfile(v)]
+    if contains is None:
+        return fs0
+
+    fs = []
+    for f in fs0:
+        vs = os.path.splitext(os.path.split(f)[1])[0].split('+')
+        if np.isin(contains, vs):
+            fs.append(f)
+    return fs
 
 
 class Cache(object):
@@ -157,7 +185,11 @@ class Cache(object):
                     ignored_once.append(self.fullpath)
                     self._dict = {}
                 else:
-                    self._dict = zipPickle.load(self.fullpath)
+                    try:
+                        self._dict = zipPickle.load(self.fullpath)
+                    except:
+                        print(f'Loading {self.fullpath} failed!')
+                        raise
             else:
                 self._dict = {}
         return self._dict
@@ -181,10 +213,11 @@ class Cache(object):
         return self
 
     def __exit__(self, *args, **kwargs):
-        try:
-            self.__del__()  # duplicate
-        except:
-            raise Warning()
+        # try:
+        self.__del__()  # duplicate
+        # except:
+        #     raise
+            # raise Warning()
 
     def format_key(self, key):
         """
@@ -311,7 +344,6 @@ class Cache(object):
         pass
 
     def save(self):
-        mkdir4file(self.fullpath)
         self.dict['_fullpath_orig'] = self.fullpath_orig
 
         if self.save_to_cpu:
@@ -319,6 +351,7 @@ class Cache(object):
         else:
             d = self.dict
 
+        mkdir4file(self.fullpath)
         zipPickle.save(d, self.fullpath)
         self.to_save = False
         if self.verbose:

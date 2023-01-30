@@ -6,7 +6,7 @@ import torch
 from torch.nn import functional as F
 import numpy_groupies as npg
 from matplotlib import pyplot as plt
-from typing import Union, Iterable, Tuple, Dict, Sequence
+from typing import Union, Iterable, Tuple, Dict, Sequence, List
 
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
     Categorical, OneHotCategorical, VonMises, Gamma
@@ -24,8 +24,16 @@ def get_device(device=None):
     # device = torch.device('cpu')  # CHECKED
     if device is None:
         if _device0 is None:
-            device = torch.device('cuda:0' if torch.cuda.is_available()
-                                  else 'cpu')
+            if (
+                hasattr(torch.backends, 'mps')
+                and torch.backends.mps.is_available()
+                and torch.backends.mps.is_built()
+            ):
+                device = torch.device('mps')
+                torch.set_default_dtype(torch.float32)
+            else:
+                device = torch.device('cuda:0' if torch.cuda.is_available()
+                                      else 'cpu')
         else:
             device = _device0
     return device
@@ -123,6 +131,36 @@ def ____TYPE____():
 TensorLike = Union[torch.Tensor, np.ndarray]
 
 
+def list_tensors(device=None) -> List[torch.Tensor]:
+    """
+    from https://discuss.pytorch.org/t/how-to-debug-causes-of-gpu-memory-leaks/6741/3
+    :param device:
+    :return:
+    """
+    # prints currently alive Tensors and Variables
+    import gc
+
+    res = []
+    for obj in gc.get_objects():
+        try:
+            if torch.is_tensor(obj):
+                pass
+            elif hasattr(obj, 'data') and torch.is_tensor(obj.data):
+                obj = obj.data
+            else:
+                continue
+
+            if device is not None:
+                if obj.device != device:
+                    continue
+
+            res.append(obj)
+            # print(type(obj), obj.size())
+        except:
+            pass
+    return res
+
+
 def float(v):
     return v.type(torch.get_default_dtype())
 
@@ -130,7 +168,7 @@ def float(v):
 def tensor(v: Union[float, np.ndarray, torch.Tensor],
            min_ndim=1,
            device=None,
-           **kwargs) -> torch.Tensor:
+           **kwargs) -> Union[torch.Tensor, torch.LongTensor]:
     """
     Construct a tensor if the input is not; otherwise return the input as is,
     but return None as is for convenience when input is not passed.
@@ -151,7 +189,11 @@ def tensor(v: Union[float, np.ndarray, torch.Tensor],
             if v.device != device:
                 v = v.to(device)
         else:
-            v = torch.tensor(v, device=device, **kwargs)
+            try:
+                v = torch.tensor(v, device=device, **kwargs)
+            except TypeError:
+                v = torch.tensor(
+                    v, device=device, dtype=torch.float32, **kwargs)
         if v.ndimension() < min_ndim:
             v = v.expand(v.shape
                          + torch.Size([1] * (min_ndim - v.ndimension())))
@@ -206,6 +248,14 @@ def linspace(*args, **kwargs):
     return torch.linspace(*args, **{'device': get_device(), **kwargs})
 
 
+def rand(*args, **kwargs):
+    return torch.rand(*args, **{'device': get_device(), **kwargs})
+
+
+def randint(*args, **kwargs):
+    return torch.randint(*args, **{'device': get_device(), **kwargs})
+
+
 def float(v):
     return v.type(torch.get_default_dtype())
 
@@ -236,7 +286,7 @@ def npys(*args) -> Tuple[np.ndarray, ...]:
     return tuple([npy(v) for v in args])
 
 
-def dclone(v: torch.Tensor):
+def dclone(v: torch.Tensor) -> torch.Tensor:
     """
     Returns a new tensor that is detached and cloned
     """
@@ -711,7 +761,7 @@ def maxto1(v, dim=None, ignore_nan=True):
         else:  # v is torch.Tensor
             # TODO: implement as in nansum, nanmean
             return torch.tensor(
-                v / np.nanmax(npy(v), axis=dim, keepdims=True))
+                npy(v) / np.nanmax(npy(v), axis=dim, keepdims=True))
     else:
         if type(v) is np.ndarray:
             return v / np.amax(v, axis=dim, keepdims=True)
@@ -1387,9 +1437,9 @@ def delta(levels, v, dlevel=None):
     return 1. - ((levels - v) / dlevel).abs().clamp(0., 1.)
 
 
-def rand(shape, low=0., high=1.):
-    d = Uniform(low=low, high=high)
-    return d.rsample(shape)
+# def rand(shape, low=0., high=1.):
+#     d = Uniform(low=low, high=high)
+#     return d.rsample(shape)
 
 
 def mvnrnd(mu, sigma, sample_shape=()):

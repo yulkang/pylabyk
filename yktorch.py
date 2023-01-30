@@ -164,8 +164,8 @@ class BoundedParameter(OverriddenParameter):
         """
 
         :param data:
-        :param lb: None or -np.inf to skip
-        :param ub: None or np.inf to skip
+        :param lb: None to allow -np.inf
+        :param ub: None to allow +np.inf
         :param skip_loading_lbub:
         :param requires_grad:
         :param randomize: True to randomize within lb and ub.
@@ -173,7 +173,9 @@ class BoundedParameter(OverriddenParameter):
         :param kwargs:
         """
         super().__init__(**kwargs)
-        self.lb = None if lb is None else enforce_float_tensor(lb)  # lb == -np.inf doesn't allow for non-scalar lb
+        self.lb = (
+            None if lb is None else enforce_float_tensor(lb)
+        )  # lb == -np.inf doesn't allow for non-scalar lb
         self.ub = None if ub is None else enforce_float_tensor(ub)
 
         self.lb_random = self.lb if lb_random is None else lb_random
@@ -294,8 +296,10 @@ class BoundedParameter(OverriddenParameter):
             return lb + torch.exp(param)
         elif self._fix_subset:
             data = npt.empty(self.shape)
-            data[self._is_fixed] = self._fixed_data
-            is_free = ~self._is_fixed
+            device = data.device
+            is_fixed = self._is_fixed.to(device)
+            data[is_fixed] = self._fixed_data.to(device)
+            is_free = ~is_fixed
             data[is_free] = (
                 (1 / (1 + torch.exp(-param)))
                 * (ub[is_free] - lb[is_free]) + lb[is_free]  # noqa
@@ -696,6 +700,14 @@ class BoundedModule(nn.Module):
             cmap='coolwarm',
             ax: plt.Axes = None
     ) -> mpl.container.BarContainer:
+        """
+
+        :param named_bounded_params:
+        :param exclude:
+        :param cmap:
+        :param ax:
+        :return:
+        """
         if ax is None:
             ax = plt.gca()
 
@@ -889,18 +901,18 @@ class BoundedModule(nn.Module):
 
     def freeze_(self):
         """Freeze all parameters (set requires_grad=False)"""
-        raise DeprecationWarning('use requires_grad_(False) instead!')
+        # print('use requires_grad_(False) instead!')
         self.set_requires_grad_(False)
         return self
 
     def unfreeze_(self):
         """Unfreeze all parameters (set requires_grad=True)"""
-        raise DeprecationWarning('use requires_grad_(True) instead!')
+        # print('use requires_grad_(True) instead!')
         self.set_requires_grad_(True)
         return self
 
     def set_requires_grad_(self, requires_grad: bool):
-        raise DeprecationWarning('use requires_grad_() instead!')
+        # print('use requires_grad_() instead!')
         npt.set_requires_grad(self, requires_grad)
 
 
@@ -1757,12 +1769,13 @@ if __name__ == 'main':
 
 
 def optimize_scipy(
-        model: BoundedModule,
-        maxiter=400,
-        verbose=True,
-        kw_optim=(),
-        kw_optim_option=(),
-        kw_pyobj=(),
+    model: BoundedModule,
+    maxiter=400,
+    verbose=True,
+    kw_optim=(),
+    kw_optim_option=(),
+    kw_pyobj=(),
+    seeds=None,
 ) -> (torch.Tensor, torch.Tensor, np.array):
     """
 
@@ -1776,6 +1789,29 @@ def optimize_scipy(
         e.g., for REINFORCE
     :return: param_fit, loss, out
     """
+    if seeds is not None:
+        if np.isscalar(seeds):
+            torch.manual_seed(seeds)
+            model.randomize()
+        else:
+            params, losses, outs = np.vectorize(
+                lambda seed: optimize_scipy(
+                    model=model,
+                    maxiter=maxiter,
+                    verbose=verbose,
+                    kw_optim=kw_optim,
+                    kw_optim_option=kw_optim_option,
+                    kw_pyobj=kw_pyobj,
+                    seeds=seed
+                ), otypes=(object, float, object)
+            )(seeds)
+            best_seed = np.nanargmin(losses)
+            out = outs[best_seed]
+            out['seeds'] = seeds
+            out['loss_by_seed'] = losses  # [i_seed]
+            model.load_state_dict(out['state_dict'])
+            return params[best_seed], losses[best_seed], out
+
     kw_optim = dict(kw_optim)
     kw_optim_option = dict(kw_optim_option)
 
@@ -1801,12 +1837,15 @@ def optimize_scipy(
             **kw_optim_option
         },
     )
+    model.zero_grad(set_to_none=True)  # to free memory
     model.load_state_dict(obj.unpack_parameters(out['x']))
     model.eval()
     if obj.separate_loss_for_jac:
-        _, loss_eval = model()
+        raise DeprecationWarning('Seems outdated')
+        loss_eval = model(return_grad=False)
+        # _, loss_eval = model()
     else:
-        loss_eval = model()
+        loss_eval = model(return_grad=False)
     loss_eval = npy(loss_eval)
     out['fun_train'] = out['fun']
     out['fun_eval'] = loss_eval

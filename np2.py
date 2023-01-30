@@ -18,13 +18,48 @@ import pandas as pd
 from copy import deepcopy
 from . import numpytorch
 from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List, \
-    Dict, Any
+    Dict, Any, Mapping
 from multiprocessing.pool import Pool as Pool0
 # from multiprocessing import Pool
 
 from .numpytorch import npy, npys
 
 npt = numpytorch.npt_torch # choose between torch and np
+
+
+def ____DEBUG____():
+    pass
+
+
+class MonitorChange:
+    def __init__(
+        self, attr_const: Sequence[str] = ()
+    ):
+        self.attr_const = attr_const
+
+    def __setattr__(self, key, value):
+        if (
+            (key != 'attr_const')
+            and (hasattr(self, 'attr_const'))
+            and (key in self.attr_const)
+            and (key in self.__dict__)
+        ):
+            raise RuntimeError(
+                f'{key} must not be changed after being assigned!')
+            # value0 = self.__dict__[key]
+            # try:
+            #     assert value0 == value
+            # except (ValueError, RuntimeError):
+            #     try:
+            #         assert all(value0 == value)
+            #     except (ValueError, RuntimeError):
+            #         try:
+            #             assert (value0 == value).all()
+            #         except AssertionError:
+            #             print(key)
+            #             raise
+        super().__setattr__(key, value)
+
 
 #%% Shape
 def ____SHAPE____():
@@ -213,7 +248,7 @@ def filt_dict(d: dict, incl: np.ndarray,
             return {k: v[incl] for k, v in d.items()}
 
 
-def listdict2dictlist(listdict: list, to_array=False) -> dict:
+def listdict2dictlist(listdict: Sequence[dict], to_array=False) -> dict:
     """
     @type listdict: list
     @param listdict: list of dicts with the same keys
@@ -232,7 +267,7 @@ def listdict2dictlist(listdict: list, to_array=False) -> dict:
     return d
 
 
-def dictlist2listdict(dictlist: Dict[str, list]) -> List[Dict[str, Any]]:
+def dictlist2listdict(dictlist: Dict[str, Sequence]) -> List[Dict[str, Any]]:
     keys = list(dictlist.keys())
     return [{k: dictlist[k][i] for k in keys}
             for i in range(len(dictlist[keys[0]]))]
@@ -560,6 +595,57 @@ def ____STAT____():
     pass
 
 
+def beta_pseudocount2meanvar(
+    a: np.ndarray, b: np.ndarray
+) -> (np.ndarray, np.ndarray):
+    """
+
+    :param a: pseudocount
+    :param b: pseudocount
+    :return: mean, variance of the beta distribution
+    """
+    return a / (a + b), a * b / ((a + b) ** 2 * (a + b + 1))
+
+
+def beta_meanvar2pseudocount(
+    m: np.ndarray, v: np.ndarray
+) -> (np.ndarray, np.ndarray):
+    """
+
+    :param m: mean
+    :param v: variance
+    :return: a, b
+    """
+    ab0 = m * (1. - m) / v - 1
+    a = ab0 * m
+    b = ab0 * (1 - m)
+    return a, b
+
+
+def beta_mean_samplesize2pseudocount(
+    m: np.ndarray, s: np.ndarray
+) -> (np.ndarray, np.ndarray):
+    """
+
+    :param m: mean of the beta distribution
+    :param s: sum of pseudocounts
+    :return: a, b (pseudocount)
+    """
+    return m * s, s - (m * s)
+
+
+def beta_pseudocount2mean_samplesize(
+    a: np.ndarray, b: np.ndarray
+) -> (np.ndarray, np.ndarray):
+    """
+
+    :param a:
+    :param b:
+    :return: m (mean of the beta distribution), s (sum of pseudocounts)
+    """
+    return a / (a + b), a + b
+
+
 def ttest_mc(
     v: np.ndarray, alternative='two-sided', nsim=10000,
     method='permutation'
@@ -576,30 +662,31 @@ def ttest_mc(
     :return: pval, tstat, df
     """
     n = len(v)
-    t_null = []
     m = np.mean(v)
     if method == 'bootstrap':
-        for _ in range(nsim):
-            v1 = np.random.choice(v, size=n)
-            t_null.append(np.mean(v1 - m) / sem(v1))
+        v1 = np.random.choice(v, size=[n, nsim])
+        t_null = np.mean(v1 - m, axis=0) / sem(v1, axis=0)
     elif method == 'permutation':
-        for _ in range(nsim):
-            v1 = v * np.random.choice([-1, 1], size=n)
-            t_null.append(np.mean(v1) / sem(v1))
+        v1 = v[:, None] * np.random.choice([-1, 1], size=[n, nsim])
+        t_null = np.mean(v1, axis=0) / sem(v1, axis=0)
     else:
         raise ValueError()
     tstat = np.mean(v) / sem(v)
     df = n - 1
-    pval_lt = np.mean(tstat < t_null)
-    pval_gt = np.mean(tstat > t_null)
-    if alternative == 'two-sided':
-        pval = min([pval_lt, pval_gt]) * 2
-    elif alternative == 'less':
-        pval = pval_lt
-    elif alternative == 'greater':
-        pval = pval_gt
+
+    if n == 1:
+        pval = 1.
     else:
-        raise ValueError()
+        pval_lt = np.mean(~(tstat > t_null))  # to handle NaNs
+        pval_gt = np.mean(~(tstat < t_null))  # to handle NaNs
+        if alternative == 'two-sided':
+            pval = min([min([pval_lt, pval_gt]) * 2, 1.])
+        elif alternative == 'less':
+            pval = pval_lt
+        elif alternative == 'greater':
+            pval = pval_gt
+        else:
+            raise ValueError()
     return pval, tstat, df
 
 
@@ -776,16 +863,21 @@ def argmedian(v, axis=None):
 
 
 def sumto1(v, axis=None, ignore_nan=True):
-    if ignore_nan:
-        if type(v) is np.ndarray:
-            return v / np.nansum(v, axis=axis, keepdims=True)
-        else:  # v is torch.Tensor
-            return v / v.nansum(axis, keepdim=True)
+    if isinstance(v, np.ndarray):
+        dict_axis = {} if axis is None else {'axis': axis}
     else:
-        if type(v) is np.ndarray:
-            return v / v.sum(axis=axis, keepdims=True)
+        dict_axis = {} if axis is None else {'dim': axis}
+
+    if ignore_nan:
+        if isinstance(v, np.ndarray):
+            return v / np.nansum(v, keepdims=True, **dict_axis)
         else:  # v is torch.Tensor
-            return v / v.sum(axis, keepdim=True)
+            return v / torch.nansum(v, keepdim=True, **dict_axis)
+    else:
+        if isinstance(v, np.ndarray):
+            return v / np.sum(v, keepdims=True, **dict_axis)
+        else:  # v is torch.Tensor
+            return v / torch.sum(v, keepdim=True, **dict_axis)
 
 
 def maxto1(v, axis=None, ignore_nan=True):
@@ -1613,7 +1705,7 @@ def pearsonr(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 
     threshold = 1e-13
     import warnings
-    from scipy.stats import PearsonRNearConstantInputWarning
+    # from scipy.stats import PearsonRNearConstantInputWarning
     if (
         np.any(normxm < threshold * np.abs(xmean)) or
         np.any(normym < threshold * np.abs(ymean))
@@ -1621,7 +1713,8 @@ def pearsonr(x: np.ndarray, y: np.ndarray) -> np.ndarray:
         # If all the values in x (likewise y) are very close to the mean,
         # the loss of precision that occurs in the subtraction xm = x - xmean
         # might result in large errors in r.
-        warnings.warn(PearsonRNearConstantInputWarning())
+        # warnings.warn(PearsonRNearConstantInputWarning())
+        warnings.warn('near constant input!')
 
     # YK: Assume dot product along the last dim;
     #   the preceding dims are considered batch
@@ -1712,19 +1805,24 @@ def cell2array(v: np.ndarray) -> np.ndarray:
     return np.stack([v1.astype(v[0].dtype) for v1 in v]).reshape(shape)
 
 
-def arrayobj(inp: np.ndarray, up_to_dim=1, copy=False) -> np.ndarray:
+def arrayobj(
+    inp: Union[np.ndarray, Sequence],
+    ndim_objarray=1, copy=False
+) -> np.ndarray:
     """
     Return np.ndarray of dtype=np.object with shape=inp.shape[:up_to_dim]
     Useful for np.vectorize()
     :param inp:
     :param copy:
-    :param up_to_dim:
+    :param ndim_objarray: 
     :return: array
     """
+    if not isinstance(inp, np.ndarray):
+        inp = np.array(inp)
     return arrayobj1d(
-        inp.reshape([np.prod(inp.shape[:up_to_dim]), -1]),
+        inp.reshape((-1,) + inp.shape[ndim_objarray:]),
         copy=copy
-    ).reshape(inp.shape[:up_to_dim])
+    ).reshape(inp.shape[:ndim_objarray])
 
 
 def scalararray(inp) -> np.ndarray:
@@ -1801,7 +1899,7 @@ def vectorize_par(
     pool: Pool = None, processes=None, chunksize=1,
     nout=None, otypes: Union[Sequence[Type], Type] = None,
     use_starmap=True, meshgrid_input=True,
-) -> Sequence[np.ndarray]:
+) -> Sequence[Union[Mapping[Any, Any], np.ndarray, Sequence[Any]]]:
     """
     Run f in parallel with meshgrid of inputs along each input's first dimension
     and return the expanded outputs.
@@ -2036,18 +2134,31 @@ def nansmooth(u, sigma=1., **kwargs):
     return r
 
 
-def griddata_fillnearest(points, values, xi, **kwargs):
-    if not isinstance(points, np.ndarray):
-        points = np.stack(points, -1)
-    if not isinstance(xi, np.ndarray):
-        xi = np.stack(xi, -1)
+def griddata_fillnearest(
+    coord_in, values, coord_out,
+    method='nearest', **kwargs
+):
+    """
+    First run griddata, and then fill NaNs with nearest values
+    :param coord_in: [dim, ix_in] = i_along_dim
+    :param values: [ix_in]
+    :param coord_out: [dim, ix_out] = i_along_dim
+    :param method: for the first griddata().
+        For the second griddata() to fill in NaNs, 'nearest' is always used.
+    :param kwargs: common for the first and second griddata()
+    :return: values[ix_out] with NaNs replaced with nearest values
+    """
+    if not isinstance(coord_in, np.ndarray):
+        coord_in = np.stack(coord_in, -1)
+    if not isinstance(coord_out, np.ndarray):
+        coord_out = np.stack(coord_out, -1)
 
-    v = griddata(points, values, xi, **kwargs)
+    v = griddata(coord_in, values, coord_out, method=method, **kwargs)
     is_nan = np.isnan(v)
 
     if np.any(is_nan):
         v1 = griddata(
-            points, values, xi[is_nan], **{
+            coord_in, values, coord_out[is_nan], **{
                 **kwargs,
                 'method': 'nearest'
             })
@@ -2153,7 +2264,16 @@ def ____STRING____():
     pass
 
 
-def joinformat(v, fmt='%g', with_str=','):
+def simple_hash(v) -> str:
+    import hashlib
+    return hashlib.md5(v.__str__().encode('utf-8')).hexdigest()
+
+
+def join_nonempty(v: Iterable[str], with_str: str) -> str:
+    return with_str.join([v1 for v1 in v if v1 != ''])
+
+
+def joinformat(v: Iterable[str], fmt='%g', with_str=',') -> str:
     return with_str.join([fmt % v1 for v1 in npy(v).flatten()])
 
 
@@ -2231,7 +2351,10 @@ def shorten_dict(
         for k, v in d.items()}
     if shorten_zero:
         d1 = {
-            k: v.replace('0.', '.') if isinstance(v, str) and v.startswith('0.')
+            k: replace(v, [
+                (',0.', ',.'),
+            ]).replace('0.', '.')
+                if isinstance(v, str) and v.startswith('0.')
             else v
             for k, v in d1.items()
         }

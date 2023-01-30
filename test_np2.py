@@ -76,7 +76,20 @@ def test_intersect():
     assert not all(np2.intersect(D, A, C, B))
 
 
+def test_ttest_mc():
+    pval, tstat, df = np2.ttest_mc(np.ones(100))
+    assert pval < 0.1
+    assert tstat == np.inf
+    assert df == 99
+
+    pval, tstat, df = np2.ttest_mc(np.ones(1))
+    assert pval == 1.
+    assert tstat == np.inf
+    assert df == 0
+
+
 if __name__ == '__main__':
     test_ShortStrAttributes()
     test_ccw()
     test_intersect()
+    test_ttest_mc()
