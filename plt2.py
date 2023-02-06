@@ -75,18 +75,19 @@ def savefig_w_data(fname: str, fun: Callable, kw_fun: Dict[str, Any] = None):
 
     :param fname: file name for figures.
         Omit extension to avoid overlong cache file name.
-    :param fun: can be called with fun(**kw_fun)
+    :param fun: can be called with fun(**kw_fun), returns plt.Figure
     :param kw_fun: if None, loaded from fname.zpkl
     :return: None
     """
 
+    mkdir4file(fname)
     with Cache(fname + '.zpkl', ignore_key=True) as cache:
         if kw_fun is None:
             kw_fun = cache.get()
         else:
             cache.set(kw_fun)
-    fun(**kw_fun)
-    savefig(fname)
+    fig = fun(**kw_fun)
+    savefig(fname, fig=fig)
 
 
 def savefig(
