@@ -44,7 +44,7 @@ import numpy as np
 from . import zipPickle
 from collections import OrderedDict as odict
 from .argsutil import dict2fname, fname2title, kwdef, fullpath2hash
-from typing import List, Union, Sequence
+from typing import List, Union, Sequence, Dict, Any
 # from gzip import BadGzipFile
 
 from .numpytorch import npy
@@ -256,7 +256,9 @@ class Cache(object):
         """
         pass
 
-    def get(self, key=None, subkeys=None, load_gpu=False):
+    def get(
+        self, key=None, subkeys=None, load_gpu=False
+    ) -> Union[Dict[str, Any], List]:
         """
         :param key: non-None object that converts into a string, e.g., locals()
         :param subkeys:if list, return a tuple of values for
@@ -313,7 +315,7 @@ class Cache(object):
         pass
 
     def getdict(self, subkeys: Union[str, List] = None,
-                key=None, load_gpu=False):
+                key=None, load_gpu=False) -> List:
         """
         Return a tuple of values corresponding to subkeys from default key.
         Assumes that self.dict[key] is itself a dict.

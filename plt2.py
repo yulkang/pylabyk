@@ -8,7 +8,7 @@ Created on Tue Feb 13 10:42:06 2018
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 import os
-from typing import List, Callable, Sequence, Mapping, Tuple, Dict, Any
+from typing import List, Callable, Sequence, Mapping, Tuple, Dict, Any, Type
 import pickle
 
 import numpy as np
@@ -70,7 +70,9 @@ def ____Saving____():
     pass
 
 
-def savefig_w_data(fname: str, fun: Callable, kw_fun: Dict[str, Any] = None):
+def savefig_w_data(
+    fname: str, fun: Callable[..., plt.Figure], kw_fun: Dict[str, Any] = None
+):
     """
 
     :param fname: file name for figures.
