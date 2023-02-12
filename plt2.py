@@ -66,139 +66,6 @@ def rc_sanslatex(rc: Callable = None):
             ]))
 
 
-def ____Saving____():
-    pass
-
-
-def savefig_w_data(
-    fname: str, fun: Callable[..., plt.Figure], kw_fun: Dict[str, Any] = None
-):
-    """
-
-    :param fname: file name for figures.
-        Omit extension to avoid overlong cache file name.
-    :param fun: can be called with fun(**kw_fun), returns plt.Figure
-    :param kw_fun: if None, loaded from fname.zpkl
-    :return: None
-    """
-
-    mkdir4file(fname)
-    with Cache(fname + '.zpkl', ignore_key=True) as cache:
-        if kw_fun is None:
-            kw_fun = cache.get()
-        else:
-            cache.set(kw_fun)
-    fig = fun(**kw_fun)
-    savefig(fname, fig=fig)
-
-
-def savefig(
-    fname: str, *args,
-    fig: mpl.figure.Figure = None,
-    ext: Union[str, Iterable[str]] = ('.pdf', '.png'),
-    to_pickle=True,
-    verbose=True,
-    **kwargs
-):
-    """
-
-    :param fname:
-        if ext is not None, use it after removing recognized extensions
-            from fname
-        otherwise, use the extension recognized from fname
-    :param args:
-    :param fig:
-    :param ext:
-    :param to_pickle:
-    :param verbose:
-    :param kwargs:
-    :return:
-    """
-    if fig is None:
-        fig = plt.gcf()
-        fig0 = None
-    else:
-        fig0 = plt.gcf()
-        plt.figure(fig.number)
-
-    fname11, ext11 = os.path.splitext(fname)
-    recognized_ext = ext11 in ['.pdf', '.png']
-    if ext is None:
-        fname1 = fname11
-        if recognized_ext:
-            ext1 = ext11
-        else:
-            raise ValueError(f'Unrecognized extension: {ext11}')
-    else:
-        ext1 = ext
-        # remove recognized extension
-        if recognized_ext:
-            fname1 = fname11
-        else:
-            fname1 = fname
-
-    if isinstance(ext1, str):
-        ext1 = (ext1,)
-    else:
-        assert np.all([isinstance(v, str) for v in ext1])
-
-    for ext11 in ext1:
-        plt.savefig(fname1 + ext11, *args, **kwargs)
-        if verbose:
-            print(f'Saved image to {fname1 + ext11}')
-    if to_pickle:
-        # manager0 = fig.canvas.manager
-        # fig.canvas.manager = None  # DEBUGGED: using this line seemed to help but it now runs without it
-        with open(fname1 + '.mpl', 'wb') as file:
-            pickle.dump(
-                fig,
-                file
-            )
-        # fig.canvas.manager = manager0
-
-        # # saving matplotlib version perhaps not necessary - matplotlib checks it by itself
-        # with open(fname1 + '.mpl', 'wb') as file:
-        #     pickle.dump(
-        #         {
-        #             'matplotlib.__version__': mpl.__version__,
-        #             'figure': fig,
-        #         },
-        #         file
-        #     )
-        # zpkl.save({
-        #     'matplotlib.__version__': mpl.__version__,
-        #     'figure': fig,
-        # }, fname1 + '.mpl')
-        if verbose:
-            print(f'Pickled figure to {fname1}.mpl')
-
-    if fig0 is not None:
-        plt.figure(fig0.number)
-
-
-def loadfig(fname: str) -> mpl.figure.Figure:
-    with open(fname, 'rb') as file:
-        fig = pickle.load(file)
-
-    # fig_dummy = plt.figure()  # UNUSED: using these lines seemed to help but they seem not needed any more.
-    # new_manager = fig_dummy.canvas.manager
-    # new_manager.canvas.figure = fig
-    # fig.set_canvas(new_manager.canvas)
-    return fig
-
-    # with open(fname, 'rb') as file:
-    #     v = pickle.load(file)
-    # # v = zpkl.load(fname, use_torch=False)
-    # if v['matplotlib.__version__'] != mpl.__version__:
-    #     import warnings
-    #     warnings.warn(f'Current matplotlib version ({mpl.__version__}) '
-    #                   f'!= version that pickled the figure '
-    #                   f'({v["matplotlib.__version__"]}) loaded from '
-    #                   f'{fname}')
-    # assert isinstance(v['figure'], mpl.figure.Figure)
-    # return v['figure']
-
-
 def ____Subplots____():
     pass
 
@@ -554,6 +421,144 @@ def rowtitle(row_titles, axes, pad=5, ha='right', **kwargs):
     # fig.subplots_adjust(left=0.15, top=0.95)
 
     return np.array(labels)
+
+
+def ____Saving____():
+    pass
+
+
+def savefig_w_data(
+    fname: str,
+    fun: Callable[..., Union[plt.Figure, GridAxes]],
+    kw_fun: Dict[str, Any] = None
+):
+    """
+
+    :param fname: file name for figures.
+        Omit extension to avoid overlong cache file name.
+    :param fun: can be called with fun(**kw_fun), returns plt.Figure
+    :param kw_fun: if None, loaded from fname.zpkl
+    :return: None
+    """
+
+    mkdir4file(fname)
+    with Cache(fname + '.zpkl', ignore_key=True) as cache:
+        if kw_fun is None:
+            kw_fun = cache.get()
+        else:
+            cache.set(kw_fun)
+    fig = fun(**kw_fun)
+    if isinstance(fig, GridAxes):
+        fig = fig.figure
+    savefig(fname, fig=fig)
+
+
+def savefig(
+    fname: str, *args,
+    fig: mpl.figure.Figure = None,
+    ext: Union[str, Iterable[str]] = ('.pdf', '.png'),
+    to_pickle=True,
+    verbose=True,
+    **kwargs
+):
+    """
+
+    :param fname:
+        if ext is not None, use it after removing recognized extensions
+            from fname
+        otherwise, use the extension recognized from fname
+    :param args:
+    :param fig:
+    :param ext:
+    :param to_pickle:
+    :param verbose:
+    :param kwargs:
+    :return:
+    """
+    if fig is None:
+        fig = plt.gcf()
+        fig0 = None
+    else:
+        fig0 = plt.gcf()
+        plt.figure(fig.number)
+
+    fname11, ext11 = os.path.splitext(fname)
+    recognized_ext = ext11 in ['.pdf', '.png']
+    if ext is None:
+        fname1 = fname11
+        if recognized_ext:
+            ext1 = ext11
+        else:
+            raise ValueError(f'Unrecognized extension: {ext11}')
+    else:
+        ext1 = ext
+        # remove recognized extension
+        if recognized_ext:
+            fname1 = fname11
+        else:
+            fname1 = fname
+
+    if isinstance(ext1, str):
+        ext1 = (ext1,)
+    else:
+        assert np.all([isinstance(v, str) for v in ext1])
+
+    for ext11 in ext1:
+        plt.savefig(fname1 + ext11, *args, **kwargs)
+        if verbose:
+            print(f'Saved image to {fname1 + ext11}')
+    if to_pickle:
+        # manager0 = fig.canvas.manager
+        # fig.canvas.manager = None  # DEBUGGED: using this line seemed to help but it now runs without it
+        with open(fname1 + '.mpl', 'wb') as file:
+            pickle.dump(
+                fig,
+                file
+            )
+        # fig.canvas.manager = manager0
+
+        # # saving matplotlib version perhaps not necessary - matplotlib checks it by itself
+        # with open(fname1 + '.mpl', 'wb') as file:
+        #     pickle.dump(
+        #         {
+        #             'matplotlib.__version__': mpl.__version__,
+        #             'figure': fig,
+        #         },
+        #         file
+        #     )
+        # zpkl.save({
+        #     'matplotlib.__version__': mpl.__version__,
+        #     'figure': fig,
+        # }, fname1 + '.mpl')
+        if verbose:
+            print(f'Pickled figure to {fname1}.mpl')
+
+    if fig0 is not None:
+        plt.figure(fig0.number)
+
+
+def loadfig(fname: str) -> mpl.figure.Figure:
+    with open(fname, 'rb') as file:
+        fig = pickle.load(file)
+
+    # fig_dummy = plt.figure()  # UNUSED: using these lines seemed to help but they seem not needed any more.
+    # new_manager = fig_dummy.canvas.manager
+    # new_manager.canvas.figure = fig
+    # fig.set_canvas(new_manager.canvas)
+    return fig
+
+    # with open(fname, 'rb') as file:
+    #     v = pickle.load(file)
+    # # v = zpkl.load(fname, use_torch=False)
+    # if v['matplotlib.__version__'] != mpl.__version__:
+    #     import warnings
+    #     warnings.warn(f'Current matplotlib version ({mpl.__version__}) '
+    #                   f'!= version that pickled the figure '
+    #                   f'({v["matplotlib.__version__"]}) loaded from '
+    #                   f'{fname}')
+    # assert isinstance(v['figure'], mpl.figure.Figure)
+    # return v['figure']
+
 
 def ____Axes_Limits____():
     pass
