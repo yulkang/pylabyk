@@ -1460,10 +1460,11 @@ def colorbar(
     mappable: mpl.cm.ScalarMappable = None,
     loc='right',
     width='5%', height='100%',
-    borderpad=-1,
+    # borderpad=-1,
+    offset_inch=0.1,
     label='',
     orientation='vertical',
-    kw_inset=(),
+    # kw_inset=(),
     kw_cbar=(),
     to_mark_range=False,
     range_lim=None,
@@ -1489,11 +1490,11 @@ def colorbar(
         ax = plt.gca()
     if mappable is None:
         mappable = ax.findobj(mpl.image.AxesImage)[0]
-    if borderpad is not None:
-        raise DeprecationWarning(
-            'borderpad is used with inset_axes, '
-            'which makes the figure unpicklable '
-            '- use offset_inch instead!')
+    # if borderpad is not None:
+    #     raise DeprecationWarning(
+    #         'borderpad is used with inset_axes, '
+    #         'which makes the figure unpicklable '
+    #         '- use offset_inch instead!')
 
     if orientation is None:
         if loc in ['right']:
@@ -2865,22 +2866,30 @@ def xticklabel_top(xtick_labels: Sequence[str], ax: plt.Axes = None):
 
 
 def imshow_confusion(
-    best_model_sim: np.ndarray,
+    best_model_sim: np.ndarray = None,
     model_labels: Sequence[str] = None,
     axs: GridAxes = None,
-    kind: str = 'p_best_given_true'
+    kind: str = 'p_best_given_true',
+    n_best_fit_by_sim: np.ndarray = None,
 ) -> (GridAxes, np.ndarray):
     """
-    Plot a confusion matrix
-    :param best_model_sim: [batch, model_sim]
-    :param model_labels: [model]
-    :return: axs, p_plot_fit_sim[fit, sim] = P(best_fit_model | model_sim)
+    Plot a confusion matrix. Optionally pool across models by group
+    :param best_model_sim: [batch, model_sim] = i_model_best
+    :param model_labels: [i_model_group]
+    :param group: [i_model] = i_model_group
+    :return: axs, p_plot_fit_sim[group_fit, group_sim] =
+        P(best_fit_model_group | model_group_sim)
     """
     assert kind in ['p_best_given_true', 'p_true_given_best']
 
-    n_model = best_model_sim.shape[-1]
-    assert best_model_sim.ndim == 2
+    if n_best_fit_by_sim is None:
+        assert best_model_sim is not None
+        assert best_model_sim.ndim == 2
 
+        # n_best_fit_by_sim[fit, sim] = n_subj
+        n_best_fit_by_sim = count_best_model(best_model_sim)
+
+    n_model = n_best_fit_by_sim.shape[1]
     if model_labels is None:
         model_labels = [''] * n_model
 
@@ -2890,15 +2899,6 @@ def imshow_confusion(
             top=1.5, left=2, right=1.5
         )
 
-    # [fit, sim]
-    n_best_fit_by_sim = npg.aggregate(
-        np.reshape(
-            np.broadcast_arrays(
-                np2.permute2en(best_model_sim)[:, None],
-                # [sim, fit, subj]
-                np.arange(n_model)[:, None, None]  # [sim, fit, subj]
-            ), [2, -1]), 1, 'sum', size=[n_model, n_model])
-
     if kind == 'p_best_given_true':
         p_plot_fit_sim = np2.sumto1(n_best_fit_by_sim, 0)
     elif kind == 'p_true_given_best':
@@ -2906,7 +2906,7 @@ def imshow_confusion(
     else:
         raise ValueError()
 
-    plt.imshow(p_plot_fit_sim, origin='upper')
+    plt.imshow(p_plot_fit_sim, origin='upper', vmin=0, vmax=1)
 
     for i_model_sim in range(n_model):
         for i_model_fit in range(n_model):
@@ -2932,3 +2932,51 @@ def imshow_confusion(
         raise ValueError()
 
     return axs, p_plot_fit_sim
+
+
+def consolidate_count_matrix(
+    mat: np.ndarray, group: Sequence[int]
+) -> np.ndarray:
+    """
+
+    :param mat: [row, column] = count
+    :param group: [row_or_column] = i_group
+    :return: mat1[group_row, group_column]
+        = sum(mat[rows in group_row, :][columns in group_col, :])
+    """
+    assert mat.ndim == 2
+    assert len(group) == mat.shape[0]
+    assert len(group) == mat.shape[1]
+
+    group = np.array(group)
+    i_groups = np.unique(group)
+    n_group = np.amax(i_groups) + 1
+
+    mat1 = np.zeros([n_group, n_group])
+    for group_row in i_groups:
+        for group_col in i_groups:
+            rows = group == group_row
+            columns = group == group_col
+            mat1[group_row, group_col] = np.sum(mat[rows, :][:, columns])
+
+    assert np.sum(mat1) == np.sum(mat)
+    return mat1
+
+
+def count_best_model(best_model_sim):
+    """
+
+    :param best_model_sim: [subj, i_model_sim] = i_model_fit
+    :return: n_best_fit_by_sim[i_model_fit, i_model_sim]
+    """
+    n_model = best_model_sim.shape[-1]
+    n_best_fit_by_sim = npg.aggregate(
+        np.reshape(
+            np.broadcast_arrays(
+                np2.permute2en(best_model_sim)[:, None],
+                # [sim, fit, subj]
+                np.arange(n_model)[:, None, None]  # [sim, fit, subj]
+            ), [2, -1]
+        ), 1, 'sum', size=[n_model, n_model]
+    )
+    return n_best_fit_by_sim
