@@ -2828,7 +2828,6 @@ def imshow_costs_by_subj_model(
     if to_add_colorbar:
         cb = colorbar(
             ax, im, height=f'{int(3 / n_subj1 * 100)}%',
-            borderpad=-2
         )
         if label_colorbar is not None:
             cb.set_label(label_colorbar)
