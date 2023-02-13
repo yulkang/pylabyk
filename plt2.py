@@ -2934,6 +2934,25 @@ def imshow_confusion(
     return axs, p_plot_fit_sim
 
 
+def count_best_model(best_model_sim):
+    """
+
+    :param best_model_sim: [subj, i_model_sim] = i_model_fit
+    :return: n_best_fit_by_sim[i_model_fit, i_model_sim]
+    """
+    n_model = best_model_sim.shape[-1]
+    n_best_fit_by_sim = npg.aggregate(
+        np.reshape(
+            np.broadcast_arrays(
+                np2.permute2en(best_model_sim)[:, None],
+                # [sim, fit, subj]
+                np.arange(n_model)[:, None, None]  # [sim, fit, subj]
+            ), [2, -1]
+        ), 1, 'sum', size=[n_model, n_model]
+    )
+    return n_best_fit_by_sim
+
+
 def consolidate_count_matrix(
     mat: np.ndarray, group: Sequence[int]
 ) -> np.ndarray:
@@ -2961,22 +2980,3 @@ def consolidate_count_matrix(
 
     assert np.sum(mat1) == np.sum(mat)
     return mat1
-
-
-def count_best_model(best_model_sim):
-    """
-
-    :param best_model_sim: [subj, i_model_sim] = i_model_fit
-    :return: n_best_fit_by_sim[i_model_fit, i_model_sim]
-    """
-    n_model = best_model_sim.shape[-1]
-    n_best_fit_by_sim = npg.aggregate(
-        np.reshape(
-            np.broadcast_arrays(
-                np2.permute2en(best_model_sim)[:, None],
-                # [sim, fit, subj]
-                np.arange(n_model)[:, None, None]  # [sim, fit, subj]
-            ), [2, -1]
-        ), 1, 'sum', size=[n_model, n_model]
-    )
-    return n_best_fit_by_sim
