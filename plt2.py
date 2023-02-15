@@ -71,14 +71,18 @@ def ____Saving____():
 
 
 def savefig_w_data(
-    fname: str, fun: Callable[..., plt.Figure], kw_fun: Dict[str, Any] = None
+    fname: str, fun: Callable[..., plt.Figure], kw_fun: Dict[str, Any] = None,
+    to_plot=True,
 ):
     """
 
     :param fname: file name for figures.
         Omit extension to avoid overlong cache file name.
-    :param fun: can be called with fun(**kw_fun), returns plt.Figure
+    :param fun: can be called with fun(**kw_fun),
+        and returns plt.Figure or plt2.GridAxes
     :param kw_fun: if None, loaded from fname.zpkl
+    :param to_plot: if False, just save the data
+        without plotting or saving a figure
     :return: None
     """
 
@@ -88,8 +92,9 @@ def savefig_w_data(
             kw_fun = cache.get()
         else:
             cache.set(kw_fun)
-    fig = fun(**kw_fun)
-    savefig(fname, fig=fig)
+    if to_plot:
+        fig = fun(**kw_fun)
+        savefig(fname, fig=fig)
 
 
 def savefig(
