@@ -147,6 +147,7 @@ def savefig(
     else:
         assert np.all([isinstance(v, str) for v in ext1])
 
+    mkdir4file(fname1)
     for ext11 in ext1:
         plt.savefig(fname1 + ext11, *args, **kwargs)
         if verbose:
