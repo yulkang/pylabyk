@@ -178,6 +178,8 @@ def savefig(
         if verbose:
             print(f'Pickled figure to {fname1}.mpl')
 
+    plt.close(fig)  # avoid memory leakage
+
     if fig0 is not None:
         plt.figure(fig0.number)
 
