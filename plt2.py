@@ -430,7 +430,8 @@ def ____Saving____():
 def savefig_w_data(
     fname: str,
     fun: Callable[..., Union[plt.Figure, GridAxes]],
-    kw_fun: Dict[str, Any] = None
+    kw_fun: Dict[str, Any] = None,
+    to_plot=True,
 ):
     """
 
@@ -450,10 +451,11 @@ def savefig_w_data(
             kw_fun = cache.get()
         else:
             cache.set(kw_fun)
-    fig = fun(**kw_fun)
-    if isinstance(fig, GridAxes):
-        fig = fig.figure
-    savefig(fname, fig=fig)
+    if to_plot:
+        fig = fun(**kw_fun)
+        if isinstance(fig, GridAxes):
+            fig = fig.figure
+        savefig(fname, fig=fig)
 
 
 def savefig(
