@@ -341,6 +341,7 @@ class BoundedParameter(OverriddenParameter):
 
 class ProbabilityParameter(OverriddenParameter):
     def __init__(self, prob, probdim=0, requires_grad=True, randomize=False,
+                 lb=0., ub=1.,
                  **kwargs):
         """
 
@@ -350,8 +351,8 @@ class ProbabilityParameter(OverriddenParameter):
         """
         super().__init__(**kwargs)
         self.probdim = probdim
-        self.lb = npt.zeros(1)
-        self.ub = npt.ones(1)
+        self.lb = npt.zeros(1) + lb
+        self.ub = npt.zeros(1) + ub
 
         if randomize:
             prob1 = np.swapaxes(npy(prob), probdim, -1)
@@ -368,17 +369,14 @@ class ProbabilityParameter(OverriddenParameter):
         self.skip_loading_lbub = True
 
     def data2param(self, prob):
-        probdim = self.probdim
         prob = enforce_float_tensor(prob)
-
-        prob[prob < self.epsilon] = self.epsilon
-        prob[prob > 1. - self.epsilon] = 1. - self.epsilon
-        prob = prob / torch.sum(prob, dim=probdim, keepdim=True)
-
+        prob = prob * (1. - self.epsilon) + self.epsilon / prob.shape[self.probdim]
         return torch.log(prob)
 
     def param2data(self, conf):
-        return F.softmax(enforce_float_tensor(conf), dim=self.probdim)
+        prob = F.softmax(enforce_float_tensor(conf), dim=self.probdim)
+        prob = prob * (1. - self.epsilon) + self.epsilon / prob.shape[self.probdim]
+        return prob
 
     def get_n_free_param(self) -> int:
         """Number of free parameters after considering that probdim sums to 1"""
@@ -711,7 +709,6 @@ class BoundedModule(nn.Module):
         if ax is None:
             ax = plt.gca()
 
-        ax = plt.gca()
         names, v, grad, lb, ub, requires_grad = self.get_named_bounded_params(
             named_bounded_params, exclude=exclude)
         max_grad = np.amax(np.abs(grad))
@@ -818,12 +815,22 @@ class BoundedModule(nn.Module):
     def get_n_free_param(self) -> int:
         """Number of free parameters."""
         n_free = 0
-        for name, module in self.named_modules():
+        for name, module in self.named_children():
             if module is not self and (
                     isinstance(module, OverriddenParameter)
                     or isinstance(module, BoundedModule)
             ):
-                n_free += module.get_n_free_param()
+                # if isinstance(module, BoundedModule):
+                #     # CHECKED
+                #     print(f'-- {name} BEGINS')
+                n_free1 = module.get_n_free_param()
+                n_free += n_free1
+                # if isinstance(module, BoundedModule):
+                #     # CHECKED
+                #     print(f'-- {name} ENDS: {n_free} free')
+                #     print('---------------')
+                # else:
+                #     print(f'       {name}: {n_free1} free')
         return n_free
 
     def load_state_dict_data(
@@ -868,12 +875,23 @@ class BoundedModule(nn.Module):
             self, param_vec: Union[torch.Tensor, np.ndarray]
     ) -> Union[torch.Tensor, np.ndarray]:
         param_vec0 = self.parameters_data_vec()
-        self.load_state_dict(self.param_vec2dict(param_vec), strict=False)
+        self.load_state_dict(
+            self.param_vec2dict(param_vec, '._param'),
+            strict=False)
         value_vec = self.parameters_data_vec()
-        self.load_state_dict(self.param_vec2dict(param_vec0), strict=False)
+        self.load_state_dict(self.param_vec2dict(param_vec0, '._param'),
+                             strict=False)
         return value_vec
 
-    def param_vec2dict(self, param_vec, suffix='._param') -> odict:
+    def param_vec2dict(self, param_vec, suffix: str) -> odict:
+        """
+
+        :param param_vec:
+        :param suffix: '._param' or '._data'
+        :return:
+        """
+        assert suffix in ['._param', '._data']
+
         dict0 = self.state_dict()  # type: Dict[str, torch.Tensor]
         dict1 = odict()
         if not torch.is_tensor(param_vec):
@@ -1759,6 +1777,32 @@ class DemoBoundedModule(BoundedModule):
 
         print('--')
 
+
+class ModuleWithData(BoundedModule):
+    """
+    For use with optimize_scipy, which calls forward() with no argument.
+    """
+    def __init__(
+        self, module: BoundedModule,
+        args_forward: Sequence = (),
+        kwargs_forward: Dict = None
+    ):
+        super().__init__()
+
+        if kwargs_forward is None:
+            kwargs_forward = {}
+
+        self.module = module
+        self.args_forward = args_forward
+        self.kwargs_forward = kwargs_forward
+
+    def forward(self) -> torch.Tensor:
+        """
+        :return: loss (scalar)
+        """
+        return self.module(*self.args_forward, **self.kwargs_forward)
+
+
 def ____Main____():
     pass
 
@@ -1770,7 +1814,7 @@ if __name__ == 'main':
 
 def optimize_scipy(
     model: BoundedModule,
-    maxiter=400,
+    maxiter=None,
     verbose=True,
     kw_optim=(),
     kw_optim_option=(),
@@ -1788,6 +1832,8 @@ def optimize_scipy(
             loss_for_grad, loss = model()
         e.g., for REINFORCE
     :return: param_fit, loss, out
+        Use BoundedModule.load_state_dict(out['state_dict'])
+        to recover state, including lb and ub
     """
     if seeds is not None:
         if np.isscalar(seeds):
@@ -1822,6 +1868,13 @@ def optimize_scipy(
 
     model.train()
     obj = PyTorchObjective(model, **dict(kw_pyobj))
+
+    # axs = plt2.GridAxes(1, 1, widths=3, heights=3, left=3)
+    # plt.sca(axs[0, 0])
+    # print(obj.jac(obj.x0))
+    # model.plot_params()
+    # plt.show()  # CHECKED
+
     out = scioptim.minimize(
         obj.fun, obj.x0,
         jac=obj.jac,
@@ -1832,7 +1885,10 @@ def optimize_scipy(
             **kw_optim
         }, options={
             # 'gtol': 1e-16, # 12,
-            'disp': True, 'maxiter': maxiter,
+            'disp': True, **(
+                {} if maxiter is None else
+                {'maxiter': maxiter}
+            ),
             # 'finite_diff_rel_step': 1e-6,
             **kw_optim_option
         },
@@ -1862,14 +1918,16 @@ def optimize_scipy(
     out['se_param_vec'] = se_param
 
     for k in ['x', 'se']:
-        out[k + '_param_dict'] = model.param_vec2dict(out[k + '_param_vec'])
+        out[k + '_param_dict'] = model.param_vec2dict(
+            out[k + '_param_vec'], '._param')
 
     out['x_value_vec'] = npy(model.param_vec2value_vec(param))
     out['lb_value_vec'] = npy(model.param_vec2value_vec(param - se_param))
     out['ub_value_vec'] = npy(model.param_vec2value_vec(param + se_param))
 
     for k in ['x', 'lb', 'ub']:
-        out[k + '_value_dict'] = model.param_vec2dict(out[k + '_value_vec'])
+        out[k + '_value_dict'] = model.param_vec2dict(
+            out[k + '_value_vec'], suffix='._data')
 
     # NOTE: somehow this is necessary to set params to the fitted state
     model.load_state_dict(obj.unpack_parameters(out['x']))

@@ -47,7 +47,34 @@ def test_loadfig(fname: str = None):
     print('--')
 
 
+def test_consolidate_count_matrix():
+    mat0 = np.array(
+        [
+            [1, 2, 3],
+            [10, 20, 30],
+            [100, 200, 300]
+        ]
+    )
+    for group, mat1 in [
+        ((0, 1, 2), mat0),
+        ((0, 0, 1), np.array([
+            [33, 33],
+            [300, 300]
+         ])),
+        ((0, 1, 1), np.array([
+            [1, 5],
+            [110, 550]
+         ])),
+        ((0, 0, 0), np.array([[np.sum(mat0)]]))
+    ]:
+        assert np.all(
+            plt2.consolidate_count_matrix(mat0, group=group) == mat1
+        )
+    print('passed all test_consolidate_count_matrix()')
+
+
 if __name__ == '__main__':
-    # test_savefig()  # NOTE: should run test_savefig() and test_loadfig() on different runs of python to really test the persistence
     # reload(mpl)
-    test_loadfig()
+    # test_savefig()  # NOTE: should run test_savefig() and test_loadfig() on different runs of python to really test the persistence
+    # test_loadfig()
+    test_consolidate_count_matrix()

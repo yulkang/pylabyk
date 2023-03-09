@@ -6,6 +6,26 @@ import numpy as np
 from pylabyk import np2
 
 
+def test_index_arg():
+    a0 = np.array([[0, 3, 0], [0, 0, 2], [1, 0, 0]])
+    for a, res_correct in [
+        (
+            a0,
+            np.amax(a0, -1)
+        ),
+        (
+            a0[None],
+            np.amax(a0, -1)[None]
+        ),
+        (
+            a0[..., None],
+            a0
+        )
+    ]:
+        res = np2.index_arg(a, np.argmax(a, -1))
+        assert res.shape == res_correct.shape
+        assert np.all(res == res_correct)
+
 
 def test_ShortStrAttributes():
     class Analyses(np2.AliasStrAttributes):
@@ -89,6 +109,7 @@ def test_ttest_mc():
 
 
 if __name__ == '__main__':
+    test_index_arg()
     test_ShortStrAttributes()
     test_ccw()
     test_intersect()

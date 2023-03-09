@@ -66,147 +66,6 @@ def rc_sanslatex(rc: Callable = None):
             ]))
 
 
-def ____Saving____():
-    pass
-
-
-def savefig_w_data(
-    fname: str, fun: Callable[..., plt.Figure], kw_fun: Dict[str, Any] = None,
-    to_plot=True,
-):
-    """
-
-    :param fname: file name for figures.
-        Omit extension to avoid overlong cache file name.
-    :param fun: can be called with fun(**kw_fun),
-        and returns plt.Figure or plt2.GridAxes
-    :param kw_fun: if None, loaded from fname.zpkl
-    :param to_plot: if False, just save the data
-        without plotting or saving a figure
-    :return: None
-    """
-
-    mkdir4file(fname)
-    with Cache(fname + '.zpkl', ignore_key=True) as cache:
-        if kw_fun is None:
-            kw_fun = cache.get()
-        else:
-            cache.set(kw_fun)
-    if to_plot:
-        fig = fun(**kw_fun)
-        savefig(fname, fig=fig)
-
-
-def savefig(
-    fname: str, *args,
-    fig: mpl.figure.Figure = None,
-    ext: Union[str, Iterable[str]] = ('.pdf', '.png'),
-    to_pickle=True,
-    verbose=True,
-    **kwargs
-):
-    """
-
-    :param fname:
-        if ext is not None, use it after removing recognized extensions
-            from fname
-        otherwise, use the extension recognized from fname
-    :param args:
-    :param fig:
-    :param ext:
-    :param to_pickle:
-    :param verbose:
-    :param kwargs:
-    :return:
-    """
-    if fig is None:
-        fig = plt.gcf()
-        fig0 = None
-    else:
-        fig0 = plt.gcf()
-        plt.figure(fig.number)
-
-    fname11, ext11 = os.path.splitext(fname)
-    recognized_ext = ext11 in ['.pdf', '.png']
-    if ext is None:
-        fname1 = fname11
-        if recognized_ext:
-            ext1 = ext11
-        else:
-            raise ValueError(f'Unrecognized extension: {ext11}')
-    else:
-        ext1 = ext
-        # remove recognized extension
-        if recognized_ext:
-            fname1 = fname11
-        else:
-            fname1 = fname
-
-    if isinstance(ext1, str):
-        ext1 = (ext1,)
-    else:
-        assert np.all([isinstance(v, str) for v in ext1])
-
-    mkdir4file(fname1)
-    for ext11 in ext1:
-        plt.savefig(fname1 + ext11, *args, **kwargs)
-        if verbose:
-            print(f'Saved image to {fname1 + ext11}')
-    if to_pickle:
-        # manager0 = fig.canvas.manager
-        # fig.canvas.manager = None  # DEBUGGED: using this line seemed to help but it now runs without it
-        with open(fname1 + '.mpl', 'wb') as file:
-            pickle.dump(
-                fig,
-                file
-            )
-        # fig.canvas.manager = manager0
-
-        # # saving matplotlib version perhaps not necessary - matplotlib checks it by itself
-        # with open(fname1 + '.mpl', 'wb') as file:
-        #     pickle.dump(
-        #         {
-        #             'matplotlib.__version__': mpl.__version__,
-        #             'figure': fig,
-        #         },
-        #         file
-        #     )
-        # zpkl.save({
-        #     'matplotlib.__version__': mpl.__version__,
-        #     'figure': fig,
-        # }, fname1 + '.mpl')
-        if verbose:
-            print(f'Pickled figure to {fname1}.mpl')
-
-    plt.close(fig)  # avoid memory leakage
-
-    if fig0 is not None:
-        plt.figure(fig0.number)
-
-
-def loadfig(fname: str) -> mpl.figure.Figure:
-    with open(fname, 'rb') as file:
-        fig = pickle.load(file)
-
-    # fig_dummy = plt.figure()  # UNUSED: using these lines seemed to help but they seem not needed any more.
-    # new_manager = fig_dummy.canvas.manager
-    # new_manager.canvas.figure = fig
-    # fig.set_canvas(new_manager.canvas)
-    return fig
-
-    # with open(fname, 'rb') as file:
-    #     v = pickle.load(file)
-    # # v = zpkl.load(fname, use_torch=False)
-    # if v['matplotlib.__version__'] != mpl.__version__:
-    #     import warnings
-    #     warnings.warn(f'Current matplotlib version ({mpl.__version__}) '
-    #                   f'!= version that pickled the figure '
-    #                   f'({v["matplotlib.__version__"]}) loaded from '
-    #                   f'{fname}')
-    # assert isinstance(v['figure'], mpl.figure.Figure)
-    # return v['figure']
-
-
 def ____Subplots____():
     pass
 
@@ -404,7 +263,7 @@ class GridAxes:
     def ncols(self):
         return self.axs.shape[1]
 
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> Union[AxesArray, AxesSlice, 'GridAxes']:
         axs = self.axs[key]
 
         if isinstance(axs, np.ndarray) and axs.ndim == 2:
@@ -562,6 +421,150 @@ def rowtitle(row_titles, axes, pad=5, ha='right', **kwargs):
     # fig.subplots_adjust(left=0.15, top=0.95)
 
     return np.array(labels)
+
+
+def ____Saving____():
+    pass
+
+
+def savefig_w_data(
+    fname: str,
+    fun: Callable[..., Union[plt.Figure, GridAxes]],
+    kw_fun: Dict[str, Any] = None
+):
+    """
+
+    :param fname: file name for figures.
+        Omit extension to avoid overlong cache file name.
+    :param fun: can be called with fun(**kw_fun),
+        and returns plt.Figure or plt2.GridAxes
+    :param kw_fun: if None, loaded from fname.zpkl
+    :param to_plot: if False, just save the data
+        without plotting or saving a figure
+    :return: None
+    """
+
+    mkdir4file(fname)
+    with Cache(fname + '.zpkl', ignore_key=True) as cache:
+        if kw_fun is None:
+            kw_fun = cache.get()
+        else:
+            cache.set(kw_fun)
+    fig = fun(**kw_fun)
+    if isinstance(fig, GridAxes):
+        fig = fig.figure
+    savefig(fname, fig=fig)
+
+
+def savefig(
+    fname: str, *args,
+    fig: mpl.figure.Figure = None,
+    ext: Union[str, Iterable[str]] = ('.pdf', '.png'),
+    to_pickle=True,
+    verbose=True,
+    **kwargs
+):
+    """
+
+    :param fname:
+        if ext is not None, use it after removing recognized extensions
+            from fname
+        otherwise, use the extension recognized from fname
+    :param args:
+    :param fig:
+    :param ext:
+    :param to_pickle:
+    :param verbose:
+    :param kwargs:
+    :return:
+    """
+    if fig is None:
+        fig = plt.gcf()
+        fig0 = None
+    else:
+        fig0 = plt.gcf()
+        plt.figure(fig.number)
+
+    fname11, ext11 = os.path.splitext(fname)
+    recognized_ext = ext11 in ['.pdf', '.png']
+    if ext is None:
+        fname1 = fname11
+        if recognized_ext:
+            ext1 = ext11
+        else:
+            raise ValueError(f'Unrecognized extension: {ext11}')
+    else:
+        ext1 = ext
+        # remove recognized extension
+        if recognized_ext:
+            fname1 = fname11
+        else:
+            fname1 = fname
+
+    if isinstance(ext1, str):
+        ext1 = (ext1,)
+    else:
+        assert np.all([isinstance(v, str) for v in ext1])
+
+    mkdir4file(fname1)
+    for ext11 in ext1:
+        plt.savefig(fname1 + ext11, *args, **kwargs)
+        if verbose:
+            print(f'Saved image to {fname1 + ext11}')
+    if to_pickle:
+        # manager0 = fig.canvas.manager
+        # fig.canvas.manager = None  # DEBUGGED: using this line seemed to help but it now runs without it
+        with open(fname1 + '.mpl', 'wb') as file:
+            pickle.dump(
+                fig,
+                file
+            )
+        # fig.canvas.manager = manager0
+
+        # # saving matplotlib version perhaps not necessary - matplotlib checks it by itself
+        # with open(fname1 + '.mpl', 'wb') as file:
+        #     pickle.dump(
+        #         {
+        #             'matplotlib.__version__': mpl.__version__,
+        #             'figure': fig,
+        #         },
+        #         file
+        #     )
+        # zpkl.save({
+        #     'matplotlib.__version__': mpl.__version__,
+        #     'figure': fig,
+        # }, fname1 + '.mpl')
+        if verbose:
+            print(f'Pickled figure to {fname1}.mpl')
+
+    plt.close(fig)  # avoid memory leakage
+
+    if fig0 is not None:
+        plt.figure(fig0.number)
+
+
+def loadfig(fname: str) -> mpl.figure.Figure:
+    with open(fname, 'rb') as file:
+        fig = pickle.load(file)
+
+    # fig_dummy = plt.figure()  # UNUSED: using these lines seemed to help but they seem not needed any more.
+    # new_manager = fig_dummy.canvas.manager
+    # new_manager.canvas.figure = fig
+    # fig.set_canvas(new_manager.canvas)
+    return fig
+
+    # with open(fname, 'rb') as file:
+    #     v = pickle.load(file)
+    # # v = zpkl.load(fname, use_torch=False)
+    # if v['matplotlib.__version__'] != mpl.__version__:
+    #     import warnings
+    #     warnings.warn(f'Current matplotlib version ({mpl.__version__}) '
+    #                   f'!= version that pickled the figure '
+    #                   f'({v["matplotlib.__version__"]}) loaded from '
+    #                   f'{fname}')
+    # assert isinstance(v['figure'], mpl.figure.Figure)
+    # return v['figure']
+
 
 def ____Axes_Limits____():
     pass
@@ -1459,16 +1462,19 @@ def multiline(xs, ys, c=None, ax=None, **kwargs):
 
 
 def colorbar(
-        ax: plt.Axes = None,
-        mappable: mpl.cm.ScalarMappable = None,
-        loc='right',
-        width='5%', height='100%',
-        borderpad=None,
-        offset_inch=0.1,
-        label='',
-        orientation=None, # 'vertical',
-        kw_inset=(),
-        kw_cbar=(),
+    ax: plt.Axes = None,
+    mappable: mpl.cm.ScalarMappable = None,
+    loc='right',
+    width='5%', height='100%',
+    # borderpad=-1,
+    offset_inch=0.1,
+    label='',
+    orientation='vertical',
+    # kw_inset=(),
+    kw_cbar=(),
+    to_mark_range=False,
+    range_lim=None,
+    kw_mark_rage=()
 ) -> mpl.colorbar.Colorbar:
     """
     Add a colorbar aligned to the mappable (e.g., image)
@@ -1481,7 +1487,7 @@ def colorbar(
     :param borderpad: relative to the fontsize of the axes.
         When loc='right',
             0 aligns the right edges of the colorbar and the parent axis.
-            Negative value pushes the colorbar to the right.
+            Negative value pushes the colorbar further to the right.
     :param kw_inset:
     :param kw_cbar:
     :return:
@@ -1490,11 +1496,11 @@ def colorbar(
         ax = plt.gca()
     if mappable is None:
         mappable = ax.findobj(mpl.image.AxesImage)[0]
-    if borderpad is not None:
-        raise DeprecationWarning(
-            'borderpad is used with inset_axes, '
-            'which makes the figure unpicklable '
-            '- use offset_inch instead!')
+    # if borderpad is not None:
+    #     raise DeprecationWarning(
+    #         'borderpad is used with inset_axes, '
+    #         'which makes the figure unpicklable '
+    #         '- use offset_inch instead!')
 
     if orientation is None:
         if loc in ['right']:
@@ -1522,6 +1528,34 @@ def colorbar(
         mappable, cax=axins,
         label=label, orientation=orientation, **dict(kw_cbar)
     )
+
+    if to_mark_range:
+        if range_lim is None:
+            range_lim = (
+                np.nanmin(mappable.get_array()),
+                np.nanmax(mappable.get_array()))
+
+        if orientation == 'vertical':
+            plt.plot(
+                np.mean(cb.ax.xaxis.get_data_interval()) + np.zeros(2),
+                range_lim,
+                **{
+                    'color': 'k',
+                    'lw': 2.,
+                    **dict(kw_mark_rage)
+                }
+            )
+        else:
+            plt.plot(
+                range_lim,
+                np.mean(cb.ax.yaxis.get_data_interval()) + np.zeros(2),
+                **{
+                    'color': 'k',
+                    'lw': 0.5,
+                    **dict(kw_mark_rage)
+                }
+            )
+
     return cb
 
 
@@ -1895,10 +1929,10 @@ def significance_marker(
 def ____Gaussian____():
     pass
 
-def plot_centroid(mu=np.zeros(2), sigma=np.eye(2),
+def plot_centroid(mu=np.zeros(2), cov=np.eye(2),
                   add_axis=True, *args, **kwargs):
     th = np.linspace(0, 2*np.pi, 100)[np.newaxis,:]
-    u, s, _ = np.linalg.svd(sigma)
+    u, s, _ = np.linalg.svd(cov)
     x = np.concatenate((np.cos(th), np.sin(th)), axis=0)
     us = u @ np.diag(np.sqrt(s))
     x = us @ x + mu[:,np.newaxis]
@@ -2752,6 +2786,7 @@ def imshow_costs_by_subj_model(
         subtract_min_in_row = True,
         offset=(0., 0.),
         to_add_colorbar=True,
+        mask_below_thres=True,
         # offset=(0.025, -0.004),
 ) -> (GridAxes, mpl.colorbar.Colorbar):
     """
@@ -2768,52 +2803,185 @@ def imshow_costs_by_subj_model(
     if subtract_min_in_row:
         costs_by_subj_model = (
                 costs_by_subj_model
-                - np.amin(costs_by_subj_model, -1, keepdims=True))
+                - np.nanmin(costs_by_subj_model, -1, keepdims=True))
     n_subj1, n_model1 = costs_by_subj_model.shape
     if axs is None:
         axs = GridAxes(
             1, 1,
             widths=[size_per_cell * n_model1],
             heights=[size_per_cell * n_subj1],
-            right=1.5, top=1.5,
+            right=1.5, top=1.5, left=0.75,
             bottom=0.1,
         )
     ax = axs[0, 0]
     plt.sca(ax)
-    im = plt.imshow(costs_by_subj_model, zorder=0)
+    cost_plot = costs_by_subj_model.copy()
+    if mask_below_thres and thres_colorbar is not None:
+        cost_plot[cost_plot < thres_colorbar] = np.nan
+    im = plt.imshow(
+        cost_plot, zorder=0, vmin=0.)
     if subjs is not None:
         plt.yticks(np.arange(n_subj1), subjs)
     if model_names is not None:
-        xticklabel_top(ax, model_names)
+        xticklabel_top(model_names, ax)
     for row, loss_subj in enumerate(costs_by_subj_model):
-        best_model = np.argmin(loss_subj)
+        best_model = np.nanargmin(loss_subj)
         plt.text(best_model + offset[0], row + offset[1],
-                 '*', color='w', zorder=2, fontsize=16,
+                 '*',
+                 color='k' if mask_below_thres else 'w',
+                 zorder=2, fontsize=16,
                  ha='center', va='center')
     if to_add_colorbar:
         cb = colorbar(
-            ax, im, height='%d%%' % int(3 / n_subj1 * 100),
-            borderpad=-2
+            ax, im, height=f'{int(3 / n_subj1 * 100)}%',
         )
         if label_colorbar is not None:
             cb.set_label(label_colorbar)
         if thres_colorbar is not None:
-            cb.ax.axhline(thres_colorbar, color='w')
+            import matplotlib.patches as patches
+            ax_cbar = cb.ax  # type: plt.Axes
+            x_lim = ax_cbar.get_xlim()
+            ax_cbar.add_patch(
+                patches.Rectangle(
+                    (x_lim[0], 0), x_lim[1] - x_lim[0],
+                    thres_colorbar, ls='None', fc='w',
+                    zorder=2
+                ))
+            # cb.ax.axhline(thres_colorbar, color='w', lw=0.5)
     else:
         cb = None
     plt.sca(ax)
     return axs, cb
 
 
-def xticklabel_top(ax: plt.Axes, xtick_labels: Sequence[str]):
+def xticklabel_top(xtick_labels: Sequence[str], ax: plt.Axes = None):
     """
 
     :param ax:
     :param xtick_labels:
     :return:
     """
+    if ax is None:
+        ax = plt.gca()
     ax.xaxis.tick_top()
     _, ticklabels = plt.xticks(np.arange(len(xtick_labels)), xtick_labels)
     for ticklabel in ticklabels:
         ticklabel.set_rotation(30)
         ticklabel.set_ha('left')
+
+
+def imshow_confusion(
+    best_model_sim: np.ndarray = None,
+    model_labels: Sequence[str] = None,
+    axs: GridAxes = None,
+    kind: str = 'p_best_given_true',
+    n_best_fit_by_sim: np.ndarray = None,
+) -> (GridAxes, np.ndarray):
+    """
+    Plot a confusion matrix. Optionally pool across models by group
+    :param best_model_sim: [batch, model_sim] = i_model_best
+    :param model_labels: [i_model_group]
+    :param group: [i_model] = i_model_group
+    :return: axs, p_plot_fit_sim[group_fit, group_sim] =
+        P(best_fit_model_group | model_group_sim)
+    """
+    assert kind in ['p_best_given_true', 'p_true_given_best']
+
+    if n_best_fit_by_sim is None:
+        assert best_model_sim is not None
+        assert best_model_sim.ndim == 2
+
+        # n_best_fit_by_sim[fit, sim] = n_subj
+        n_best_fit_by_sim = count_best_model(best_model_sim)
+
+    n_model = n_best_fit_by_sim.shape[1]
+    if model_labels is None:
+        model_labels = [''] * n_model
+
+    if axs is None:
+        axs = GridAxes(
+            1, 1, widths=0.2 * n_model, heights=0.2 * n_model,
+            top=1.5, left=2, right=1.5
+        )
+
+    if kind == 'p_best_given_true':
+        p_plot_fit_sim = np2.sumto1(n_best_fit_by_sim, 0)
+    elif kind == 'p_true_given_best':
+        p_plot_fit_sim = np2.sumto1(n_best_fit_by_sim, 1)
+    else:
+        raise ValueError()
+
+    plt.imshow(p_plot_fit_sim, origin='upper', vmin=0, vmax=1)
+
+    for i_model_sim in range(n_model):
+        for i_model_fit in range(n_model):
+            plt.text(
+                i_model_fit, i_model_sim,
+                f'{p_plot_fit_sim[i_model_sim, i_model_fit]:.2f}'
+                .lstrip('0'),
+                color='w', va='center', ha='center', fontsize=5)
+
+    xticklabel_top(model_labels)
+    plt.yticks(np.arange(n_model), model_labels)
+    plt.xlabel('simulated with')
+    plt.ylabel('best fit with')
+    colorbar(axs[0, 0])
+
+    if kind == 'p_best_given_true':
+        plt.ylabel(
+            r'$\mathrm{P}(\mathrm{best\ fit} \mid \mathrm{sim})$')
+    elif kind == 'p_true_given_best':
+        plt.ylabel(
+            r'$\mathrm{P}(\mathrm{sim} \mid \mathrm{best\ fit})$')
+    else:
+        raise ValueError()
+
+    return axs, p_plot_fit_sim
+
+
+def count_best_model(best_model_sim):
+    """
+
+    :param best_model_sim: [subj, i_model_sim] = i_model_fit
+    :return: n_best_fit_by_sim[i_model_fit, i_model_sim]
+    """
+    n_model = best_model_sim.shape[-1]
+    n_best_fit_by_sim = npg.aggregate(
+        np.reshape(
+            np.broadcast_arrays(
+                np2.permute2en(best_model_sim)[:, None],
+                # [sim, fit, subj]
+                np.arange(n_model)[:, None, None]  # [sim, fit, subj]
+            ), [2, -1]
+        ), 1, 'sum', size=[n_model, n_model]
+    )
+    return n_best_fit_by_sim
+
+
+def consolidate_count_matrix(
+    mat: np.ndarray, group: Sequence[int]
+) -> np.ndarray:
+    """
+
+    :param mat: [row, column] = count
+    :param group: [row_or_column] = i_group
+    :return: mat1[group_row, group_column]
+        = sum(mat[rows in group_row, :][columns in group_col, :])
+    """
+    assert mat.ndim == 2
+    assert len(group) == mat.shape[0]
+    assert len(group) == mat.shape[1]
+
+    group = np.array(group)
+    i_groups = np.unique(group)
+    n_group = np.amax(i_groups) + 1
+
+    mat1 = np.zeros([n_group, n_group])
+    for group_row in i_groups:
+        for group_col in i_groups:
+            rows = group == group_row
+            columns = group == group_col
+            mat1[group_row, group_col] = np.sum(mat[rows, :][:, columns])
+
+    assert np.sum(mat1) == np.sum(mat)
+    return mat1

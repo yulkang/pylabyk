@@ -69,6 +69,9 @@ def mkdir(pth):
         mkdir4file(os.path.join(pth, 'file'))
 
 
+mkdir4dir = mkdir
+
+
 def is_keyboard_interrupt(exception):
     # The second condition is necessary for it to work with the stop button
     # in PyCharm Python console.
