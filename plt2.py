@@ -804,17 +804,24 @@ def sameaxes(ax: Union[AxesArray, GridAxes],
             else:
                 if xy1 == 'x':
                     lims0 = ax0.get_xlim()
-                else:
+                elif xy1 == 'y':
                     lims0 = ax0.get_ylim()
+                else:
+                    raise ValueError()
         else:
             lims0 = lim
+        lims_res.append(lims0)
+
+    for xy1, lims0 in zip(xy, lims_res):
         if xy1 == 'x':
             for ax1 in ax:
                 ax1.set_xlim(lims0)
-        else:
+        elif xy1 == 'y':
             for ax1 in ax:
                 ax1.set_ylim(lims0)
-        lims_res.append(lims0)
+        else:
+            raise ValueError()
+
     return lims_res
 
 
