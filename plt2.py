@@ -460,7 +460,7 @@ def savefig_w_data(
 
 def savefig(
     fname: str, *args,
-    fig: mpl.figure.Figure = None,
+    fig: Union[mpl.figure.Figure, GridAxes] = None,
     ext: Union[str, Iterable[str]] = ('.pdf', '.png'),
     to_pickle=True,
     verbose=True,
@@ -484,6 +484,8 @@ def savefig(
         fig = plt.gcf()
         fig0 = None
     else:
+        if hasattr(fig, 'figure'):
+            fig = fig.figure
         fig0 = plt.gcf()
         plt.figure(fig.number)
 

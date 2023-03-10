@@ -20,6 +20,7 @@ from . import numpytorch
 from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List, \
     Dict, Any, Mapping
 from multiprocessing.pool import Pool as Pool0
+import numpy.typing as nptyp
 # from multiprocessing import Pool
 
 from .numpytorch import npy, npys
@@ -282,6 +283,27 @@ def dictkeys(d, keys):
 
 def dict2array(d, key):
     return np.vectorize(lambda d1: d1[key])(d)
+
+
+def get_array_dicts(to_meshgrid=True, **kwargs) -> nptyp.NDArray[dict]:
+    """
+
+    :param to_meshgrid: if True, meshgrid values.
+    :param kwargs:
+    :return: array of dicts with keys and broadcasted values of kwargs
+    """
+    if to_meshgrid:
+        values = np.meshgrid(*kwargs.values(), indexing='ij')
+    else:
+        values = kwargs.values()
+
+    param_dicts = np.vectorize(
+        lambda *args: {
+            k: v for k, v in zip(kwargs.keys(), args)
+        },
+        otypes=(object,)
+    )(*values)
+    return param_dicts
 
 
 def dict_diff(d0: dict, d1: dict) -> dict:
