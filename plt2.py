@@ -429,7 +429,10 @@ def ____Saving____():
 
 def savefig_w_data(
     fname: str,
-    fun: Callable[..., Union[plt.Figure, GridAxes]],
+    fun: Callable[..., Union[
+            plt.Figure, GridAxes,
+            Tuple[Union[plt.Figure, GridAxes], ...]
+        ]],
     kw_fun: Dict[str, Any] = None,
     to_plot=True,
 ):
@@ -438,11 +441,11 @@ def savefig_w_data(
     :param fname: file name for figures.
         Omit extension to avoid overlong cache file name.
     :param fun: can be called with fun(**kw_fun),
-        and returns plt.Figure or plt2.GridAxes
+        and returns plt.Figure or plt2.GridAxes as the only or the first output
     :param kw_fun: if None, loaded from fname.zpkl
     :param to_plot: if False, just save the data
         without plotting or saving a figure
-    :return: None
+    :return: output of fun
     """
 
     mkdir4file(fname)
@@ -452,10 +455,18 @@ def savefig_w_data(
         else:
             cache.set(kw_fun)
     if to_plot:
-        fig = fun(**kw_fun)
+        out = fun(**kw_fun)
+        if np2.is_iter(out):
+            fig = out[0]
+        else:
+            fig = out
         if isinstance(fig, GridAxes):
             fig = fig.figure
-        savefig(fname, fig=fig)
+        if to_plot:
+            savefig(fname, fig=fig)
+    else:
+        out = None
+    return out
 
 
 def savefig(
