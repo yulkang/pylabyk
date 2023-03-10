@@ -435,6 +435,7 @@ def savefig_w_data(
         ]],
     kw_fun: Dict[str, Any] = None,
     to_plot=True,
+    to_savefig=True,
 ):
     """
 
@@ -443,8 +444,9 @@ def savefig_w_data(
     :param fun: can be called with fun(**kw_fun),
         and returns plt.Figure or plt2.GridAxes as the only or the first output
     :param kw_fun: if None, loaded from fname.zpkl
-    :param to_plot: if False, just save the data
-        without plotting or saving a figure
+    :param to_plot: if False, just save the data without plotting
+    :param to_savefig: if True (default), save the figure.
+        Note: make sure to close the figures at some point when to_savefig=False
     :return: output of fun
     """
 
@@ -462,7 +464,7 @@ def savefig_w_data(
             fig = out
         if isinstance(fig, GridAxes):
             fig = fig.figure
-        if to_plot:
+        if to_savefig:
             savefig(fname, fig=fig)
     else:
         out = None
