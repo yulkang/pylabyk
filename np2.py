@@ -1042,14 +1042,30 @@ def info_criterion(nll, n_trial, n_param, kind='BIC', group_dim=None):
         raise ValueError()
 
 
-def thres_info_criterion(loss_kind) -> float:
+def thres_info_criterion(
+    loss_kind,
+    strength='strong'
+) -> float:
+    """
+    Kass & Raftery 1995, https://sites.stat.washington.edu/raftery/Research/PDF/kass1995.pdf)
+    :param loss_kind:
+    :param strength:
+    :return:
+    """
     # See np2.information_criterion() for how these losses are computed
     if loss_kind.startswith('NLL'):
-        thres = np.log(10)  # >="Strong" (Jeffreys 1961; Kass & Raftery 1995)
+        thres = {  # Jeffreys 1961; Kass & Raftery 1995
+            'strong': np.log(10),
+        }[strength]
     elif loss_kind.startswith('BIC') or loss_kind.startswith('AIC'):
-        thres = 6  # (Kass & Raftery 1995))
+        thres = {  # Kass & Raftery 1995
+            'strong': 6,
+            'very strong': 10,
+        }[strength]
     elif loss_kind.startswith('nBIC') or loss_kind.startswith('nAIC'):
-        thres = 3  # (Kass & Raftery 1995))
+        thres = {  # Kass & Raftery 1995
+            'strong': 3
+        }[strength]
     else:
         thres = None
     return thres
