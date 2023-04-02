@@ -120,7 +120,10 @@ def cell2mat(c: np.ndarray, dtype=np.float) -> np.ndarray:
         else np.array(v).astype(dtype)
         for v in c.flatten()
     ])
-    return np.reshape(vs, shape0 + vs[0].shape)
+    if hasattr(vs[0], 'shape'):
+        return np.reshape(vs, shape0 + vs[0].shape)
+    else:
+        return np.reshape(vs, shape0)
 
 
 def cell2mat2(l, max_len=None):
@@ -398,6 +401,23 @@ def filter_by_match(df: pd.DataFrame, d: dict) -> np.ndarray:
     return incl
 
 
+def index_arg(v: np.ndarray, i: np.ndarray) -> np.ndarray:
+    """
+    Given v.shape == SHAPE and i.shape == SHAPE[:-1],
+    return v[..., i[...]]
+    :param v: array to be indexed along the last dimension
+    :param i: index of the last dimension of v
+    :return: v[..., i[...]]
+    """
+    assert v.shape[:-1] == i.shape
+    indexes = np.meshgrid(
+        *[np.arange(s) for s in v.shape[:-1]],
+        indexing='ij'
+    )
+    indexes = (*indexes, i)
+    return v[indexes]
+
+
 def ____COPY____():
     pass
 
@@ -409,6 +429,18 @@ def copy_via_pickle(obj):
     pickle.dump(obj, buf)
     buf.seek(0)
     return pickle.load(buf)
+
+
+def ____DATACLASS____():
+    pass
+
+
+def update_copy(obj, kw: dict):
+    from copy import copy
+    obj = copy(obj)
+    for k, v in kw.items():
+        setattr(obj, k, v)
+    return obj
 
 
 def ____BATCH____():
@@ -574,8 +606,15 @@ def ____NAN____():
     pass
 
 
-def nan2v(v0, v=0):
+def nan2v(v0: np.ndarray, v=0):
+    v0 = v0.copy()  # DEBUGGED to prevent changing input
     v0[np.isnan(v0)] = v
+    return v0
+
+
+def inf2v(v0: np.ndarray, v=0):
+    v0 = v0.copy()  # DEBUGGED to prevent changing input
+    v0[np.isinf(v0)] = v
     return v0
 
 
@@ -589,6 +628,42 @@ def issimilar(
     thres=1e-6
 ) -> np.ndarray:
     return np.abs(a - b) < thres
+
+
+def ____CUM____():
+    pass
+
+
+def cummin(v: np.ndarray, dim: int = 0) -> np.ndarray:
+    """
+
+    :param v:
+    :param dim:
+    :return: cumulative minimum along dim
+    """
+    shape0 = v.shape
+    if dim != 0:
+        v = np.swapaxes(v, 0, dim)
+    cummin1 = v[0]
+    r = [cummin1]
+    for v1 in v[1:]:
+        cummin1 = np.amin(np.stack([cummin1, v1]), 0)
+        r.append(cummin1)
+    r = np.stack(r)
+    if dim != 0:
+        r = np.swapaxes(r, 0, dim)
+    assert r.shape == shape0
+    return r
+
+
+def cummax(v: np.ndarray, dim: int = 0) -> np.ndarray:
+    """
+
+    :param v:
+    :param dim:
+    :return: cumulative maximum along dim
+    """
+    return -cummin(-v, dim)
 
 
 def ____STAT____():
@@ -822,7 +897,7 @@ def ecdf(x0, w=None):
     return p, x
 
 def argmax_margin(v, margin=0.1, margin_from='second', 
-                  fillvalue=-1, axis=None, out=None):
+                  fillvalue=-1, axis=None, out=None) -> np.ndarray:
     """
     argmax with margin; If within margin, use fillvalue instead.
     margin_from: 'second' or 'last'.
@@ -852,17 +927,22 @@ def argmax_margin(v, margin=0.1, margin_from='second',
     return a
 
 
-def argmin_margin(v, **kw):
+def argmin_margin(v, **kw) -> np.ndarray:
     """argmin with margin. See argmax_margin for details."""
     return argmax_margin(-v, **kw)
 
 
-def argmedian(v, axis=None):
+def argmedian(v, axis=None) -> np.ndarray:
     median = np.median(v, axis=axis, keepdims=True)
     return np.argmin(np.abs(v - median), axis=axis)
 
 
-def sumto1(v, axis=None, ignore_nan=True):
+def sumto1(v, axis=None, ignore_nan=True) -> np.ndarray:
+    if is_iter(axis):
+        axis = tuple(axis)
+        if len(axis) == 1:
+            axis = axis[0]
+
     if isinstance(v, np.ndarray):
         dict_axis = {} if axis is None else {'axis': axis}
     else:
@@ -881,6 +961,10 @@ def sumto1(v, axis=None, ignore_nan=True):
 
 
 def maxto1(v, axis=None, ignore_nan=True):
+    if is_iter(axis):
+        axis = tuple(axis)
+        if len(axis) == 1:
+            axis = axis[0]
     if ignore_nan:
         if type(v) is np.ndarray:
             return v / np.nanmax(v, axis=axis, keepdims=True)
@@ -897,32 +981,6 @@ def nansem(v, axis=None, **kwargs):
     s = np.nanstd(v, axis=axis, **kwargs)
     n = np.sum(~np.isnan(v), axis=axis, **kwargs)
     return s / np.sqrt(n)
-
-
-def wpercentile(w: np.ndarray, prct, axis=None):
-    """
-    """
-    if axis is not None:
-        raise NotImplementedError()
-    cw = np.concatenate([np.zeros(1), np.cumsum(w)])
-    cw /= cw[-1]
-    f = interpolate.interp1d(cw, np.arange(len(cw)) - .5)
-    return f(prct / 100.)
-
-    # if axis is None:
-    #     axis = 0
-    #     v = v.flatten()
-    #     w = w.flatten()
-    # z = vec_on(np.zeros(v.shape[axis]), axis, v.ndim)
-    # cv = np.cumsum(v, axis)
-    # cv = np.concatenate([z, cv], axis)
-    # cw = np.cumsum(w, axis)
-    # cw = np.concatenate
-    # f = stats.interpolate.interp1d(w, cv)
-
-
-def wmedian(w, axis=None):
-    return wpercentile(w, prct=50, axis=axis)
 
 
 def pearsonr_ci(x,y,alpha=0.05):
@@ -1008,24 +1066,6 @@ def dkl(a: np.ndarray, b: np.ndarray, axis=None) -> np.ndarray:
     return np.sum(a * (np.log(a) - np.log(b)), axis=axis)
 
 
-def wsum_rvs(mu: np.ndarray, sigma: np.ndarray, w: np.ndarray
-             ) -> (np.ndarray, np.ndarray):
-    """
-    Mean and covariance of weighted sum of random variables
-    :param mu: [..., RV]
-    :param sigma: [..., RV, RV]
-    :param w: [RV]
-    :return: mu_sum[...], variance_sum[...]
-    """
-    mu1 = mu * w  # type: np.ndarray
-    ndim = mu1.ndim
-    # not using axis=-1, to make it work with DataFrame and Series
-    mu1 = mu1.sum(axis=ndim - 1)
-    sigma1 = (sigma *  (w[..., None] * w[..., None, :])
-              ).sum(axis=ndim).sum(axis=ndim - 1)
-    return mu1, sigma1
-
-
 def bonferroni_holm(p: np.ndarray, alpha=0.05, dim=None) -> np.ndarray:
     """
 
@@ -1052,6 +1092,50 @@ def ____WEIGHTED_STATS____():
     pass
 
 
+def wsum_rvs(mu: np.ndarray, cov: np.ndarray, w: np.ndarray
+             ) -> (np.ndarray, np.ndarray):
+    """
+    Mean and covariance of weighted sum of random variables
+    :param mu: [..., RV]
+    :param cov: [..., RV, RV]
+    :param w: [RV]
+    :return: mu_sum[...], variance_sum[...]
+    """
+    mu1 = mu * w  # type: np.ndarray
+    ndim = mu1.ndim
+    # not using axis=-1, to make it work with DataFrame and Series
+    mu1 = mu1.sum(axis=ndim - 1)
+    cov1 = (cov *  (w[..., None] * w[..., None, :])
+              ).sum(axis=ndim).sum(axis=ndim - 1)
+    return mu1, cov1
+
+
+def wpercentile(w: np.ndarray, prct, axis=None):
+    """
+    """
+    if axis is not None:
+        raise NotImplementedError()
+    cw = np.concatenate([np.zeros(1), np.cumsum(w)])
+    cw /= cw[-1]
+    f = interpolate.interp1d(cw, np.arange(len(cw)) - .5)
+    return f(prct / 100.)
+
+    # if axis is None:
+    #     axis = 0
+    #     v = v.flatten()
+    #     w = w.flatten()
+    # z = vec_on(np.zeros(v.shape[axis]), axis, v.ndim)
+    # cv = np.cumsum(v, axis)
+    # cv = np.concatenate([z, cv], axis)
+    # cw = np.cumsum(w, axis)
+    # cw = np.concatenate
+    # f = stats.interpolate.interp1d(w, cv)
+
+
+def wmedian(w, axis=None):
+    return wpercentile(w, prct=50, axis=axis)
+
+
 def wmean(values: np.ndarray, weights: np.ndarray,
           axis=None, keepdim=False) -> np.ndarray:
     return (values * weights).sum(
@@ -1074,6 +1158,22 @@ def wstd(values: np.ndarray, weights: np.ndarray,
     if not keepdim:
         var = np.squeeze(var, axis=axis)
     return np.sqrt(var)
+
+
+def wsem(values: np.ndarray, weights: np.ndarray,
+         axis=None, keepdim=False) -> np.ndarray:
+    """
+    Weighted standard error of mean.
+    :param values:
+    :param weights:
+    :param axis:
+    :param keepdim:
+    :return:
+    """
+    return (
+        wstd(values, weights, axis, keepdim)
+        / np.sqrt(np.sum(weights, axis=axis, keepdims=keepdim))
+    )
 
 
 def wstandardize(values: np.ndarray, weights: np.ndarray,
@@ -1846,6 +1946,20 @@ def meshgridflat(*args, copy=False):
     return outputs
 
 
+def fun_par_dict(fun: Callable, *args):
+    """
+    wrapper to use functions with kwargs with vectorize_par()
+    :param fun: function
+    :param args: args[-1], if exists, is the kwargs for fun()
+        args[:-1], if exists, is args for fun()
+    :return: fun() if len(args) == 0 else fun(*args[:-1], **args[-1])
+    """
+    if len(args) > 0:
+        return fun(*args[:-1], **args[-1])
+    else:
+        return fun()
+
+
 # # Stopped while writing vectorize_into_df - perhaps too specialized
 # def vectorize_into_df(
 #     f: Callable,
@@ -1894,6 +2008,8 @@ def meshgridflat(*args, copy=False):
 #     return f(**kw)
 #
 #
+
+
 def vectorize_par(
     f: Callable, inputs: Iterable,
     pool: Pool = None, processes=None, chunksize=1,
@@ -1988,10 +2104,13 @@ def vectorize_par(
         outs = pool.map(f, m, chunksize=chunksize)
 
     if nout is None:
-        try:
-            nout = len(outs[0])
-        except TypeError:
-            nout = 1
+        if otypes is not None and is_sequence(otypes):
+            nout = len(otypes)
+        else:
+            try:
+                nout = len(outs[0])
+            except TypeError:
+                nout = 1
 
     if otypes is None:
         otypes = [np.object] * nout
@@ -2017,7 +2136,7 @@ def vectorize_par(
 
     # --- outs3: set to a correct otype
     # DEF: outs3[argout][i_input1, i_input2, ...]
-    outs3 = [cell2mat(out, otype) if otype is not np.object
+    outs3 = [cell2mat(out, otype) if otype not in [np.object, object]
              else out
              for out, otype in zip(outs2, otypes)]
     return outs3
@@ -2115,18 +2234,18 @@ def nanautocorr(firing_rate: np.ndarray, thres_n=2) -> np.ndarray:
     return ac
 
 
-def nansmooth(u, sigma=1., **kwargs):
+def nansmooth(u, stdev=1., **kwargs):
     from scipy import ndimage
 
     isnan = np.isnan(u)
 
     v = u.copy()
     v[isnan] = 0.
-    vv = ndimage.gaussian_filter(v, sigma=sigma, **kwargs)
+    vv = ndimage.gaussian_filter(v, sigma=stdev, **kwargs)
 
     w = 1. - isnan
     ww = np.clip(
-        ndimage.gaussian_filter(w, sigma=sigma, **kwargs), a_min=0, a_max=1)
+        ndimage.gaussian_filter(w, sigma=stdev, **kwargs), a_min=0, a_max=1)
 
     r = vv / ww
     r[isnan] = np.nan
@@ -2304,6 +2423,10 @@ class AliasStr(
             for k, v in d.items()
         }
 
+    @staticmethod
+    def get_orig(s: Union[str, 'AliasStr']) -> str:
+        return s.orig if isinstance(s, AliasStr) else s
+
 
 class AliasStrAttributes(DictAttribute):
     # def __getattribute__(self, key):
@@ -2344,7 +2467,7 @@ def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
 def shorten_dict(
     d: dict, src_dst=(), shorten_key=False,
     shorten_zero=True,
-) -> Dict[str, str]:
+) -> Union[Dict[str, str], Dict[AliasStr, str]]:
     d1 = {
         (shorten(k, src_dst) if shorten_key else k)
         : shorten(v, src_dst)

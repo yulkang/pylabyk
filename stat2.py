@@ -13,12 +13,12 @@ from scipy import stats
 #%%
 
 def ms2lognorm(m0, s0):
-    '''mean and stdev into mu and sigma params of the lognormal distribution'''
+    '''mean and stdev into mu and stdev params of the lognormal distribution'''
     m = m0 + 0.
     s = s0 + 0.
-    sig = np.sqrt(np.log((s / m) ** 2. + 1.))
-    mu = np.log(m) - sig ** 2. / 2.
-    return mu, sig
+    stdev = np.sqrt(np.log((s / m) ** 2. + 1.))
+    mu = np.log(m) - stdev ** 2. / 2.
+    return mu, stdev
 
 def lognorm2ms(mu0, sig0):
     mu = mu0 + 0.
