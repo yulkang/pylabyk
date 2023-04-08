@@ -613,7 +613,7 @@ def lim_margin(
 
 def break_axis(
         amin, amax=None, xy='x', ax: plt.Axes = None,
-        fun_draw: Callable = None,
+        fun_draw: Callable[[plt.Axes], Any] = None,
         margin=0.05,
         prop=0.5,
 ) -> (plt.Axes, plt.Axes):
