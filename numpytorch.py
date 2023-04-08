@@ -165,10 +165,12 @@ def float(v):
     return v.type(torch.get_default_dtype())
 
 
-def tensor(v: Union[float, np.ndarray, torch.Tensor],
-           min_ndim=1,
-           device=None,
-           **kwargs) -> Union[torch.Tensor, torch.LongTensor]:
+def tensor(
+    v: Union[float, np.ndarray, torch.Tensor],
+    min_ndim=1,
+    device=None,
+    **kwargs
+) -> Union[torch.Tensor, torch.LongTensor]:
     """
     Construct a tensor if the input is not; otherwise return the input as is,
     but return None as is for convenience when input is not passed.
@@ -190,10 +192,16 @@ def tensor(v: Union[float, np.ndarray, torch.Tensor],
                 v = v.to(device)
         else:
             try:
-                v = torch.tensor(v, device=device, **kwargs)
+                v = torch.tensor(
+                    v, device=device,
+                    **kwargs
+                )
             except TypeError:
                 v = torch.tensor(
-                    v, device=device, dtype=torch.float32, **kwargs)
+                    v, device=device,
+                    **{
+                        **dict(dtype=torch.float32), **kwargs
+                    })
         if v.ndimension() < min_ndim:
             v = v.expand(v.shape
                          + torch.Size([1] * (min_ndim - v.ndimension())))
