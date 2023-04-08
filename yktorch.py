@@ -1901,7 +1901,8 @@ def optimize_scipy(
         loss_eval = model(return_grad=False)
         # _, loss_eval = model()
     else:
-        loss_eval = model(return_grad=False)
+        # loss_eval = model(return_grad=False)
+        loss_eval = model()
     loss_eval = npy(loss_eval)
     out['fun_train'] = out['fun']
     out['fun_eval'] = loss_eval
