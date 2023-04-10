@@ -778,7 +778,6 @@ def sameaxes(ax: Union[AxesArray, GridAxes],
             if ax0 is None:
                 if xy1 == 'x':
                     lims = cat_lims([ax1.get_xlim() for ax1 in ax])
-                    lim0 = ax[0].get_xlim()
                     try:
                         is_inverted = ax[0].get_xaxis().get_inverted()
                     except AttributeError:
