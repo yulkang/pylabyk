@@ -100,7 +100,8 @@ class GridAxes:
         heights: Union[float, Sequence[float]] = 0.75,
         kw_fig=(),
         kw_subplot: Union[None, Sequence[Sequence[Dict[str, Any]]]] = None,
-        close_on_del=False,
+        close_on_del=True,
+        # close_on_del=False,  # CHECKED
     ):
         """
         Give all size arguments in inches. top and right are top and right
@@ -2036,8 +2037,11 @@ def fig2array(fig, dpi=None):
     return img
 
 
-def arrays2gif(arrays, file='ani.gif', duration=100, loop=0,
-                     **kwargs):
+def arrays2gif(
+    arrays: Sequence[np.ndarray],
+    file='ani.gif', duration=100, loop=0,
+    **kwargs
+):
     """
     Convert numpy arrays, as from fig2array(), into gif.
     :param arrays: arrays[i]: an [height,width,color]-array, e.g.,
@@ -2070,25 +2074,48 @@ def arrays2gif(arrays, file='ani.gif', duration=100, loop=0,
     return images
 
 
-def convert_movie(src_file, ext_new='.mp4'):
+def convert_movie(src_file: str, ext_new='.mp4', fps=10) -> str:
     """
     Adapted from: https://stackoverflow.com/a/40726572/2565317
-    :param src_file: path to the source file, including extension
-    :type src_file: str
-    :type ext_new: str
+    :param src_file: path to the source file, including extension.
+        Currently only '.gif' is supported.
+    :param ext_new: new extension. Currently only '.mp4' is supported
+    :return: path to the new file
     """
 
-    import os
-    pth, _ = os.path.splitext(src_file)
+    assert ext_new == '.mp4'
+    assert fps >= 9, 'fps < 9 doesn''t work with QuickTime'
 
-    dst_file = pth + ext_new
+    import os
+    pth_wo_ext, ext_old = os.path.splitext(src_file)
+    assert ext_old == '.gif'
+
+    dst_file = pth_wo_ext + ext_new
     from send2trash import send2trash
     if os.path.exists(dst_file):
         send2trash(dst_file)
 
-    import moviepy.editor as mp
-    clip = mp.VideoFileClip(src_file)
-    clip.write_videofile(dst_file)  # , write_logfile=True)
+    from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
+    import imageio
+
+    # def gif_to_mp4(gif_file, output_file):
+    # Read the GIF file using imageio
+    gif = imageio.mimread(src_file)
+
+    # # Write the frames to a temporary directory as PNG files
+    # with imageio.imiter(dst_file, format='png') as writer:
+    #     for frame in gif:
+    #         writer.append_data(frame)
+
+    # Create a moviepy clip from the PNG files and write it to an MP4 file
+    clip = ImageSequenceClip(gif, fps=fps)
+    clip.write_videofile(dst_file, codec='mpeg4')
+
+    # import moviepy.editor as mp
+    # clip = mp.VideoFileClip(src_file)
+    #
+    # mkdir4file(dst_file)
+    # clip.write_videofile(dst_file)  # , write_logfile=True)
 
     # import ffmpy
     # ff = ffmpy.FFmpeg(
@@ -2097,20 +2124,25 @@ def convert_movie(src_file, ext_new='.mp4'):
     # )
     # ff.run()
 
+    return dst_file
+
 
 class Animator:
     def __init__(self):
         self.frames = []
 
+    def __len__(self) -> int:
+        return len(self.frames)
+
     def append_fig(self, fig: plt.Figure):
         self.frames.append(fig2array(fig))
 
-    def export(self, file, ext=('.gif', '.mp4'), duration=100, loop=0,
+    def export(self, file, ext=('.gif', '.mp4'), duration=250, loop=0,
                kw_gif=()) -> Iterable[str]:
         """
 
         :param file:
-        :param ext:
+        :param ext: extension of the output file, e.g., '.gif', '.mp4'
         :param duration:
         :param loop:
         :param kw_gif:
@@ -2122,6 +2154,7 @@ class Animator:
         import os
         file_wo_ext = os.path.splitext(file)[0]
         file_gif = file_wo_ext + '.gif'
+        mkdir4file(file_gif)
 
         files = [file_gif]
 
