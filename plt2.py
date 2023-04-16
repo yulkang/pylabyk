@@ -2174,6 +2174,27 @@ class Animator:
         return files
 
 
+def ____Latex____():
+    pass
+
+
+def use_sans_serif():
+    """
+    Use sans-serif fonts in matplotlib.
+    from https://stackoverflow.com/a/20709149/2565317
+    :return:
+    """
+    mpl.rcParams['text.latex.preamble'] = [
+        r'\usepackage{siunitx}',
+        # i need upright \micro symbols, but you need...
+        r'\sisetup{detect-all}',
+        # ...this to force siunitx to actually use your fonts
+        r'\usepackage{helvet}',  # set the normal font here
+        r'\usepackage{sansmath}',  # load up the sansmath so that math -> helvet
+        r'\sansmath'  # <- tricky! -- gotta actually tell tex to use!
+    ]
+
+
 def ____COMPOSITE_FIGURES____():
     pass
 
