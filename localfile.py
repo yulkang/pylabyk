@@ -90,14 +90,21 @@ class LocalFile(object):
 
     def get_file_cache(
             self,
+            cache_kind: str,
             d: [Iterable[tuple], dict, odict, None],
-            subdir=None, cache_dir=None) -> str:
+            subdir=None,
+            # cache_dir=None
+    ) -> str:
         """
         """
-        return os.path.join(
-            self.get_pth_cache(subdir, cache_dir=cache_dir),
-            self.dict2fname(d) + '.zpkl'
+        return self.get_file(
+            filekind='cache', kind=cache_kind,
+            d=d, ext='.zpkl', subdir=subdir
         )
+        # return os.path.join(
+        #     self.get_pth_cache(subdir, cache_dir=cache_dir),
+        #     self.dict2fname(d) + '.zpkl'
+        # )
 
     def get_file0(self, file: str, subdir=''):
         return os.path.join(
@@ -156,11 +163,10 @@ class LocalFile(object):
         if subdir is None and self.kind2subdir:
             subdir = 'cache=%s' % cache_kind
 
-        file = self.get_file(
-            filekind='cache', kind=cache_kind,
-            d=d, ext='.zpkl', subdir=subdir
+        fname = self.get_file_cache(
+            cache_kind=cache_kind, d=d, subdir=subdir
         )
-        return Cache(file, **{
+        return Cache(fname, **{
             'ignore_key': ignore_key,
             **kwargs
         })
