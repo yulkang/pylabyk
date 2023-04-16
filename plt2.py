@@ -187,7 +187,7 @@ class GridAxes:
         )
         self.gs = gs  # for backward compatibility
 
-        axs = np.empty([nrows, ncols], dtype=np.object)
+        axs = np.empty([nrows, ncols], dtype=object)
 
         for row in range(nrows):
             for col in range(ncols):
@@ -887,7 +887,7 @@ def same_clim(
         # clim = [np.amin(arrays), np.amax(arrays)]
 
         # # DEBUGGED: np.amax(clims) doesn't work when either clim is None.
-        clims = np.array([im.get_clim() for im in img0], dtype=np.object)
+        clims = np.array([im.get_clim() for im in img0], dtype=object)
         def fun_or_val(fun, v, im):
             if v is not None:
                 return v
