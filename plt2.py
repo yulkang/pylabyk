@@ -464,7 +464,7 @@ def savefig_w_data(
             fig = out
         if hasattr(fig, 'figure'):
             fig = fig.figure
-        if to_savefig:
+        if to_savefig and fig is not None:
             savefig(fname, fig=fig)
         else:
             plt.close(fig)
