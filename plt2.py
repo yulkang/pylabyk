@@ -433,10 +433,13 @@ def savefig_w_data(
     fun: Callable[..., Union[
             plt.Figure, GridAxes,
             Tuple[Union[plt.Figure, GridAxes], ...]
-        ]],
+        ]] = None,
     kw_fun: Dict[str, Any] = None,
+    to_load_kw_fun_only=False,
+    to_overwrite_cache=False,
     to_plot=True,
     to_savefig=True,
+    to_return_kw_fun=False,
 ):
     """
 
@@ -445,18 +448,30 @@ def savefig_w_data(
     :param fun: can be called with fun(**kw_fun),
         and returns plt.Figure or plt2.GridAxes as the only or the first output
     :param kw_fun: if None, loaded from fname.zpkl
+    :param to_load_kw_fun_only: if True, load kw_fun only
+    :param to_overwrite_cache: if True, overwrite cache even if it exists
     :param to_plot: if False, just save the data without plotting
     :param to_savefig: if True (default), save the figure; otherwise close it.
-    :return: output of fun
+    :param to_return_kw_fun: if True, return kw_fun
+    :return: output of fun (, kw_fun if return_kw_fun)
     """
 
     mkdir4file(fname)
     with Cache(fname + '.zpkl', ignore_key=True) as cache:
+        if to_load_kw_fun_only:
+            if cache.exists():
+                kw_fun = cache.get()
+            else:
+                raise FileNotFoundError('Cache file does not exist.')
+            return kw_fun
+
         if kw_fun is None:
             kw_fun = cache.get()
-        else:
+        elif to_overwrite_cache or not cache.exists():
             cache.set(kw_fun)
+
     if to_plot:
+        assert fun is not None
         out = fun(**kw_fun)
         if np2.is_iter(out):
             fig = out[0]
@@ -470,7 +485,11 @@ def savefig_w_data(
             plt.close(fig)
     else:
         out = None
-    return out
+
+    if to_return_kw_fun:
+        return out, kw_fun
+    else:
+        return out
 
 
 def savefig(
