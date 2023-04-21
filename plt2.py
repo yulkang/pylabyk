@@ -778,8 +778,11 @@ def break_axis(
     return axs
 
 
-def sameaxes(ax: Union[AxesArray, GridAxes],
-             ax0: plt.Axes = None, xy='xy', lim: (int, int) = None):
+def sameaxes(
+    ax: Union[AxesArray, GridAxes],
+    ax0: plt.Axes = None, xy='xy',
+    lim: Sequence[Tuple[int, int]] = None
+) -> Sequence[Tuple[int, int]]:
     """
     Match the chosen limits of axes in ax to ax0's (if given) or the max range.
     Also consider: ax1.get_shared_x_axes().join(ax1, ax2)
@@ -789,6 +792,7 @@ def sameaxes(ax: Union[AxesArray, GridAxes],
     :param ax0: a scalar axes to match limits to. if None (default),
     match the maximum range among axes in ax.
     :param xy: 'x'|'y'|'xy'(default)
+    :param lim: [[min, max]] of limits. If xy='xy', contains two pairs.
     :return: [[min, max]] of limits. If xy='xy', contains two pairs.
     """
     if type(ax) is np.ndarray or type(ax) is GridAxes:
@@ -797,37 +801,43 @@ def sameaxes(ax: Union[AxesArray, GridAxes],
     def cat_lims(lims):
         return np.concatenate([np.array(v1).reshape(1,2) for v1 in lims])
 
-    lims_res = []
-    for xy1 in xy:
-        if lim is None:
-            if ax0 is None:
-                if xy1 == 'x':
-                    lims = cat_lims([ax1.get_xlim() for ax1 in ax])
-                    lim0 = ax[0].get_xlim()
-                    try:
-                        is_inverted = ax[0].get_xaxis().get_inverted()
-                    except AttributeError:
-                        is_inverted = ax[0].xaxis_inverted()
-                else:
-                    lims = cat_lims([ax1.get_ylim() for ax1 in ax])
-                    try:
-                        is_inverted = ax[0].get_yaxis().get_inverted()
-                    except AttributeError:
-                        is_inverted = ax[0].yaxis_inverted()
-                if is_inverted:
-                    lims0 = [np.max(lims[:,0]), np.min(lims[:,1])]
-                else:
-                    lims0 = [np.min(lims[:,0]), np.max(lims[:,1])]
-            else:
-                if xy1 == 'x':
-                    lims0 = ax0.get_xlim()
-                elif xy1 == 'y':
-                    lims0 = ax0.get_ylim()
-                else:
-                    raise ValueError()
+    if lim is not None:
+        if np2.is_iter(lim[0]):
+            lims_res = lim
         else:
-            lims0 = lim
-        lims_res.append(lims0)
+            lims_res = [lim, lim]
+    else:
+        lims_res = []
+        for xy1 in xy:
+            if lim is None:
+                if ax0 is None:
+                    if xy1 == 'x':
+                        lims = cat_lims([ax1.get_xlim() for ax1 in ax])
+                        lim0 = ax[0].get_xlim()
+                        try:
+                            is_inverted = ax[0].get_xaxis().get_inverted()
+                        except AttributeError:
+                            is_inverted = ax[0].xaxis_inverted()
+                    else:
+                        lims = cat_lims([ax1.get_ylim() for ax1 in ax])
+                        try:
+                            is_inverted = ax[0].get_yaxis().get_inverted()
+                        except AttributeError:
+                            is_inverted = ax[0].yaxis_inverted()
+                    if is_inverted:
+                        lims0 = [np.max(lims[:,0]), np.min(lims[:,1])]
+                    else:
+                        lims0 = [np.min(lims[:,0]), np.max(lims[:,1])]
+                else:
+                    if xy1 == 'x':
+                        lims0 = ax0.get_xlim()
+                    elif xy1 == 'y':
+                        lims0 = ax0.get_ylim()
+                    else:
+                        raise ValueError()
+            else:
+                lims0 = lim
+            lims_res.append(lims0)
 
     for xy1, lims0 in zip(xy, lims_res):
         if xy1 == 'x':
@@ -1878,13 +1888,14 @@ def step_ecdf(
 
 
 def significance(
-        x: Union[Sequence[float], np.ndarray],
-        y: Union[Sequence[float], np.ndarray],
-        text='*', kw_line=(), kw_text=(),
-        x_text=None,
-        y_text=None,
-        margin_axis='y',
-        margin_text=0.,
+    x: Union[Sequence[float], np.ndarray],
+    y: Union[Sequence[float], np.ndarray],
+    text='*', kw_line=(), kw_text=(),
+    x_text=None,
+    y_text=None,
+    margin_axis='y',
+    margin_text=0.05,
+    baseline=0.,
 ) -> (plt.Line2D, plt.Text):
     """
     Plot a line spanning bars to mark the significance of the comparison
@@ -1902,58 +1913,61 @@ def significance(
         'lower': the margin is on the lower side of the bars.
         'x' or 'right': the margin is on the right side of the bars.
         'left': the margin is on the left side of the bars.
-    :param margin_text: margin between the line and the text
+    :param margin_text: margin between the line and the text relative to the
+        range of the axis
     :return: h_line, h_text
     """
-    x, y = np.broadcast_arrays(x, y)
-    if margin_axis == 'y':
+    if margin_axis in ['y', 'upper']:
+        range_axis = np.diff(plt.ylim())
         if x_text is None:
             x_text = np.mean(x)
         if y_text is None:
-            y_text = np.amax(np.abs(y)) + margin_text
+            y_text = max([baseline, np.amax(y)]) + margin_text * range_axis
+        x_line = x
+        y_line = np.zeros(2) + y_text
         va = 'bottom'
         ha = 'center'
-        # if x_text is None:
-        #     x_text = x_middle
-        # if y_text is None:
-        #     margin = np.diff(plt.ylim()) * margin_prop * (
-        #         1 if y_middle == 0 else np.sign(y_middle))
-        #     y_text = y_middle + margin
+
     elif margin_axis in ['lower']:
+        range_axis = np.diff(plt.ylim())
         if x_text is None:
             x_text = np.mean(x)
         if y_text is None:
-            y_text = np.amax(y) - margin_text
-
+            y_text = min([baseline, np.amin(y)]) - margin_text * range_axis
+        x_line = x
+        y_line = np.zeros(2) + y_text
         va = 'top'
         ha = 'center'
+
     elif margin_axis in ['x', 'right']:
+        range_axis = np.diff(plt.xlim())
         if x_text is None:
-            x_text = np.amax(x) + margin_text
+            x_text = max([baseline, np.amax(x)]) + margin_text * range_axis
         if y_text is None:
             y_text = np.mean(y)
+        x_line = np.zeros(2) + x_text
+        y_line = y
         va = 'center'
         ha = 'left'
-        # if x_text is None:
-        #     margin = np.diff(plt.xlim()) * margin_prop * (
-        #         1 if x_middle == 0 else np.sign(x_middle))
-        #     x_text = x_middle + margin
-        # if y_text is None:
-        #     y_text = y_middle
+
     elif margin_axis in ['left']:
+        range_axis = np.diff(plt.xlim())
         if x_text is None:
-            x_text = np.amax(x) - margin_text
+            x_text = min([baseline, np.amin(x)]) - margin_text * range_axis
         if y_text is None:
             y_text = np.mean(y)
+        x_line = np.zeros(2) + x_text
+        y_line = y
         va = 'center'
         ha = 'right'
+
     else:
         raise ValueError()
 
     kw_line = {'color': 'k', 'linewidth': 0.5, 'linestyle': '-',
         **dict(kw_line)}
     kw_text = {'ha': ha, 'va': va, **dict(kw_text)}
-    h_line = plt.plot(x, y, **kw_line)
+    h_line = plt.plot(x_line, y_line, **kw_line)
     h_text = plt.text(x_text, y_text, text, **kw_text)
     return h_line, h_text
 
