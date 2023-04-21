@@ -169,7 +169,17 @@ def mat2list(m: np.ndarray) -> List[np.ndarray]:
 
 
 def shapes(d, verbose=True, return_shape=False):
-    if not isinstance(d, dict):
+    """
+    inspect shape and type of the elements of a dictionary, iterable, or object
+    :param d: object to be inspected
+    :param verbose: whether to print the shapes
+    :param return_shape: whether to return the shapes
+    :return: shapes[k] = shape and (d)type of d[k]
+        if d is not iterable, shapes[None] = type of d.
+    """
+    if not is_iter(d):
+        d = {None: type(d)}
+    elif not isinstance(d, dict):
         assert is_iter(d)
         d = {k: v for k, v in enumerate(d)}
     sh = {}
