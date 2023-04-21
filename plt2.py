@@ -1883,29 +1883,34 @@ def significance(
         text='*', kw_line=(), kw_text=(),
         x_text=None,
         y_text=None,
-        # margin_prop=0.1,
         margin_axis='y',
         margin_text=0.,
 ) -> (plt.Line2D, plt.Text):
     """
-
-    :param x:
-    :param y:
-    :param text:
-    :param kw_line:
-    :param kw_text:
+    Plot a line spanning bars to mark the significance of the comparison
+    :param x: x coordinates of the points to straddle
+        (usually the middle of the tip of the bars)
+    :param y: y coordinates of the points to straddle
+        (usually the middle of the tip of the bars)
+    :param text: usually from significance_marker()
+    :param kw_line: keyword arguments for the line
+    :param kw_text: keyword arguments for the text
+    :param x_text: x position of the text
+    :param y_text: y position of the text
+    :param margin_axis: The axis (or direction) of the margin.
+        'y' or 'upper': the margin is on the upper side of the bars.
+        'lower': the margin is on the lower side of the bars.
+        'x' or 'right': the margin is on the right side of the bars.
+        'left': the margin is on the left side of the bars.
+    :param margin_text: margin between the line and the text
     :return: h_line, h_text
     """
     x, y = np.broadcast_arrays(x, y)
-    x_middle = np.mean(x)
-    y_middle = np.mean(y)
-
-    if x_text is None:
-        x_text = x_middle
-    if y_text is None:
-        y_text = y_middle + margin_text
-
     if margin_axis == 'y':
+        if x_text is None:
+            x_text = np.mean(x)
+        if y_text is None:
+            y_text = np.amax(np.abs(y)) + margin_text
         va = 'bottom'
         ha = 'center'
         # if x_text is None:
@@ -1914,7 +1919,19 @@ def significance(
         #     margin = np.diff(plt.ylim()) * margin_prop * (
         #         1 if y_middle == 0 else np.sign(y_middle))
         #     y_text = y_middle + margin
-    elif margin_axis == 'x':
+    elif margin_axis in ['lower']:
+        if x_text is None:
+            x_text = np.mean(x)
+        if y_text is None:
+            y_text = np.amax(y) - margin_text
+
+        va = 'top'
+        ha = 'center'
+    elif margin_axis in ['x', 'right']:
+        if x_text is None:
+            x_text = np.amax(x) + margin_text
+        if y_text is None:
+            y_text = np.mean(y)
         va = 'center'
         ha = 'left'
         # if x_text is None:
@@ -1923,6 +1940,13 @@ def significance(
         #     x_text = x_middle + margin
         # if y_text is None:
         #     y_text = y_middle
+    elif margin_axis in ['left']:
+        if x_text is None:
+            x_text = np.amax(x) - margin_text
+        if y_text is None:
+            y_text = np.mean(y)
+        va = 'center'
+        ha = 'right'
     else:
         raise ValueError()
 
