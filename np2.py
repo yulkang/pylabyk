@@ -178,7 +178,7 @@ def shapes(d, verbose=True, return_shape=False):
         if d is not iterable, shapes[None] = type of d.
     """
     if not is_iter(d):
-        d = {None: type(d)}
+        d = {None: d}
     elif not isinstance(d, dict):
         assert is_iter(d)
         d = {k: v for k, v in enumerate(d)}
