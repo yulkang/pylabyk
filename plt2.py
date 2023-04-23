@@ -1529,7 +1529,9 @@ def colorbar(
     kw_cbar=(),
     to_mark_range=False,
     range_lim=None,
-    kw_mark_rage=()
+    kw_mark_range=(('color', 'k'), ('linewidth', 2.)),
+    levels_to_mark=(),
+    kw_mark_levels=(('color', 'k'), ('linewidth', .5)),
 ) -> mpl.colorbar.Colorbar:
     """
     Add a colorbar aligned to the mappable (e.g., image)
@@ -1537,16 +1539,26 @@ def colorbar(
     :param ax:
     :param mappable: defaults to image in the axes
     :param loc: as for legend. 'right', 'lower center', ...
-    :param width: relative to the axes
+    :param width: relative to the axes.
+        Ends with '%' (of the axis width) or 'in' (inch)
     :param height: relative to the axes
+        Ends with '%' (of the axis height) or 'in' (inch)
     :param borderpad: relative to the fontsize of the axes.
         When loc='right',
             0 aligns the right edges of the colorbar and the parent axis.
             Negative value pushes the colorbar further to the right.
     :param kw_inset:
     :param kw_cbar:
+    :param to_mark_range:
+    :param range_lim:
+    :param kw_mark_range:
+    :param levels_to_mark:
+    :param kw_mark_levels:
     :return:
     """
+    assert isinstance(width, str)
+    assert isinstance(height, str)
+
     if ax is None:
         ax = plt.gca()
     if mappable is None:
@@ -1584,7 +1596,12 @@ def colorbar(
         label=label, orientation=orientation, **dict(kw_cbar)
     )
 
+    xlim = plt.xlim()
+    ylim = plt.ylim()
+
     if to_mark_range:
+        plt.sca(cb.ax)
+
         if range_lim is None:
             range_lim = (
                 np.nanmin(mappable.get_array()),
@@ -1594,22 +1611,25 @@ def colorbar(
             plt.plot(
                 np.mean(cb.ax.xaxis.get_data_interval()) + np.zeros(2),
                 range_lim,
-                **{
-                    'color': 'k',
-                    'lw': 2.,
-                    **dict(kw_mark_rage)
-                }
+                **dict(kw_mark_range)
             )
         else:
             plt.plot(
                 range_lim,
                 np.mean(cb.ax.yaxis.get_data_interval()) + np.zeros(2),
-                **{
-                    'color': 'k',
-                    'lw': 0.5,
-                    **dict(kw_mark_rage)
-                }
+                **dict(kw_mark_range)
             )
+
+    for level in levels_to_mark:
+        if orientation == 'vertical':
+            f = plt.axhline
+        else:
+            f = plt.axvline
+        f(level, **dict(kw_mark_levels))
+
+    if to_mark_range or len(levels_to_mark) > 0:
+        plt.xlim(xlim)
+        plt.ylim(ylim)
 
     return cb
 
