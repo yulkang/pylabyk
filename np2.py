@@ -657,9 +657,13 @@ def ____ALGEBRA____():
 def issimilar(
     a: Union[torch.Tensor, np.ndarray, float],
     b: Union[torch.Tensor, np.ndarray, float],
-    thres=1e-6
+    thres=1e-6,
+    verbose=False,
 ) -> np.ndarray:
-    return np.abs(a - b) < thres
+    res = np.abs(a - b) < thres
+    if verbose:
+        print(f'issimilar({a}, {b}, thres={thres}) = {res}')
+    return res
 
 
 def ____CUM____():
@@ -700,6 +704,23 @@ def cummax(v: np.ndarray, dim: int = 0) -> np.ndarray:
 
 def ____STAT____():
     pass
+
+
+def cdf2pval(cdf: nptyp.ArrayLike, tail='both') -> nptyp.ArrayLike:
+    """
+    Convert cdf to p-value
+    :param cdf: cumulative distribution function
+    :param tail: 'both', 'left', 'right'
+    :return: p-value
+    """
+    if tail == 'both':
+        return 2 * np.minimum(cdf, 1 - cdf)
+    elif tail == 'left':
+        return cdf
+    elif tail == 'right':
+        return 1 - cdf
+    else:
+        raise ValueError(f"tail={tail} not recognized")
 
 
 def beta_pseudocount2meanvar(
