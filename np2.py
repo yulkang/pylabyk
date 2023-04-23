@@ -295,21 +295,21 @@ def dict2array(d, key):
     return np.vectorize(lambda d1: d1[key])(d)
 
 
-def get_array_dicts(to_meshgrid=True, **kwargs) -> nptyp.NDArray[dict]:
+def get_array_dicts(d: Dict, to_meshgrid=True) -> nptyp.NDArray[dict]:
     """
 
+    :param d: dicts of lists or arrays
     :param to_meshgrid: if True, meshgrid values.
-    :param kwargs:
-    :return: array of dicts with keys and broadcasted values of kwargs
+    :return: array of dicts with keys and broadcasted values of d
     """
     if to_meshgrid:
-        values = np.meshgrid(*kwargs.values(), indexing='ij')
+        values = np.meshgrid(*d.values(), indexing='ij')
     else:
-        values = kwargs.values()
+        values = d.values()
 
     param_dicts = np.vectorize(
         lambda *args: {
-            k: v for k, v in zip(kwargs.keys(), args)
+            k: v for k, v in zip(d.keys(), args)
         },
         otypes=(object,)
     )(*values)
