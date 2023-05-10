@@ -2127,6 +2127,7 @@ def vectorize_par(
         shape0 = [len(inp) for inp in inputs]
         mesh_inputs = np.meshgrid(*inputs, indexing='ij')  # type: Iterable[np.ndarray]
     else:
+        inputs = [arrayobj1d([inp]) if not is_iter(inp) else inp for inp in inputs]
         shape0 = broadcast_shapes(*[npy(v).shape for v in inputs])
         mesh_inputs = [np.broadcast_to(v, shape0) for v in inputs]
     mesh_inputs = [m.flatten() for m in mesh_inputs]
