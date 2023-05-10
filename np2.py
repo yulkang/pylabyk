@@ -1116,7 +1116,9 @@ def dkl(a: np.ndarray, b: np.ndarray, axis=None) -> np.ndarray:
     :param axis:
     :return: DKL[a || b] = sum(a * (log(a) - log(b)), axis)
     """
-    return np.sum(a * (np.log(a) - np.log(b)), axis=axis)
+    log_a = np.zeros_like(a)
+    log_a[a > 0] = np.log(a[a > 0])
+    return np.sum(a * (log_a - np.log(b)), axis=axis)
 
 
 def bonferroni_holm(p: np.ndarray, alpha=0.05, dim=None) -> np.ndarray:
