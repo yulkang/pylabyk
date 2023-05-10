@@ -1108,17 +1108,22 @@ def thres_info_criterion(loss_kind) -> float:
     return thres
 
 
-def dkl(a: np.ndarray, b: np.ndarray, axis=None) -> np.ndarray:
+def dkl(
+    p: np.ndarray, q: np.ndarray, axis: Union[int, Sequence[int]] = None,
+    lapse_rate=0,
+) -> np.ndarray:
     """
     DKL[a || b]
-    :param a:
-    :param b:
-    :param axis:
+    :param p: sums to 1 along axis
+    :param q: sums to 1 along axis
+    :param axis: axis along which to sum
+    :param lapse_rate: lapse rate. Use > 0 to prevent NaN where q=0
     :return: DKL[a || b] = sum(a * (log(a) - log(b)), axis)
     """
-    log_a = np.zeros_like(a)
-    log_a[a > 0] = np.log(a[a > 0])
-    return np.sum(a * (log_a - np.log(b)), axis=axis)
+    log_a = np.zeros_like(p)
+    log_a[p > 0] = np.log(p[p > 0])
+    q = sumto1(q + (lapse_rate / (1 - lapse_rate)) / q.size, axis=axis)
+    return np.sum(p * (log_a - np.log(q)), axis=axis)
 
 
 def bonferroni_holm(p: np.ndarray, alpha=0.05, dim=None) -> np.ndarray:
