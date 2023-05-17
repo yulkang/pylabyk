@@ -510,7 +510,7 @@ def savefig(
 
     mkdir4file(fname1)
     for ext11 in ext1:
-        plt.savefig(fname1 + ext11, *args, **kwargs)
+        plt.savefig(fname1 + ext11, *args, bbox_inches='tight', **kwargs)
         if verbose:
             print(f'Saved image to {fname1 + ext11}')
     if to_pickle:
