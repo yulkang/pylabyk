@@ -1383,6 +1383,17 @@ def pdf_trapezoid(x, center, width_top, width_bottom):
     return p
 
 
+def pmf_delta_aliased(center: float, xs: np.ndarray) -> np.ndarray:
+    """
+
+    :param center:
+    :param xs: [ix]
+    :return: pmf[ix] such that mean_distrib(pmf, xs) = center
+    """
+    dx = xs[1] - xs[0]
+    return sumto1(np.clip(dx - np.abs(xs - center), a_min=0, a_max=None))
+
+
 def ____CIRCSTAT____():
     pass
 
@@ -1953,13 +1964,15 @@ def arrayobj1d(inp: Iterable, copy=False) -> np.ndarray:
     return np.array([None] + list(inp), dtype=object, copy=copy)[1:]
 
 
-def cell2array(v: np.ndarray) -> np.ndarray:
+def cell2array(v: Union[nptyp.ArrayLike, Sequence]) -> np.ndarray:
     """
     convert object arrays into arrays of v.flatten()[0].dtype
     :param v: any array, typically object arrays from vectorize()
     :return: array of shape = v.shape + v.flatten()[0].shape with dtype
         = v.flatten()[0].dtype
     """
+    if not isinstance(v, np.ndarray):
+        v = np.array(v)
     shape = v.shape + v.flatten()[0].shape
     v = v.flatten()
     return np.stack([v1.astype(v[0].dtype) for v1 in v]).reshape(shape)

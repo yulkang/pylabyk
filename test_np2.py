@@ -27,6 +27,23 @@ def test_index_arg():
         assert np.all(res == res_correct)
 
 
+def test_pmf_delta_aliased():
+    for (center, xs) in [
+        (0, np.linspace(-5, 3, 40)),
+        (-5, np.linspace(-5, 3, 40)),
+        (3, np.linspace(-5, 3, 40))
+    ]:
+        assert np2.issimilar(
+            center, np2.mean_distrib(
+                np2.pmf_delta_aliased(center, xs),
+                xs
+            ),
+            # verbose=True
+        )
+
+    print('test_pmf_delta_alias passed')
+
+
 def test_ShortStrAttributes():
     class Analyses(np2.AliasStrAttributes):
         def __init__(self):
@@ -109,6 +126,7 @@ def test_ttest_mc():
 
 
 if __name__ == '__main__':
+    test_pmf_delta_aliased()
     test_index_arg()
     test_ShortStrAttributes()
     test_ccw()
