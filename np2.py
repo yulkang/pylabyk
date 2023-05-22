@@ -1394,6 +1394,59 @@ def pmf_delta_aliased(center: float, xs: np.ndarray) -> np.ndarray:
     return sumto1(np.clip(dx - np.abs(xs - center), a_min=0, a_max=None))
 
 
+def pmf_boxcar_aliased(
+    vmin: float, vmax: float,
+    xs: np.ndarray = None,
+    dx: float = None,
+    start: float = None,
+    n: int = None,
+    to_plot=False,
+) -> np.ndarray:
+    """
+
+    :param vmin:
+    :param vmax:
+    :param xs: [ix]; assumed equispaced
+    :return: pmf[ix] such that mean_distrib(pmf, xs) = (vmin+vmax)/2
+    """
+    if xs is None:
+        assert dx is not None and n is not None and start is not None
+        xs = np.arange(n) * dx + start
+        end = xs[-1]
+    else:
+        assert dx is None and n is None
+        dx = xs[1] - xs[0]
+        n = len(xs)
+        start = xs[0]
+        end = xs[-1]
+
+    assert vmin >= start
+    assert vmin <= vmax
+    assert vmax <= end
+
+    ivmin_left = np.nonzero(xs <= vmin)[0][-1]
+    ivmin_right = ivmin_left + 1
+    ivmax_right = np.nonzero(xs >= vmax)[0][0]
+    ivmax_left = ivmax_right - 1
+
+    p = np.zeros_like(xs)
+    p[ivmin_right:(ivmax_left + 1)] = 1
+    p[ivmin_left] = (xs[ivmin_right] - vmin) / dx
+    p[ivmax_right] = (vmax - xs[ivmax_left]) / dx
+    p = sumto1(p)
+
+    if to_plot:
+        from matplotlib import pyplot as plt
+        plt.plot(xs, p, 'k.-')
+        plt.axvline(vmin)
+        plt.axvline(vmax)
+        plt.axvline((vmin+vmax)/2, color='k')
+        plt.axvline(mean_distrib(p, xs), color='r', linestyle='--')
+        plt.ylim([0, 1])
+        plt.show()
+    return p
+
+
 def ____CIRCSTAT____():
     pass
 

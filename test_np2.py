@@ -38,10 +38,26 @@ def test_pmf_delta_aliased():
                 np2.pmf_delta_aliased(center, xs),
                 xs
             ),
-            # verbose=True
+            verbose=True
         )
 
-    print('test_pmf_delta_alias passed')
+
+def test_pmf_boxcar_aliased():
+    for (vmin, vmax, xs) in [
+        (0, 1, np.linspace(-5, 3, 17)),
+        (-5, 3, np.linspace(-5, 3, 17)),
+        (-5, 0, np.linspace(-5, 3, 17)),
+        (-4.25, -3.75, np.linspace(-5, 3, 17)),
+        (-4.25, -3.25, np.linspace(-5, 3, 17)),
+        (0, 3, np.linspace(-5, 3, 17))
+    ]:
+        assert np2.issimilar(
+            (vmin + vmax) / 2, np2.mean_distrib(
+                np2.pmf_boxcar_aliased(vmin, vmax, xs),
+                xs
+            ),
+            verbose=True
+        )
 
 
 def test_ShortStrAttributes():
@@ -126,6 +142,7 @@ def test_ttest_mc():
 
 
 if __name__ == '__main__':
+    test_pmf_boxcar_aliased()
     test_pmf_delta_aliased()
     test_index_arg()
     test_ShortStrAttributes()
