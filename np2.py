@@ -1422,7 +1422,7 @@ def pmf_boxcar_aliased(
 
     assert vmin >= start
     assert vmin <= vmax
-    assert vmax <= end
+    assert vmax <= end + dx * 1e-3
 
     ivmin_left = np.nonzero(xs <= vmin)[0][-1]
     ivmin_right = ivmin_left + 1
