@@ -660,9 +660,18 @@ def issimilar(
     thres=1e-6,
     verbose=False,
 ) -> np.ndarray:
+    """
+
+    :param a:
+    :param b:
+    :param thres:
+    :param verbose: 1 to print if not similar, 2 to print always
+    :return: True if a and b are within thres
+    """
     res = np.abs(a - b) < thres
     if verbose:
-        print(f'issimilar({a}, {b}, thres={thres}) = {res}')
+        if not np.all(npy(res)) or verbose > 1:
+            print(f'issimilar({a}, {b}, thres={thres}) = {res}')
     return res
 
 
