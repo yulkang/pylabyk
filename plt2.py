@@ -14,7 +14,7 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from matplotlib import patches
+from matplotlib import patches, gridspec
 from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
 from copy import copy
@@ -101,6 +101,7 @@ class GridAxes:
         kw_fig=(),
         kw_subplot: Union[None, Sequence[Sequence[Dict[str, Any]]]] = None,
         close_on_del=True,
+        parent: Union[plt.Axes, plt.Figure, 'GridAxes'] = None,
         # close_on_del=False,  # CHECKED
     ):
         """
@@ -134,6 +135,8 @@ class GridAxes:
         :param kw_subplot: if not None, will be converted & broadcasted
             to an array of size [row, col] of kwargs for each subplot.
             e.g.: kw_subplot=[[{}, {}, {'projection': 'polar'}]]
+        :param parent: if given, all units are relative to the size
+            of the parent, rather than in inches.
         :return: axs[row, col] = plt.Axes
         """
         if kw_subplot is None:
@@ -175,17 +178,55 @@ class GridAxes:
 
         self._close_on_del = close_on_del
 
-        fig = plt.figure(**{
-            **dict(kw_fig),
-            'figsize': [w.sum(), h.sum()]
-        })
-        gs = plt.GridSpec(
+        if parent is None:
+            parent = plt.figure(**{
+                **dict(kw_fig),
+                'figsize': [w.sum(), h.sum()]
+            })
+
+        kw_gridspec = dict(
             nrows=nrows * 2 + 1, ncols=ncols * 2 + 1,
-            left=0, right=1, bottom=0, top=1,
             wspace=0, hspace=0,
             width_ratios=w, height_ratios=h,
-            figure=fig
         )
+
+        if isinstance(parent, plt.Figure):
+            gs = plt.GridSpec(
+                **kw_gridspec,
+                figure=parent,
+                left=0, right=1, bottom=0, top=1,
+            )
+        else:
+            if isinstance(parent, type(self)):
+                w_parent = parent.w.sum()
+                h_parent = parent.h.sum()
+                gs0 = plt.GridSpec(
+                    nrows=1, ncols=1,
+                    left=parent.w[0] / w_parent,
+                    right=parent.w[:-1].sum() / w_parent,
+                    bottom=parent.h[-1] / h_parent,
+                    top=parent.h[1:].sum() / h_parent,
+                    figure=parent.figure,
+                )
+            elif isinstance(parent, plt.Axes):
+                # parent = plt.gca()  # type: plt.Axes
+                bbox = parent.get_position()
+                x0, y0, w, h = bbox.bounds
+                gs0 = plt.GridSpec(
+                    nrows=1, ncols=1,
+                    left=x0, right=x0 + w,
+                    bottom=y0, top=y0 + h,
+                    figure=parent.figure,
+                )
+            else:
+                raise ValueError()
+            # parent: if given, all units are relative to the size
+            #             of the parent, rather than in inches.
+            gs = gridspec.GridSpecFromSubplotSpec(
+                subplot_spec=gs0[0],
+                **kw_gridspec
+            )
+
         self.gs = gs  # for backward compatibility
 
         axs = np.empty([nrows, ncols], dtype=object)
@@ -1688,6 +1729,19 @@ def add_inset(
         raise NotImplementedError()
     axins = fig.add_axes(rect=bounds)
     return axins
+
+
+def multiheatmap(
+    a: np.ndarray,
+    ax: Union[plt.Axes, plt.Figure] = None
+) -> (GridAxes, Dict[str, Any]):
+    """
+
+    :param a: multidimensional array
+    :param ax:
+    :return: axs, dict_h[name][row, col] = handles
+    """
+    pass
 
 
 def ____Errorbar____():
