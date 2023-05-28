@@ -12,6 +12,7 @@ from typing import List, Callable, Sequence, Mapping, Tuple, Dict, Any, Type
 import pickle
 
 import numpy as np
+from numpy import typing as nptyp
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib import patches, gridspec
@@ -1733,15 +1734,126 @@ def add_inset(
 
 def multiheatmap(
     a: np.ndarray,
-    ax: Union[plt.Axes, plt.Figure] = None
-) -> (GridAxes, Dict[str, Any]):
+    kw_imshow: dict = None,
+    inches_per_cell: float = 0.2,
+    wspace: Union[float, Sequence[float]] = 0.5,
+    hspace: Union[float, Sequence[float]] = 0.5,
+    parent: Union[plt.Axes, plt.Figure, GridAxes] = None,
+    kw_gridaxes=None,
+) -> (GridAxes, (GridAxes, nptyp.NDArray[GridAxes])):
     """
 
-    :param a: multidimensional array
-    :param ax:
-    :return: axs, dict_h[name][row, col] = handles
+    :param a: multidimensional array.
+        Last two dimensions are used as the (row, column) of the unit heatmap
+        The preceding two dimensions are used as the (row, column)
+        of an array of the unit heatmaps, and so on.
+    :param parent: axes, figure, or GridAxes
+    :param kw_imshow: kwargs for imshow
+    :param inches_per_cell: width and height of each cell in inches
+    :param wspace: [level] = width of the space between cells in inches
+        on that level.
+        level=0 is the space between the top level cells, and
+        level=-1 is the space between the unit imshows.
+    :param hspace: [level] = width of the space between cells in inches
+        on that level.
+        level=0 is the space between the top level cells, and
+        level=-1 is the space between the unit imshows.
+    :param kw_gridaxes: kwargs for GridAxes
+    :return: hs[...] = handle to the unit axes
     """
-    pass
+    if kw_imshow is None:
+        kw_imshow = {}
+    if kw_gridaxes is None:
+        kw_gridaxes = {}
+
+    shape = list(a.shape)
+    if len(shape) % 2 == 1:
+        shape = [1] + shape
+        a = np.array([a])
+    if len(shape) == 2:
+        shape = [1, 1] + shape
+        a = np.array([[a]])
+
+    if np2.is_iter(wspace):
+        assert len(wspace) == len(shape) // 2 - 1
+    else:
+        wspace = np.r_[np.zeros(len(shape) // 2 - 1) + wspace]
+    if np2.is_iter(hspace):
+        assert len(hspace) == len(shape) // 2 - 1
+    else:
+        hspace = np.r_[np.zeros(len(shape) // 2 - 1) + hspace]
+
+    def compute_cell_size(
+        shape1: Sequence[int],
+        hspace1: Sequence[float], wspace1: Sequence[float],
+    ) -> (float, float):
+        """
+
+        :param shape1:
+        :param wspace1: in inches
+        :param hspace1: in inches
+        :return: height_inch, width_inch
+        """
+        assert len(shape1) % 2 == 0
+        assert len(shape1) >= 4
+        if len(shape1) == 4:
+            # ignore wspace1 and hspace1
+            h, w = tuple(list(
+                np.array([inches_per_cell, inches_per_cell])
+                * np.array(shape1[-2:])
+            ))
+            # print (h, w)
+            return h, w
+        else:
+            h, w = tuple(list(
+                np.array(
+                    compute_cell_size(
+                        shape1[2:], hspace1[1:], wspace1[1:],
+                    )
+                )
+                * np.array(shape1[2:4])
+                + np.array([hspace1[0], wspace1[0]])
+                * (np.array(shape1[:2]) - 1)
+            ))
+            # print (h, w)
+            return h, w
+    cell_height, cell_width = compute_cell_size(
+        shape, hspace[1:], wspace[1:],
+    )
+    axs = GridAxes(
+        nrows=shape[0], ncols=shape[1],
+        heights=cell_height,
+        widths=cell_width,
+        hspace=hspace[0],
+        wspace=wspace[0],
+        parent=parent,
+        **(kw_gridaxes if parent is None else dict(
+            left=0, right=0, top=0, bottom=0
+        )),
+    )
+
+    if len(shape) == 4:
+        # plot the unit heatmap
+        hs = np.empty(shape[:2], dtype=object)
+        for row in range(axs.nrows):
+            for col in range(axs.ncols):
+                plt.sca(axs[row, col])
+                hs[row, col] = plt.imshow(a[row, col], **kw_imshow)
+        axss = hs
+    else:
+        hs, axss = np.vectorize(
+            multiheatmap,
+            otypes=(object, object)
+        )(
+            a=np2.arrayobj(a, ndim_objarray=2),
+            parent=axs.axs,
+            kw_imshow=kw_imshow,
+            inches_per_cell=inches_per_cell,
+            wspace=np2.arrayobj1d([wspace[1:]]),
+            hspace=np2.arrayobj1d([hspace[1:]]),
+        )
+    hs = np2.cell2mat(hs, dtype=object)
+    return hs, (axs, axss)
 
 
 def ____Errorbar____():

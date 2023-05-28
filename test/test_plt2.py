@@ -74,7 +74,7 @@ def test_consolidate_count_matrix():
     print('passed all test_consolidate_count_matrix()')
 
 
-def test_GridAxes():
+def check_GridAxes():
     axs = plt2.GridAxes(
         nrows=2, ncols=3,
         widths=1, heights=1,
@@ -112,37 +112,17 @@ def test_GridAxes():
     plt.show()
     print('test_GridAxes')
 
-def gridspec_within_gridspec():
-    import matplotlib.pyplot as plt
-    import matplotlib.gridspec as gridspec
 
-    def format_axes(fig):
-        for i, ax in enumerate(fig.axes):
-            ax.text(0.5, 0.5, "ax%d" % (i + 1), va="center", ha="center")
-            ax.tick_params(labelbottom=False, labelleft=False)
-
-    # gridspec inside gridspec
-    fig = plt.figure()
-
-    gs0 = gridspec.GridSpec(1, 2, figure=fig)
-
-    gs00 = gridspec.GridSpecFromSubplotSpec(3, 3, subplot_spec=gs0[0])
-
-    ax1 = fig.add_subplot(gs00[:-1, :])
-    ax2 = fig.add_subplot(gs00[-1, :-1])
-    ax3 = fig.add_subplot(gs00[-1, -1])
-
-    # the following syntax does the same as the GridSpecFromSubplotSpec call above:
-    gs01 = gs0[1].subgridspec(3, 3)
-
-    ax4 = fig.add_subplot(gs01[:, :-1])
-    ax5 = fig.add_subplot(gs01[:-1, -1])
-    ax6 = fig.add_subplot(gs01[-1, -1])
-
-    plt.suptitle("GridSpec Inside GridSpec")
-    format_axes(fig)
-
+def check_multiheatmap():
+    shape = [2, 3, 4, 5, 6, 7]
+    hs, axss = plt2.multiheatmap(
+        np.random.randn(*shape), inches_per_cell=0.2, wspace=[0.8, 0.4],
+        hspace=[0.8, 0.4]
+    )
+    assert hs.shape == tuple(shape[:-2])
     plt.show()
+    print('check_multiheatmap')
+
 
 
 if __name__ == '__main__':
@@ -150,5 +130,5 @@ if __name__ == '__main__':
     # test_savefig()  # NOTE: should run test_savefig() and test_loadfig() on different runs of python to really test the persistence
     # test_loadfig()
     # test_consolidate_count_matrix()
-    test_GridAxes()
-    # gridspec_within_gridspec()
+    # check_GridAxes()
+    check_multiheatmap()
