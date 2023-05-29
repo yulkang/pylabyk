@@ -287,15 +287,24 @@ def dictlist2listdict(dictlist: Dict[str, Sequence]) -> List[Dict[str, Any]]:
             for i in range(len(dictlist[keys[0]]))]
 
 
-def dictkeys(d, keys):
-    return [d[k] for k in keys]
+def arraydict2dictarray(
+    arraydict: nptyp.NDArray[dict]
+) -> Dict[Any, nptyp.NDArray]:
+    """
+
+    :param arraydict: array of dicts with the same keys
+        i.e., [index, ...][key] = value
+    :return: dictarray: dict of arrays of the same shape as arraydict
+        i.e., [key][index, ...] = value
+    """
+    shape0 = arraydict.shape
+    dictlist = listdict2dictlist(arraydict.flatten(), to_array=True)
+    return {
+        k: np.reshape(v, shape0) for k, v in dictlist.items()
+    }
 
 
-def dict2array(d, key):
-    return np.vectorize(lambda d1: d1[key])(d)
-
-
-def get_array_dicts(d: Dict, to_meshgrid=True) -> nptyp.NDArray[dict]:
+def dictarray2arraydict(d: Dict, to_meshgrid=True) -> nptyp.NDArray[dict]:
     """
 
     :param d: dicts of lists or arrays
@@ -314,6 +323,14 @@ def get_array_dicts(d: Dict, to_meshgrid=True) -> nptyp.NDArray[dict]:
         otypes=(object,)
     )(*values)
     return param_dicts
+
+
+def dictkeys(d, keys):
+    return [d[k] for k in keys]
+
+
+def dict2array(d, key):
+    return np.vectorize(lambda d1: d1[key])(d)
 
 
 def dict_diff(d0: dict, d1: dict) -> dict:
@@ -672,7 +689,7 @@ def issimilar(
     if verbose:
         if not np.all(npy(res)) or verbose > 1:
             print(f'issimilar({a}, {b}, thres={thres}) = {res}')
-    return res
+    return np.all(npy(res))
 
 
 def ____CUM____():
