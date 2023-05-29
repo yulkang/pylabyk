@@ -1697,34 +1697,47 @@ def add_inset(
     fig = ax.figure
     fig_width_inch, fig_height_inch = fig.get_size_inches()
     bbox = ax.get_position()  # type: mpl.transforms.Bbox
-    xmin_ax, ymin_ax, width_ax, height_ax = bbox.bounds
+    xmin_ax_prop, ymin_ax_prop, width_ax_prop, height_ax_prop = bbox.bounds
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
-    def parse_unit(s: str, v0: float):
+    def parse_unit(s: str, ax_inch: float, fig_inch: float) -> float:
+        """
+
+        :param s: size number followed by '%' or 'in'
+        :param ax_inch: axis width or height in inch
+        :param fig_inch: figure width or height in inch
+        :return: v_prop: size in proportion of fig_in
+        """
         if s.endswith('%'):
-            v = float(s[:-1]) / 100 * v0
+            v_prop = float(s[:-1]) / 100 * ax_inch / fig_inch
         elif s.endswith('in'):
-            v = float(s[:-2]) / 100 * v0
+            v_prop = float(s[:-2]) / fig_inch
         else:
             raise ValueError()
-        return v
+        return v_prop
 
-    width_bar, height_bar = [
-        parse_unit(s, v0) for s, v0 in [(width, width_ax), (height, height_ax)]
+    width_ax_inch = width_ax_prop * fig_width_inch
+    height_ax_inch = height_ax_prop * fig_height_inch
+
+    width_bar_prop, height_bar_prop = [
+        parse_unit(s, ax_inch, fig_inch) for s, ax_inch, fig_inch in [
+            (width, width_ax_inch, fig_width_inch),
+            (height, height_ax_inch, fig_height_inch)
+        ]
     ]
     if loc == 'right':
         bounds = [
-            xmin_ax + width_ax + offset_inch / fig_width_inch,
-            ymin_ax + (height_ax - height_bar) / 2,
-            width_bar,
-            height_bar
+            xmin_ax_prop + width_ax_prop + offset_inch / fig_width_inch,
+            ymin_ax_prop + (height_ax_prop - height_bar_prop) / 2,
+            width_bar_prop,
+            height_bar_prop
         ]
     elif loc == 'lower center':
         bounds = [
-            xmin_ax + (width_ax - width_bar) / 2,
-            ymin_ax - offset_inch / fig_height_inch - height_bar,
-            width_bar,
-            height_bar
+            xmin_ax_prop + (width_ax_prop - width_bar_prop) / 2,
+            ymin_ax_prop - offset_inch / fig_height_inch - height_bar_prop,
+            width_bar_prop,
+            height_bar_prop
         ]
     else:
         raise NotImplementedError()
@@ -1759,7 +1772,8 @@ def multiheatmap(
         level=0 is the space between the top level cells, and
         level=-1 is the space between the unit imshows.
     :param kw_gridaxes: kwargs for GridAxes
-    :return: hs[...] = handle to the unit axes
+    :return: hs, (axs, array_subaxs)
+        hs[...] = handle to the unit axes
     """
     if kw_imshow is None:
         kw_imshow = {}
@@ -1839,9 +1853,9 @@ def multiheatmap(
             for col in range(axs.ncols):
                 plt.sca(axs[row, col])
                 hs[row, col] = plt.imshow(a[row, col], **kw_imshow)
-        axss = hs
+        array_subaxs = hs
     else:
-        hs, axss = np.vectorize(
+        hs, array_subaxs = np.vectorize(
             multiheatmap,
             otypes=(object, object)
         )(
@@ -1853,7 +1867,7 @@ def multiheatmap(
             hspace=np2.arrayobj1d([hspace[1:]]),
         )
     hs = np2.cell2mat(hs, dtype=object)
-    return hs, (axs, axss)
+    return hs, (axs, array_subaxs)
 
 
 def ____Errorbar____():
