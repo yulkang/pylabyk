@@ -434,14 +434,18 @@ def coltitle(col_titles, axes):
     return np.array(h)
 
 
-def rowtitle(row_titles, axes, pad=5, ha='right', **kwargs):
+def rowtitle(
+    row_titles: Sequence[str],
+    axes: Union[GridAxes, Iterable[Iterable[plt.Axes]]],
+    pad=5,
+    ha='right',
+    **kwargs
+):
     """
     :param row_titles: list of string row title
-    :type row_titles: Iterable[str]
     :param axes: 2-D array of axes, as from subplotRCs()
-    :type axes: Iterable[Iterable[plt.Axes]]
     :param pad: in points.
-    :type pad: float
+    :param ha: horizontal alignment
     :return: n_rows array of row title handles
     adapted from: https://stackoverflow.com/a/25814386/2565317
     """

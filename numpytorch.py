@@ -1490,7 +1490,7 @@ def log_normpdf(sample, mu=0., stdev=1.):
 #     return torch.multinomial(probs, 1)
 
 
-def categrnd(probs=None, logits=None, sample_shape=()):
+def categrnd(probs=None, logits=None, sample_shape=()) -> torch.LongTensor:
     return torch.distributions.Categorical(
         probs=probs, logits=logits
     ).sample(sample_shape=sample_shape)
