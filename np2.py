@@ -1431,9 +1431,13 @@ def pmf_boxcar_aliased(
 ) -> np.ndarray:
     """
 
-    :param vmin:
-    :param vmax:
-    :param xs: [ix]; assumed equispaced
+    :param vmin: start of the boxcar
+    :param vmax: end of the boxcar
+    :param dx: size of the bin
+    :param start: center of the starting bin
+    :param n: number of bins
+    :param xs: [ix]; assumed equispaced. If provided, ignore dx, start, n
+    :param to_plot:
     :return: pmf[ix] such that mean_distrib(pmf, xs) = (vmin+vmax)/2
     """
     if xs is None:
@@ -1447,9 +1451,9 @@ def pmf_boxcar_aliased(
         start = xs[0]
         end = xs[-1]
 
-    assert vmin >= start
-    assert vmin <= vmax
-    assert vmax <= end + dx * 1e-3
+    assert vmin >= start, f'{vmin} < {start}'
+    assert vmin <= vmax, f'{vmin} > {vmax}'
+    assert vmax <= end + dx * 1e-3, f'{vmax} > {end + dx * 1e-3}'
 
     ivmin_left = np.nonzero(xs <= vmin)[0][-1]
     ivmin_right = ivmin_left + 1
