@@ -538,10 +538,13 @@ def savefig_w_data(
         return out
 
 
+ext_savefig = ('.pdf', '.png')
+
+
 def savefig(
     fname: str, *args,
     fig: Union[mpl.figure.Figure, GridAxes] = None,
-    ext: Union[str, Iterable[str]] = ('.pdf', '.png'),
+    ext: Union[str, Iterable[str]] = None,
     to_pickle=True,
     verbose=True,
     skip_pdf_on_error=True,
@@ -561,6 +564,8 @@ def savefig(
     :param kwargs:
     :return:
     """
+    if ext is None:
+        ext = ext_savefig
     if fig is None:
         fig = plt.gcf()
         fig0 = None
