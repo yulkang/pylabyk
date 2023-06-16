@@ -544,6 +544,7 @@ def savefig(
     ext: Union[str, Iterable[str]] = ('.pdf', '.png'),
     to_pickle=True,
     verbose=True,
+    skip_pdf_on_error=True,
     **kwargs
 ):
     """
@@ -592,9 +593,15 @@ def savefig(
 
     mkdir4file(fname1)
     for ext11 in ext1:
-        plt.savefig(fname1 + ext11, *args, **kwargs)
-        if verbose:
-            print(f'Saved image to {fname1 + ext11}')
+        try:
+            plt.savefig(fname1 + ext11, *args, **kwargs)
+            if verbose:
+                print(f'Saved image to {fname1 + ext11}')
+        except RuntimeError:
+            if skip_pdf_on_error and ext11 == '.pdf':
+                pass
+            else:
+                raise
     if to_pickle:
         # manager0 = fig.canvas.manager
         # fig.canvas.manager = None  # DEBUGGED: using this line seemed to help but it now runs without it
