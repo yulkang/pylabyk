@@ -539,6 +539,7 @@ def savefig_w_data(
 
 
 ext_savefig = ('.pdf', '.png')
+# default extensions that can be changed using plt2.ext_savefig = default
 
 
 def savefig(
