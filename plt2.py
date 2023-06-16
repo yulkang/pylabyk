@@ -600,9 +600,11 @@ def savefig(
     mkdir4file(fname1)
     for ext11 in ext1:
         try:
+            if verbose:
+                print(f'Saving image to {fname1 + ext11}', end='')
             plt.savefig(fname1 + ext11, *args, **kwargs)
             if verbose:
-                print(f'Saved image to {fname1 + ext11}')
+                print(f' ..saved.')
         except RuntimeError:
             if skip_pdf_on_error and ext11 == '.pdf':
                 pass
