@@ -286,7 +286,9 @@ def npys(*args) -> Tuple[np.ndarray, ...]:
     return tuple([npy(v) for v in args])
 
 
-def dclone(v: torch.Tensor) -> torch.Tensor:
+def dclone(
+    v: Union[torch.Tensor, torch.LongTensor]
+) -> Union[torch.Tensor, torch.LongTensor]:
     """
     Returns a new tensor that is detached and cloned
     """
