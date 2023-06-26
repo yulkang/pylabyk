@@ -1,6 +1,5 @@
-Data
-Data_reserved
-Doc
+Data_*
+Docs_*
 :2eDS_Store
 **/.DS_Store
 **/.AppleDouble
