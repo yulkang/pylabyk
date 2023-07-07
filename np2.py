@@ -1982,6 +1982,22 @@ def pearsonr(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return r
 
 
+def ____VECTORIZATION____():
+    pass
+
+
+def getattr_array(a: np.array, attr: str) -> np.ndarray:
+    """
+    attribute of the elements of an array
+    :param a: array
+    :param attr: name of the attribute
+    :return: attr_array[...] = a[...].attr
+    """
+    return np.vectorize(getattr, otypes=(type(getattr(a.flatten()[0], attr)),))(
+        a, arrayobj1d([attr])
+    )
+
+
 def ____MULTIPROCESSING____():
     pass
 
