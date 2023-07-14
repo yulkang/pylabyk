@@ -5,6 +5,8 @@ Created on Mon Mar 12 10:28:15 2018
 
 @author: yulkang
 """
+import dataclasses
+
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
 import numpy as np
@@ -127,8 +129,9 @@ def cell2mat(c: np.ndarray, dtype=float) -> np.ndarray:
         return np.reshape(vs, shape0)
 
 
-def cell2mat2(l, max_len=None):
+def cell2mat2(l, max_len=None) -> nptyp.NDArray[float]:
     """
+    Only returns a matrix (2-dimensional) of floats
     INPUT: a list containing vectors
     OUTPUT: a matrix with NaN filled to the longest
     """
@@ -177,7 +180,9 @@ def shapes(d, verbose=True, return_shape=False):
     :return: shapes[k] = shape and (d)type of d[k]
         if d is not iterable, shapes[None] = type of d.
     """
-    if not is_iter(d):
+    if is_dataclass_instance(d):
+        d = dataclasses.asdict(d)
+    elif not is_iter(d):
         d = {None: d}
     elif not isinstance(d, dict):
         assert is_iter(d)
@@ -651,6 +656,10 @@ def is_sequence(v):
     return hasattr(v, '__len__')
 
 
+def is_dataclass_instance(d):
+    return dataclasses.is_dataclass(d) and not isinstance(d, type)
+
+
 def ____NAN____():
     pass
 
@@ -1028,16 +1037,17 @@ def sumto1(v, axis=None, ignore_nan=True) -> np.ndarray:
     else:
         dict_axis = {} if axis is None else {'dim': axis}
 
+    keepdim = axis is not None
     if ignore_nan:
         if isinstance(v, np.ndarray):
-            return v / np.nansum(v, keepdims=True, **dict_axis)
+            return v / np.nansum(v, keepdims=keepdim, **dict_axis)
         else:  # v is torch.Tensor
-            return v / torch.nansum(v, keepdim=True, **dict_axis)
+            return v / torch.nansum(v, keepdim=keepdim, **dict_axis)
     else:
         if isinstance(v, np.ndarray):
-            return v / np.sum(v, keepdims=True, **dict_axis)
+            return v / np.sum(v, keepdims=keepdim, **dict_axis)
         else:  # v is torch.Tensor
-            return v / torch.sum(v, keepdim=True, **dict_axis)
+            return v / torch.sum(v, keepdim=keepdim, **dict_axis)
 
 
 def maxto1(v, axis=None, ignore_nan=True):
@@ -2188,7 +2198,7 @@ def vectorize_par(
     pool: Pool = None, processes=None, chunksize=1,
     nout=None, otypes: Union[Sequence[Type], Type] = None,
     use_starmap=True, meshgrid_input=True,
-) -> Sequence[Union[Mapping[Any, Any], np.ndarray, Sequence[Any]]]:
+) -> Tuple[Union[Mapping[Any, Any], np.ndarray, Sequence[Any]], ...]:
     """
     Run f in parallel with meshgrid of inputs along each input's first dimension
     and return the expanded outputs.
@@ -2313,7 +2323,7 @@ def vectorize_par(
     outs3 = [cell2mat(out, otype) if otype not in [object, object]
              else out
              for out, otype in zip(outs2, otypes)]
-    return outs3
+    return tuple(outs3)
 
 
 def broadcast_shapes(*shapes):

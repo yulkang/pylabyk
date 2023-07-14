@@ -420,7 +420,10 @@ def subplotRCs(nrow, ncol, **kwargs):
     return ax
 
 
-def coltitle(col_titles, axes):
+def coltitle(
+    col_titles: Sequence[str],
+    axes: Union[GridAxes, AxesArray, Sequence[Sequence[plt.Axes]]]
+):
     """
     :param col_titles: list of string row title
     :type col_titles: Iterable[str]
@@ -436,7 +439,7 @@ def coltitle(col_titles, axes):
 
 def rowtitle(
     row_titles: Sequence[str],
-    axes: Union[GridAxes, Iterable[Iterable[plt.Axes]]],
+    axes: Union[GridAxes, AxesArray, Iterable[Iterable[plt.Axes]]],
     pad=5,
     ha='right',
     **kwargs
