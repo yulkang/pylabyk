@@ -541,8 +541,12 @@ def savefig_w_data(
         return out
 
 
-ext_savefig = ('.pdf', '.png')
-# default extensions that can be changed using plt2.ext_savefig = default
+from sys import platform
+ext_savefig = ('.pdf', '.png') if platform == 'darwin' else ('.png',)
+"""
+Default extensions that can be changed using plt2.ext_savefig = default
+Use .pdf only on Mac (darwin)
+"""
 
 
 def savefig(
