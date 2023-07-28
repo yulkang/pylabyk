@@ -239,7 +239,7 @@ def filt_dict(d: dict, incl: np.ndarray,
     @type incl: np.ndarray
     @rtype: dict
     """
-    assert np.issubdtype(incl.dtype, np.bool)
+    assert np.issubdtype(incl.dtype, bool)
 
     if copy:
         if ignore_diff_len:
