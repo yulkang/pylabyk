@@ -2654,21 +2654,16 @@ def shorten_dict(
 ) -> Union[Dict[str, str], Dict[AliasStr, str]]:
     d1 = {
         (shorten(k, src_dst) if shorten_key else k)
-        : shorten(v, src_dst)
+        : shorten(v, src_dst, shorten_zero=shorten_zero)
         for k, v in d.items()}
-    if shorten_zero:
-        d1 = {
-            k: replace(v, [
-                (',0.', ',.'),
-            ]).replace('0.', '.')
-                if isinstance(v, str) and v.startswith('0.')
-            else v
-            for k, v in d1.items()
-        }
     return d1
 
 
-def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[AliasStr, None]:
+def shorten(
+    v,
+    src_dst: Iterable[Tuple[str, str]] = (),
+    shorten_zero=True,
+) -> Union[AliasStr, None]:
     """
 
     :param v: string, Iterable[Number], or Number
@@ -2676,7 +2671,10 @@ def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[AliasStr, None]
     :return: string with srcX replaced with dstX, or printed '%g,%g,...'
     """
     if isinstance(v, str):
-        return AliasStr(replace(v, src_dst), v)
+        s = replace(v, src_dst)
+        if shorten_zero and s.startswith('0.'):
+            s = s[1:]
+        return AliasStr(s, v)
     elif isinstance(v, bool):
         return AliasStr('%d' % int(v), str(v))
     elif is_iter(v):
@@ -2706,7 +2704,10 @@ def shorten(v, src_dst: Iterable[Tuple[str, str]] = ()) -> Union[AliasStr, None]
     elif v is None:
         return None
     else:
-        return AliasStr('%g' % v)
+        s = '%g' % v
+        if shorten_zero and s.startswith('0.'):
+            s = s[1:]
+        return AliasStr(s)
 
 
 def filt_str(s, filt_preset='alphanumeric', replace_with='_'):
