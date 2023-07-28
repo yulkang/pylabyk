@@ -57,7 +57,7 @@ class LocalFile(object):
         ext_fig='.png',  # .png is much faster than .pdf (~5x)
         # ext_fig='.pdf',
         kind2subdir=False,
-        shorten_dict=False,
+        shorten_dict=True,
     ):
         self.pth_root = pth_root
         self.subdir_default = subdir_default
