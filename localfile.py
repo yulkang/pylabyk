@@ -6,7 +6,7 @@ import os, shutil
 from collections import OrderedDict as odict
 from typing import Union, Iterable
 from .cacheutil import mkdir4file
-from .argsutil import dict2fname, kwdef, merge_fileargs
+from .argsutil import dict2fname, kwdef, merge_fileargs, fullpath2hash
 
 
 def replace_ext(fullpath, ext_new):
@@ -111,9 +111,12 @@ class LocalFile(object):
             self.get_pth_out(subdir), file
         )
 
-    def get_file(self, filekind: str = '', kind: str = '',
-                 d: Union[Iterable[tuple], dict, odict, str, None] = None,
-                 ext=None, subdir=None):
+    def get_file(
+        self, filekind: str = '', kind: str = '',
+        d: Union[Iterable[tuple], dict, odict, str, None] = None,
+        ext=None, subdir=None,
+        max_len=250,
+    ):
         """
         :type filekind: str
         :type kind: str
@@ -145,6 +148,19 @@ class LocalFile(object):
 
         if subdir is None and self.kind2subdir:
             subdir = filekind + '=' + kind
+
+        if len(fname) > max_len:
+            fname0 = fname
+            fname = fullpath2hash(fname0)
+            fname_short = os.path.join(
+                self.get_pth_out(subdir), fname + ext + '.hash.txt'
+            )
+            mkdir4file(fname_short)
+            with open(fname_short, 'w') as f:
+                f.write(fname0)
+            print(f'File name too long: {fname0}\n'
+                  f'    Writing instead to {fname}\n'
+                  f'    and recording the original name in {fname_short}')
 
         return os.path.join(
             self.get_pth_out(subdir), fname + ext
