@@ -1230,6 +1230,74 @@ def ____DISTRIBUTIONS_SAMPLING____():
     pass
 
 
+def get_p_state_aliased(v: torch.Tensor, v_state: torch.Tensor, eps=1e-6) -> torch.Tensor:
+    """
+
+    :param v: [batch, dim]
+    :param v_state: [state, dim]
+    :return: [batch, state]
+    """
+    n_dim_batch = len(v.shape) - 1
+    n_state = v_state.shape[0]
+    assert n_state > 1
+    assert len(v_state.shape) == 2
+    assert v.shape[-1] == v_state.shape[-1]
+
+    p = ones(n_state)
+    for dim in range(v.shape[-1]):
+        v_dim = v[..., dim]
+        v_state_dim = torch.unique(v_state[..., dim])
+        n_state_dim = len(v_state_dim)
+        i_nearest_nogreaterthan = torch.clamp(torch.searchsorted(
+            prepend_dim(v_state_dim, n_dim_batch),
+            v_dim,
+            side='right'
+        ) - 1, max=n_state_dim - 2)
+        i_nearest_nolessthan = torch.clamp(
+            i_nearest_nogreaterthan + 1,
+            max=n_state_dim - 1
+        )
+        # print(f'{n_state_dim=}')
+        # print(f'{i_nearest_nogreaterthan=}')
+        # print(f'{i_nearest_nolessthan=}')
+        v_nogreaterthan = v_state_dim[i_nearest_nogreaterthan]
+        # noinspection PyTypeChecker
+        assert torch.all(v_nogreaterthan <= v_dim)
+
+        v_nolessthan = v_state_dim[i_nearest_nolessthan]
+        # noinspection PyTypeChecker
+        assert torch.all(v_nolessthan >= v_dim)
+
+        dist_nogreaterthan = v_dim - v_nogreaterthan
+        dist_nolessthan = v_state_dim[i_nearest_nolessthan] - v_dim
+        try:
+            assert torch.all(dist_nogreaterthan + dist_nolessthan > 0.)
+        except AssertionError:
+            print(f'{dist_nogreaterthan=}')
+            print(f'{dist_nolessthan=}')
+            print('get_p_state_aliased: dist error')
+            raise
+
+        p_nogreaterthan = (
+            dist_nolessthan / (dist_nogreaterthan + dist_nolessthan)
+        )
+        p_nolessthan = 1. - p_nogreaterthan
+        p_dim = torch.zeros(n_state)
+        incl_nogreaterthan = v_state[..., dim] == v_nogreaterthan
+        incl_nolessthan = v_state[..., dim] == v_nolessthan
+        # noinspection PyTypeChecker
+        p_dim[incl_nogreaterthan] = (
+            p_nogreaterthan / torch.sum(incl_nogreaterthan)
+        )
+        # noinspection PyTypeChecker
+        p_dim[incl_nolessthan] = (
+            p_nolessthan / torch.sum(incl_nolessthan)
+        )
+        p = p * p_dim
+    p = p / torch.sum(p, dim=-1, keepdim=True)
+    return p
+
+
 def gamma_logpdf_ms(
     x: torch.Tensor, m: torch.Tensor, s: torch.Tensor
 ) -> torch.Tensor:

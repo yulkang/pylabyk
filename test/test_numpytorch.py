@@ -1,6 +1,29 @@
 import pytest
 import torch, numpy as np
 from .. import numpytorch as npt
+from .. import np2
+
+
+def test_get_p_state_aliased():
+    xys = torch.meshgrid(
+        torch.linspace(-5, 3, 40),
+        torch.linspace(-5, 3, 40),
+        indexing='ij',
+    )
+    xys = torch.stack([v.flatten() for v in xys], -1)
+    for ((x, y), xys1) in [
+        ((0., 3.), xys),
+        ((-5., 0.), xys),
+        ((3., -5.), xys),
+    ]:  # (scalar, scalar, [state, dim])
+        a = npt.tensor([x, y])
+        p = npt.get_p_state_aliased(npt.tensor([x, y]), xys1)
+
+        print(f'{p.shape=}')
+        print(f'{xys1.shape=}')
+
+        m = np2.npy(torch.sum(p[:, None] * xys1, 0))
+        assert np.all(np2.issimilar(np2.npy(a), m, verbose=True))
 
 
 def test_sum_log_prob():
