@@ -1282,6 +1282,7 @@ def get_p_state_aliased(v: torch.Tensor, v_state: torch.Tensor, eps=1e-6) -> tor
             dist_nolessthan / (dist_nogreaterthan + dist_nolessthan)
         )
         p_nolessthan = 1. - p_nogreaterthan
+
         p_dim = torch.zeros(n_state)
         incl_nogreaterthan = v_state[..., dim] == v_nogreaterthan
         incl_nolessthan = v_state[..., dim] == v_nolessthan
@@ -1293,8 +1294,9 @@ def get_p_state_aliased(v: torch.Tensor, v_state: torch.Tensor, eps=1e-6) -> tor
         p_dim[incl_nolessthan] = (
             p_nolessthan / torch.sum(incl_nolessthan)
         )
+        p_dim = p_dim / torch.sum(p_dim)
         p = p * p_dim
-    p = p / torch.sum(p, dim=-1, keepdim=True)
+        p = p / torch.sum(p, dim=-1, keepdim=True)
     return p
 
 
