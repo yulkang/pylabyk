@@ -2670,7 +2670,9 @@ def shorten(
     :param src_dst: [(src1, dst1), (src2, dst2), ...]
     :return: string with srcX replaced with dstX, or printed '%g,%g,...'
     """
-    if isinstance(v, str):
+    if v is None:
+        return None
+    elif isinstance(v, str):
         s = replace(v, src_dst)
         if shorten_zero and s.startswith('0.'):
             s = s[1:]
