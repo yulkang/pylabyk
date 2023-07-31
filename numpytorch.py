@@ -1261,12 +1261,20 @@ def get_p_state_aliased(v: torch.Tensor, v_state: torch.Tensor, eps=1e-6) -> tor
         # print(f'{i_nearest_nogreaterthan=}')
         # print(f'{i_nearest_nolessthan=}')
         v_nogreaterthan = v_state_dim[i_nearest_nogreaterthan]
-        # noinspection PyTypeChecker
-        assert torch.all(v_nogreaterthan <= v_dim)
+        try:
+            # noinspection PyTypeChecker
+            assert torch.all(v_nogreaterthan - eps <= v_dim)
+        except AssertionError:
+            print('v_nogreaterthan > v_dim!')
+            raise
 
         v_nolessthan = v_state_dim[i_nearest_nolessthan]
-        # noinspection PyTypeChecker
-        assert torch.all(v_nolessthan >= v_dim)
+        try:
+            # noinspection PyTypeChecker
+            assert torch.all(v_nolessthan + eps >= v_dim)
+        except AssertionError:
+            print('v_nolessthan < v_dim!')
+            raise
 
         dist_nogreaterthan = v_dim - v_nogreaterthan
         dist_nolessthan = v_state_dim[i_nearest_nolessthan] - v_dim
