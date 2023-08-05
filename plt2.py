@@ -334,7 +334,7 @@ class GridAxes:
         # import sys
         # if sys.getrefcount(fig) == 0 or force:
         plt.close(fig)
-        print('Closed figure %d!' % id(fig))  # CHECKING
+        # print('Closed figure %d!' % id(fig))  # CHECKED
 
     def __del__(self):
         """Close figure to prevent memory leak"""
