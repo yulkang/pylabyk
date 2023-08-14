@@ -5,10 +5,11 @@ Created on Mon Mar 12 10:28:15 2018
 
 @author: yulkang
 """
-import dataclasses
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
+import dataclasses
+from inspect import signature
 import numpy as np
 import torch
 import weightedstats as ws
@@ -330,11 +331,13 @@ def dictarray2arraydict(d: Dict, to_meshgrid=True) -> nptyp.NDArray[dict]:
     return param_dicts
 
 
-def dictkeys(d, keys):
+def dictkeys(d, keys) -> list:
+    """res[i] = d[keys[i]]"""
     return [d[k] for k in keys]
 
 
-def dict2array(d, key):
+def dict2array(d, key) -> dict:
+    """res[...] = d[...][key]"""
     return np.vectorize(lambda d1: d1[key])(d)
 
 
@@ -2143,15 +2146,14 @@ def fun_par_dict(fun: Callable, *args):
         return fun()
 
 
-# # Stopped while writing vectorize_into_df - perhaps too specialized
 # def vectorize_into_df(
 #     f: Callable,
 #     kw: Dict[str, Any],
 #     otypes: Union[Dict[str, Type], Sequence[str], Sequence[Type]],
 #     processes=None,
 #     chunksize=1,
-#
-# ) -> pd.DataFrame:
+#     return_dataframe=False,
+# ) -> Union[Sequence[np.ndarray], pd.DataFrame]:
 #     """
 #
 #
@@ -2160,11 +2162,10 @@ def fun_par_dict(fun: Callable, *args):
 #     :param otypes: [key] = type or [i_out] = key (type is set to object)
 #     :param processes:
 #     :param chunksize:
-#     :return: dataframe with keys in kw paired with
-#         output in each row
+#     :return: ndarrays as in vectorize() or dataframe with keys in kw paired with
+#         output in each row if return_dataframe=True
 #     """
-#     raise DeprecationWarning('Too complicated - just use vectorize_par()')
-#
+#     keys = list(kw.keys())
 #     inputs = np.broadcast_arrays(*kw.values())
 #     if not isinstance(otypes, dict):
 #         assert isinstance(otypes, Sequence)
@@ -2185,12 +2186,10 @@ def fun_par_dict(fun: Callable, *args):
 #     d = {**d, **{k: v.flatten() for k, v in zip(otypes.keys(), outputs)}}
 #     df = pd.DataFrame.from_dict(d)
 #     return df
-#
-#
-# def fun_kw(f: Callable, kw: dict):
-#     return f(**kw)
-#
-#
+
+
+def fun_kw(f: Callable, kw: dict):
+    return f(**kw)
 
 
 def vectorize_par(
@@ -2217,9 +2216,12 @@ def vectorize_par(
 
     :param f: function. This function should be on the top level of the
         module (e.g., cannot be a lambda or a nested function).
-    :param inputs: Iterable of arguments. Each can be iterable or not.
-        e.g., vectorize_par(np.ones, [np.arange(5), 2, np.arange(2], nout=1)
-        will give an output of
+    :param inputs: Iterable or dict of arguments.
+        If iterable, each element is treated as a positional argument.
+        If dict, each (key, value) is treated as a keyword argument.
+        Each argument can be an iterable or not.
+        e.g., vectorize_par(np.ones, [np.arange(5), 2, np.arange(2), nout=1)
+        will give an output of shape (5, 2, 2) if meshgrid_input=True
     :param pool: a Pool object. If None (default), one will be created.
     :param processes: Number of parallel processes.
         If 1, use PoolSim, which does not use multiprocessing.
@@ -2241,6 +2243,12 @@ def vectorize_par(
         if False, use np.broadcast() across inputs
     :return: (iterable of) outputs from f.
     """
+    if isinstance(inputs, dict):
+        raise NotImplementedError()
+        # s = dict(signature(f).parameters)
+        # ks, ds = zip(*[(k, v.default) for k, v in s.items()])
+        # inputs = [inputs[k] if k in inputs else arrayobj1d([d]) for k, d in zip(ks, ds)]
+
     if meshgrid_input:
         inputs = [
             inp if (isinstance(inp, np.ndarray) and type(inp[0]) is object)

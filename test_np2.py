@@ -3,7 +3,35 @@
 
 import pytest
 import numpy as np
+import numpy.typing as nptyp
 from pylabyk import np2
+
+
+def test_vectorize_par():
+    # noinspection PyTypeChecker
+    o = np2.vectorize_par(
+        np.ones,
+        dict(
+            dtype=np2.arrayobj1d([
+                int, float
+            ])[:, None],
+            shape=np2.arrayobj1d([
+                (2, 3),
+                (4, 1),
+            ])[None],
+        ),
+        otypes=np.ndarray,
+    )  # type: nptyp.NDArray[np.ndarray]
+
+    assert o[0, 0].shape == (2, 3)
+    assert o[0, 1].shape == (4, 1)
+    assert o[1, 0].shape == (2, 3)
+    assert o[1, 1].shape == (4, 1)
+
+    assert o[0, 0].dtype == int
+    assert o[0, 1].shape == int
+    assert o[1, 0].shape == float
+    assert o[1, 1].shape == float
 
 
 def test_index_arg():
