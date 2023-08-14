@@ -6,7 +6,8 @@ import os, shutil
 from collections import OrderedDict as odict
 from typing import Union, Iterable
 from .cacheutil import mkdir4file
-from .argsutil import dict2fname, kwdef, merge_fileargs, fullpath2hash
+from .argsutil import (dict2fname, fname2dict,
+    kwdef, merge_fileargs, fullpath2hash)
 
 
 def replace_ext(fullpath, ext_new):
@@ -70,6 +71,11 @@ class LocalFile(object):
         if self.shorten_dict:
             d = np2.shorten_dict(d)
         return dict2fname(d)
+
+    def fname2dict(self, fname: str, lengthen=False) -> dict:
+        if lengthen:
+            raise NotImplementedError()
+        return fname2dict(fname)
 
     def get_pth_out(self, subdir=None):
         if subdir is None:
