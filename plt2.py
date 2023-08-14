@@ -311,6 +311,8 @@ class GridAxes:
 
         if isinstance(axs, np.ndarray) and axs.ndim == 2:
             gridaxes = self.copy()
+            gridaxes._close_on_del = False
+            # to avoid closing the figure of the parent
             gridaxes.axs = axs
             return gridaxes
         else:
@@ -401,6 +403,12 @@ class GridAxes:
             *self.supxy(xprop=xprop, yprop=yprop), txt,
             ha=ha, va=va, fontsize=fontsize, **kwargs)
 
+    def rowtitle(self, row_titles: Sequence[str], **kwargs):
+        return rowtitle(row_titles, self.axs, **kwargs)
+
+    def coltitle(self, col_titles: Sequence[str], **kwargs):
+        return coltitle(col_titles, self.axs, **kwargs)
+
     @property
     def shape(self):
         return self.axs.shape
@@ -422,7 +430,8 @@ def subplotRCs(nrow, ncol, **kwargs):
 
 def coltitle(
     col_titles: Sequence[str],
-    axes: Union[GridAxes, AxesArray, Sequence[Sequence[plt.Axes]]]
+    axes: Union[GridAxes, AxesArray, Sequence[Sequence[plt.Axes]]],
+    **kwargs
 ):
     """
     :param col_titles: list of string row title
@@ -433,7 +442,7 @@ def coltitle(
     """
     h = []
     for ax, col in zip(axes[0,:], col_titles):
-        h.append(ax.set_title(col))
+        h.append(ax.set_title(col, **kwargs))
     return np.array(h)
 
 
