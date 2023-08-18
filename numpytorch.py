@@ -1230,7 +1230,7 @@ def ____DISTRIBUTIONS_SAMPLING____():
     pass
 
 
-def get_p_state_aliased(v: torch.Tensor, v_state: torch.Tensor, eps=1e-6) -> torch.Tensor:
+def get_p_state_aliased(v: torch.Tensor, v_state: torch.Tensor, eps=1e-4) -> torch.Tensor:
     """
 
     :param v: [batch, dim]
@@ -1252,10 +1252,10 @@ def get_p_state_aliased(v: torch.Tensor, v_state: torch.Tensor, eps=1e-6) -> tor
             prepend_dim(v_state_dim, n_dim_batch),
             v_dim,
             side='right'
-        ) - 1, max=n_state_dim - 2)
+        ), max=n_state_dim - 1, min=1) - 1
         i_nearest_nolessthan = torch.clamp(
             i_nearest_nogreaterthan + 1,
-            max=n_state_dim - 1
+            max=n_state_dim - 1,
         )
         # print(f'{n_state_dim=}')
         # print(f'{i_nearest_nogreaterthan=}')
@@ -1305,6 +1305,8 @@ def get_p_state_aliased(v: torch.Tensor, v_state: torch.Tensor, eps=1e-6) -> tor
         p_dim = p_dim / torch.sum(p_dim)
         p = p * p_dim
         p = p / torch.sum(p, dim=-1, keepdim=True)
+
+        assert torch.allclose(torch.sum(v_state[..., dim] * p_dim, -1), v_dim)
     return p
 
 
