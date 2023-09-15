@@ -2269,10 +2269,13 @@ def vectorize_par(
     :return: (iterable of) outputs from f.
     """
     if isinstance(inputs, dict):
-        raise NotImplementedError()
-        # s = dict(signature(f).parameters)
-        # ks, ds = zip(*[(k, v.default) for k, v in s.items()])
-        # inputs = [inputs[k] if k in inputs else arrayobj1d([d]) for k, d in zip(ks, ds)]
+        s = dict(signature(f).parameters)
+        ks, ds = zip(*[(k, v.default) for k, v in s.items()])
+        inputs = [
+            inputs[k] if k in inputs
+            else arrayobj1d([d])
+            for k, d in zip(ks, ds)
+        ]
 
     if meshgrid_input:
         inputs = [
