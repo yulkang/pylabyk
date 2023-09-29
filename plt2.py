@@ -493,6 +493,9 @@ def savefig_w_data(
             Tuple[Union[plt.Figure, GridAxes], ...]
         ]] = None,
     kw_fun: Dict[str, Any] = None,
+    fun_calc: Callable[..., Dict[str, Any]] = None,
+    kw_fun_calc: Dict[str, Any] = None,
+    kw_fun_nocache: Dict[str, Any] = None,
     to_load_kw_fun_only=False,
     to_overwrite_cache=False,
     to_plot=True,
@@ -506,6 +509,11 @@ def savefig_w_data(
     :param fun: can be called with fun(**kw_fun),
         and returns plt.Figure or plt2.GridAxes as the only or the first output
     :param kw_fun: if None, loaded from fname.zpkl
+    :param fun_calc: can be called with fun_calc(**kw_fun_calc),
+        and returns kw_fun as the only output
+    :param kw_fun_calc: if None, loaded from fname.zpkl
+    :param kw_fun_nocache: if not None,
+        passed to fun(**{**kw_fun, **kw_fun_nocache})
     :param to_load_kw_fun_only: if True, load kw_fun only
     :param to_overwrite_cache: if True, overwrite cache even if it exists
     :param to_plot: if False, just save the data without plotting
@@ -524,13 +532,21 @@ def savefig_w_data(
             return kw_fun
 
         if kw_fun is None:
-            kw_fun = cache.get()
+            if cache.exists() and not to_overwrite_cache:
+                kw_fun = cache.get()
+            else:
+                if kw_fun_calc is None:
+                    kw_fun_calc = {}
+                kw_fun = fun_calc(**kw_fun_calc)
+                cache.set(kw_fun)
         elif to_overwrite_cache or not cache.exists():
             cache.set(kw_fun)
 
     if to_plot:
         assert fun is not None
-        out = fun(**kw_fun)
+        if kw_fun_nocache is None:
+            kw_fun_nocache = {}
+        out = fun(**{**kw_fun, **kw_fun_nocache})
         if np2.is_iter(out):
             fig = out[0]
         else:
