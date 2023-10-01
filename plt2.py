@@ -315,8 +315,11 @@ class GridAxes:
             # to avoid closing the figure of the parent
             gridaxes.axs = axs
             return gridaxes
-        else:
-            return axs
+
+        if isinstance(axs, GridAxes):
+            axs._close_on_del = False
+
+        return axs
 
     def __setitem__(self, key, data: AxesSlice):
         self.axs[key] = data
@@ -555,8 +558,6 @@ def savefig_w_data(
             fig = fig.figure
         if to_savefig and fig is not None:
             savefig(fname, fig=fig)
-        else:
-            plt.close(fig)
     else:
         out = None
 
