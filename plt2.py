@@ -544,7 +544,8 @@ def savefig_w_data(
                 cache.set(kw_fun)
         elif to_overwrite_cache or not cache.exists():
             cache.set(kw_fun)
-
+    # from pprint import pprint
+    # pprint(kw_fun)  # CHECKED
     if to_plot:
         assert fun is not None
         if kw_fun_nocache is None:
