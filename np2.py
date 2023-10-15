@@ -25,6 +25,7 @@ from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List, \
 from multiprocessing.pool import Pool as Pool0
 import numpy.typing as nptyp
 # from multiprocessing import Pool
+from pprint import pprint
 
 from .numpytorch import npy, npys
 
@@ -341,12 +342,22 @@ def dict2array(d, key) -> dict:
     return np.vectorize(lambda d1: d1[key])(d)
 
 
-def dict_diff(d0: dict, d1: dict) -> dict:
+def dict_diff(d0: dict, d1: dict, verbose=False) -> (dict, dict, dict):
+    """
+
+    :param d0:
+    :param d1:
+    :return: dict_diff, dict_d0_only, dict_d1_only
+        dict_diff[k] = (d0[k], d1[k]) if d0[k] != d1[k]
+        dict_d0_only[k] = d0[k] if k in d0 but not in d1
+        dict_d1_only[k] = d1[k] if k in d1 but not in d0
+    """
     d = {}
-    d_missing = {}
+    d0_only = {}
+    d1_only = {}
     for k in d0.keys():
         if k not in d1:
-            d[k] = (d0[k],)
+            d0_only[k] = d0[k]
         elif (
                 (torch.is_tensor(d0[k]) or isinstance(d0[k], np.ndarray))
                 and (torch.is_tensor(d1[k]) or isinstance(d1[k], np.ndarray))
@@ -366,8 +377,19 @@ def dict_diff(d0: dict, d1: dict) -> dict:
             #     d[k] = (d0[k], d1[k])
     for k in d1.keys():
         if k not in d0:
-            d_missing[k] = d1[k]
-    return d, d_missing
+            d1_only[k] = d1[k]
+    if verbose:
+        if len(d) > 0:
+            print('difference:')
+            pprint(d)
+        if len(d0_only) > 0:
+            print('d0 only:')
+            pprint(d0_only)
+        if len(d1_only) > 0:
+            print('d1 only:')
+            pprint(d1_only)
+
+    return d, d0_only, d1_only
 
 
 def rmkeys(d: dict, keys: Union[str, Iterable[str]]):
