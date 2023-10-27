@@ -2823,7 +2823,10 @@ def latex_table(
         tabular.add_hline()
 
 
-class Figure(ltx.Figure):  # TODO: add new SubFigure
+class Figure(ltx.Figure):
+    # TODO: add new SubFigure that accepts height:
+    #  see subfig_rows() below and
+    #  https://tex.stackexchange.com/questions/47245/set-a-maximum-width-and-height-for-an-image
     def add_image(self, filename, *, width=ltx.NoEscape(r'0.8\textwidth'),
                   placement=ltx.NoEscape(r'\centering'), height=None):
         """Add an image to the figure.
