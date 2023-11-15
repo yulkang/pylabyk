@@ -763,6 +763,42 @@ def cummax(v: np.ndarray, dim: int = 0) -> np.ndarray:
     return -cummin(-v, dim)
 
 
+def ____CUM____():
+    pass
+
+
+def cummin(v: np.ndarray, dim: int = 0) -> np.ndarray:
+    """
+
+    :param v:
+    :param dim:
+    :return: cumulative minimum along dim
+    """
+    shape0 = v.shape
+    if dim != 0:
+        v = np.swapaxes(v, 0, dim)
+    cummin1 = v[0]
+    r = [cummin1]
+    for v1 in v[1:]:
+        cummin1 = np.amin(np.stack([cummin1, v1]), 0)
+        r.append(cummin1)
+    r = np.stack(r)
+    if dim != 0:
+        r = np.swapaxes(r, 0, dim)
+    assert r.shape == shape0
+    return r
+
+
+def cummax(v: np.ndarray, dim: int = 0) -> np.ndarray:
+    """
+
+    :param v:
+    :param dim:
+    :return: cumulative maximum along dim
+    """
+    return -cummin(-v, dim)
+
+
 def ____STAT____():
     pass
 
@@ -2192,7 +2228,9 @@ def fun_par_dict(fun: Callable, *args):
     else:
         return fun()
 
+    # # Stopped while writing vectorize_into_df - perhaps too specialized
 
+# # Stopped while writing vectorize_into_df - perhaps too specialized
 # def vectorize_into_df(
 #     f: Callable,
 #     kw: Dict[str, Any],
