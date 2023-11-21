@@ -2147,7 +2147,8 @@ def arrayobj(
     Useful for np.vectorize()
     :param inp:
     :param copy:
-    :param ndim_objarray: 
+    :param ndim_objarray: Use 0 to make all dimensions object arrays.
+        Use < 0 to make the last dimensions object arrays.
     :return: array
     """
     if not isinstance(inp, np.ndarray):
