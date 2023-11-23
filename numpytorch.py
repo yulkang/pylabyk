@@ -37,18 +37,25 @@ def get_default_gpu_device():
 
 def get_device():
     if _device0 is None:
-        if (
-            hasattr(torch.backends, 'mps')
-            and torch.backends.mps.is_available()
-            and torch.backends.mps.is_built()
-        ):
-            device = torch.device('mps')
-            torch.set_default_dtype(torch.float32)
-        else:
-            device = torch.device('cuda:0' if torch.cuda.is_available()
-                                  else 'cpu')
+        device = get_gpu_device_if_available()
     else:
         device = _device0
+    return device
+
+
+def get_gpu_device_if_available():
+    if (
+        hasattr(torch.backends, 'mps')
+        and torch.backends.mps.is_available()
+        and torch.backends.mps.is_built()
+    ):
+        device = torch.device('mps')
+        torch.set_default_dtype(torch.float32)
+    else:
+        device = torch.device(
+            'cuda:0' if torch.cuda.is_available()
+            else 'cpu'
+        )
     return device
 
 
