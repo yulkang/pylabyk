@@ -47,7 +47,7 @@ from .argsutil import dict2fname, fname2title, kwdef, fullpath2hash
 from typing import List, Union, Sequence, Dict, Any
 # from gzip import BadGzipFile
 
-from .numpytorch import npy
+from .numpytorch import npy, get_default_gpu_device
 
 ignore_cache = False
 ignored_once = []
@@ -290,7 +290,7 @@ class Cache(object):
 
             v1 = v[subkey]  # type: torch.Tensor
             if load_gpu and torch.is_tensor(v1) and torch.cuda.is_available():
-                v1 = v1.cuda()
+                v1 = v1.cuda(get_default_gpu_device())
             return v1
 
         if subkeys is None:

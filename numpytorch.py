@@ -12,30 +12,43 @@ from torch.distributions import MultivariateNormal, Uniform, Normal, \
     Categorical, OneHotCategorical, VonMises, Gamma
 
 _device0 = torch.device('cpu')  # CHECKED
-# _device0 = None  # should be used as a default
+# _device0 = None  # may be used as a default
+
+_device0_gpu = torch.device('cuda:0') if torch.cuda.is_available() else 'cpu'
 
 
 def set_device(device):
     global _device0
+    if isinstance(device, str):
+        device = torch.device(device)
     _device0 = device
 
 
-def get_device(device=None):
-    # device = torch.device('cpu')  # CHECKED
-    if device is None:
-        if _device0 is None:
-            if (
-                hasattr(torch.backends, 'mps')
-                and torch.backends.mps.is_available()
-                and torch.backends.mps.is_built()
-            ):
-                device = torch.device('mps')
-                torch.set_default_dtype(torch.float32)
-            else:
-                device = torch.device('cuda:0' if torch.cuda.is_available()
-                                      else 'cpu')
+def set_default_gpu_device(device):
+    global _device0_gpu
+    if isinstance(device, str):
+        device = torch.device(device)
+    _device0_gpu = device
+
+
+def get_default_gpu_device():
+    return _device0_gpu
+
+
+def get_device():
+    if _device0 is None:
+        if (
+            hasattr(torch.backends, 'mps')
+            and torch.backends.mps.is_available()
+            and torch.backends.mps.is_built()
+        ):
+            device = torch.device('mps')
+            torch.set_default_dtype(torch.float32)
         else:
-            device = _device0
+            device = torch.device('cuda:0' if torch.cuda.is_available()
+                                  else 'cpu')
+    else:
+        device = _device0
     return device
 
 
@@ -209,7 +222,7 @@ enforce_tensor = tensor
 def cuda(v):
     """call cuda() if cuda is available; otherwise ignored."""
     if torch.cuda.is_available():
-        v.cuda()
+        v.cuda(get_default_gpu_device())
 
 
 def zeros(*args, **kwargs):
