@@ -1114,8 +1114,8 @@ def flatten_dict(
 ModelType = Union[OverriddenParameter, BoundedModule, nn.Module]
 FunDataType = Callable[
     [str, int, int, int],
-    Tuple[Union[None, torch.Tensor, Tuple[torch.Tensor, ...]],
-          Union[None, torch.Tensor, Tuple[torch.Tensor, ...]]]
+    Tuple[Union[None, torch.Tensor, Tuple],
+          Union[None, torch.Tensor, Tuple]]
     # (mode='all'|'train'|'valid'|'train_valid'|'test', fold_valid=0, epoch=0,
     #  n_fold_valid=1)
     # -> (data, target)
@@ -1129,6 +1129,17 @@ PlotFunType = Callable[
     Tuple[plt.Figure, Dict[str, torch.Tensor]]
 ]
 PlotFunsType = Iterable[Tuple[str, PlotFunType]]
+
+
+def fun_seq(fun, seq):
+    if torch.is_tensor(seq) or isinstance(seq, np.ndarray):
+        return fun(seq)
+    else:
+        return [fun(v) for v in seq]
+
+
+def detach_seq(seq):
+    return fun_seq(lambda v: npt.tensor(npy(v)), seq)
 
 
 def optimize(
@@ -1156,14 +1167,18 @@ def optimize(
 ) -> (float, dict, dict, List[float], List[float]):
     """
 
-    :param model:
+    :param model: (data) -> out or (*data) -> out
     :param fun_data: (mode='all'|'train'|'valid'|'train_valid'|'test',
-    fold_valid=0, epoch=0, n_fold_valid=1) -> (data, target)
+    fold_valid=0, epoch=0, n_fold_valid=1)
+    -> (data[batch, ...], target[batch, ...])
+    or ((data1[batch1, ...], data2[batch2, ...], ...),
+        (target1[batch1, ...], target2[batch2, ...], ...)
+        where batch1 != batch2 ... in general.
     :param fun_loss: (out, target) -> loss
     :param plotfuns: [(name_plotfun: str, plotfun: PlotFunType)]
     where plotfun(model, d) -> (fgure, d)
     and d is as returned by optimize() itself
-    :param optimizer_kind:
+    :param optimizer_kind: 'SGD' | 'Adam' | 'LBFGS'
     :param max_epoch:
     :param patience:
     :param thres_patience:
@@ -1259,12 +1274,41 @@ def optimize(
     epoch = 0
 
     def loss_wo_nan(model1, data1, target1) -> torch.Tensor:
-        is_nan = (
-            torch.isnan(data1.reshape(data1.shape[0], -1)).any(-1)
-            | torch.isnan(target1.reshape(target1.shape[0], -1)).any(-1)
-        )
-        out1 = model1(data1[~is_nan])
-        return fun_loss(out1, target1[~is_nan]), out1
+        """
+
+        :param model1:
+        :param data1: [batch, ...] or ([batch1, ...], [batch2, ...]. ...)
+        :param target1: must match data1's format.
+        :return:
+        """
+        if torch.is_tensor(target1):
+            target1 = [target1]
+        is_target_nan = [
+            torch.isnan(d.reshape(d.shape[0], -1)).any(-1)
+            for d in target1
+        ]
+
+        if torch.is_tensor(data1):
+            data1 = [data1]
+            assert torch.is_tensor(target1[0]) and len(target1) == 1
+        is_data_nan = [
+            torch.isnan(d.reshape(d.shape[0], -1)).any(-1)
+            for d in data1
+        ]
+        is_target_or_data_nan = [
+            is_target_nan1 | is_data_nan1
+            for (is_target_nan1, is_data_nan1) in zip(
+                is_target_nan, is_data_nan
+            )
+        ]
+        data_wo_nan, target_wo_nan = zip(*[
+            (d[~is_target_or_data_nan1], t[~is_target_or_data_nan1])
+            for d, t, is_target_or_data_nan1
+            in zip(data1, target1, is_target_or_data_nan)
+        ])
+
+        out1 = model1(*data_wo_nan)
+        return fun_loss(out1, target_wo_nan), out1
 
     try:
         for epoch in range(max([max_epoch, 1])):
@@ -1283,7 +1327,7 @@ def optimize(
                 losses_fold_train.append(loss_train1)
 
                 if n_fold_valid == 1:
-                    out_valid = npt.tensor(npy(out_train))
+                    out_valid = detach_seq(out_train)
                     loss_valid1 = npt.tensor(npy(loss_train1))
                     data_valid = data_train
                     target_valid = target_train
@@ -1578,7 +1622,7 @@ def optimize(
         d.update({
             'data_' + mode: data,
             'target_' + mode: target,
-            'out_' + mode: npt.tensor(npy(out)),
+            'out_' + mode: detach_seq(out),
             'loss_' + mode: npt.tensor(npy(loss))
         })
 
