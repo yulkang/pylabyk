@@ -2152,7 +2152,7 @@ def arrayobj(
     :return: array
     """
     if not isinstance(inp, np.ndarray):
-        inp = np.array(inp)
+        inp = np.array(inp, dtype=object)
     return arrayobj1d(
         inp.reshape((-1,) + inp.shape[ndim_objarray:]),
         copy=copy
