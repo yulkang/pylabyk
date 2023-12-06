@@ -1142,6 +1142,13 @@ def detach_seq(seq):
     return fun_seq(lambda v: npt.tensor(npy(v)), seq)
 
 
+def is_nan_by_batch(v: torch.Tensor):
+    return (
+        torch.isnan(v.reshape(v.shape[0], -1)).any(-1)
+        if v.shape[0] > 0 else npt.zeros([0], dtype=bool)
+    )
+
+
 def optimize(
         model: ModelType,
         fun_data: FunDataType = None,
@@ -1283,18 +1290,12 @@ def optimize(
         """
         if torch.is_tensor(target1):
             target1 = [target1]
-        is_target_nan = [
-            torch.isnan(d.reshape(d.shape[0], -1)).any(-1)
-            for d in target1
-        ]
+        is_target_nan = [is_nan_by_batch(d) for d in target1]
 
         if torch.is_tensor(data1):
             data1 = [data1]
             assert torch.is_tensor(target1[0]) and len(target1) == 1
-        is_data_nan = [
-            torch.isnan(d.reshape(d.shape[0], -1)).any(-1)
-            for d in data1
-        ]
+        is_data_nan = [is_nan_by_batch(d) for d in data1]
         is_target_or_data_nan = [
             is_target_nan1 | is_data_nan1
             for (is_target_nan1, is_data_nan1) in zip(
