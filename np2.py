@@ -9,6 +9,7 @@ Created on Mon Mar 12 10:28:15 2018
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
 import dataclasses
+import multiprocessing
 from inspect import signature
 import numpy as np
 import torch
@@ -2240,6 +2241,10 @@ def fun_kw(f: Callable, kw: dict):
     return f(**kw)
 
 
+def is_daemon() -> bool:
+    return multiprocessing.current_process().daemon
+
+
 def vectorize_par(
     f: Callable, inputs: Iterable,
     pool: Pool = None, processes=None, chunksize=1,
@@ -2291,6 +2296,8 @@ def vectorize_par(
         if False, use np.broadcast() across inputs
     :return: (iterable of) outputs from f.
     """
+    processes = 1 if is_daemon() else processes
+
     if isinstance(inputs, dict):
         s = dict(signature(f).parameters)
         ks, ds = zip(*[(k, v.default) for k, v in s.items()])
