@@ -429,6 +429,18 @@ class BoundedModule(nn.Module):
                 data0 = param.get_random_data0()
                 self.load_state_dict_data({k: data0})
 
+    def to(self, device):
+        super().to(device)
+        for name, param in self.named_modules():
+            if isinstance(param, BoundedParameter):
+                param.to(device)
+
+    def cpu(self):
+        super().cpu()
+        for name, param in self.named_modules():
+            if isinstance(param, BoundedParameter):
+                param.cpu()
+
     def setslice(self, name, index, value):
         v = self.__getattr__(name)
         v[index] = value
