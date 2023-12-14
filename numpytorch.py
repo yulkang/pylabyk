@@ -53,7 +53,7 @@ def get_gpu_device_if_available():
             and torch.backends.mps.is_built()
         ):
             device = torch.device('mps')
-            torch.set_default_dtype(torch.float32)
+            torch.set_default_dtype(torch.float32)  # mps only supports float32
         elif torch.cuda.is_available():
             memory_free_devices = []
             for i in range(torch.cuda.device_count()):
@@ -189,14 +189,13 @@ def list_tensors(device=None) -> List[torch.Tensor]:
     return res
 
 
-def float(v):
-    return v.type(torch.get_default_dtype())
-
-
-def tensor(v: Union[float, np.ndarray, torch.Tensor],
-           min_ndim=1,
-           device=None,
-           **kwargs) -> Union[torch.Tensor, torch.LongTensor]:
+def tensor(
+    v: Union[float, np.ndarray, torch.Tensor],
+    min_ndim=1,
+    device=None,
+    dtype=None,
+    **kwargs
+) -> Union[torch.Tensor, torch.LongTensor]:
     """
     Construct a tensor if the input is not; otherwise return the input as is,
     but return None as is for convenience when input is not passed.
@@ -217,11 +216,11 @@ def tensor(v: Union[float, np.ndarray, torch.Tensor],
             if v.device != device:
                 v = v.to(device)
         else:
-            try:
-                v = torch.tensor(v, device=device, **kwargs)
-            except TypeError:
-                v = torch.tensor(
-                    v, device=device, dtype=torch.float32, **kwargs)
+            if not isinstance(v, np.ndarray):
+                v = np.array(v)
+            if dtype is None and v.dtype == float:
+                dtype = torch.float
+            v = torch.tensor(v, device=device, dtype=dtype, **kwargs)
         if v.ndimension() < min_ndim:
             v = v.expand(v.shape
                          + torch.Size([1] * (min_ndim - v.ndimension())))
@@ -284,7 +283,7 @@ def randint(*args, **kwargs):
     return torch.randint(*args, **{'device': get_device(), **kwargs})
 
 
-def float(v):
+def as_float(v):
     return v.type(torch.get_default_dtype())
 
 
@@ -387,10 +386,10 @@ def nanmean(v: torch.Tensor, *args, allnan=np.nan, **kwargs) -> torch.Tensor:
     v[is_nan] = 0
 
     if np.isnan(allnan):
-        return v.sum(*args, **kwargs) / float(~is_nan).sum(*args, **kwargs)
+        return v.sum(*args, **kwargs) / as_float(~is_nan).sum(*args, **kwargs)
     else:
         sum_nonnan = v.sum(*args, **kwargs)
-        n_nonnan = float(~is_nan).sum(*args, **kwargs)
+        n_nonnan = as_float(~is_nan).sum(*args, **kwargs)
         mean_nonnan = zeros_like(sum_nonnan) + allnan
         any_nonnan = n_nonnan > 1
         mean_nonnan[any_nonnan] = (
@@ -1859,7 +1858,7 @@ def crossvalincl(n_tr, i_fold, n_fold=10, mode='consec'):
     if mode == 'mod':
         return (arange(n_tr) % n_fold) == i_fold
     elif mode == 'consec':
-        ix = (arange(n_tr, dtype=torch.double) / n_tr *
+        ix = (arange(n_tr, dtype=torch.float) / n_tr *
               n_fold).long()
         return ix == i_fold
     else:
@@ -1947,7 +1946,7 @@ def vmpdf_a_given_b(a_prad, b_prad, pconc):
     """
 
     dist = ((a_prad.reshape([-1, 1]) - b_prad.reshape([1, -1])) %
-            1.).double()
+            1.).float()
     return sumto1(vmpdf_prad_pconc(
         dist.flatten(), tensor([0.]),
         tensor(pconc)

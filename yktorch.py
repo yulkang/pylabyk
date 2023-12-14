@@ -954,7 +954,7 @@ def enforce_float_tensor(v: Union[torch.Tensor, np.ndarray], device=None
     if device is None:
         device = default_device
     if not torch.is_tensor(v):
-        return npt.tensor(v, dtype=torch.get_default_dtype(), device=device)
+        return npt.tensor(v, device=device)
     elif not torch.is_floating_point(v):
         return v.float()
     else:
@@ -1539,7 +1539,7 @@ def optimize(
 
         if not torch.is_tensor(data):
             p_unequal = npt.tensor([
-                (v1 != v0).double().mean() for v1, v0
+                (v1 != v0).float().mean() for v1, v0
                 in zip(data, data0)
             ])
             if (p_unequal > 0).any():
