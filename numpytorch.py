@@ -14,7 +14,7 @@ from torch.distributions import MultivariateNormal, Uniform, Normal, \
 _device0 = torch.device('cpu')  # CHECKED
 # _device0 = None  # may be used as a default
 
-_device0_gpu = torch.device('cuda:0') if torch.cuda.is_available() else 'cpu'
+_device0_gpu = None
 
 
 def set_device(device):
@@ -44,8 +44,8 @@ def get_device():
 
 
 def get_gpu_device_if_available():
-    if get_default_gpu_device() is not None:
-        device = get_default_gpu_device()
+    if _device0_gpu is not None:
+        device = _device0_gpu
     else:
         if (
             hasattr(torch.backends, 'mps')
