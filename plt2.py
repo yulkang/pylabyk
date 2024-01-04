@@ -12,10 +12,11 @@ from typing import List, Callable, Sequence, Mapping, Tuple, Dict, Any, Type
 import pickle
 
 import numpy as np
+from PIL import Image
 from numpy import typing as nptyp
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from matplotlib import patches, gridspec
+from matplotlib import patches, gridspec, pyplot as plt
 from matplotlib.colors import ListedColormap
 from typing import Union, Iterable
 from copy import copy
@@ -3446,3 +3447,51 @@ def consolidate_count_matrix(
 
     assert np.sum(mat1) == np.sum(mat)
     return mat1
+
+
+def plot_collage(
+    fnames: nptyp.NDArray[str],
+    crop: (slice, slice) = (slice(None), slice(None)),
+    dpi: float = 300,
+    kw_gridaxes: dict = (),
+) -> GridAxes:
+    """
+
+    :param fnames: [row, col] = str
+    :param crop:
+    :param dpi:
+    :return:
+    """
+    nrow, ncol = fnames.shape
+    kw_gridaxes = {
+        'hspace': 0.1,
+        'wspace': 0.1,
+        'left': 1,
+        'top': 1,
+        **dict(kw_gridaxes)
+    }
+
+    if crop[1].start is not None:
+        kw_gridaxes = {
+            **kw_gridaxes,
+            'widths': (crop[1].stop - crop[1].start) / dpi,
+        }
+    if crop[0].start is not None:
+        kw_gridaxes = {
+            **kw_gridaxes,
+            'heights': (crop[0].stop - crop[0].start) / dpi,
+        }
+
+    axs = GridAxes(nrow, ncol, **kw_gridaxes)
+    for row in range(nrow):
+        for col in range(ncol):
+            ax = axs[row, col]
+            # noinspection PyTypeChecker
+            fname = fnames[row, col]  # type: str
+            im = np.array(Image.open(fname))
+            im = im[crop[0], crop[1]]
+
+            plt.sca(ax)
+            plt.imshow(im)
+            box_off('all')
+    return axs
