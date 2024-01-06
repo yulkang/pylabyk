@@ -425,7 +425,9 @@ def DataFrame(dat):
     return pd.concat(l, axis=1)
 
 
-def permute2st(v, ndim_en=1):
+def permute2st(
+    v: Union[np.ndarray, torch.Tensor], ndim_en=1
+) -> Union[np.ndarray, torch.Tensor]:
     """
     Permute last ndim_en of tensor v to the first
     @type v: np.ndarray
@@ -433,19 +435,30 @@ def permute2st(v, ndim_en=1):
     @rtype: np.ndarray
     """
     nd = v.ndim
-    return v.transpose([*range(-ndim_en, 0)] + [*range(nd - ndim_en)])
+    dim_targ = [*range(-ndim_en, 0)] + [*range(nd - ndim_en)]
+    if isinstance(v, np.ndarray):
+        return v.transpose(dim_targ)
+    elif torch.is_tensor(v):
+        return v.permute(dim_targ)
+    else:
+        raise TypeError(f'v must be np.ndarray or torch.Tensor, not {type(v)}')
 p2st = permute2st
 
 
-def permute2en(v, ndim_st=1):
+def permute2en(
+    v: Union[np.ndarray, torch.Tensor], ndim_st=1
+) -> Union[np.ndarray, torch.Tensor]:
     """
     Permute last ndim_en of tensor v to the first
-    :type v: np.ndarray
-    :type ndim_st: int
-    :rtype: np.ndarray
     """
     nd = v.ndim
-    return v.transpose([*range(ndim_st, nd)] + [*range(ndim_st)])
+    dim_targ = [*range(ndim_st, nd)] + [*range(ndim_st)]
+    if isinstance(v, np.ndarray):
+        return v.transpose(dim_targ)
+    elif torch.is_tensor(v):
+        return v.permute(dim_targ)
+    else:
+        raise TypeError(f'v must be np.ndarray or torch.Tensor, not {type(v)}')
 p2en = permute2en
 
 
