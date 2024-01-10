@@ -287,7 +287,9 @@ def as_float(v):
     return v.type(torch.get_default_dtype())
 
 
-def numpy(v: Union[torch.Tensor, np.ndarray, Iterable]):
+def numpy(
+    v: Union[torch.Tensor, np.ndarray, Iterable]
+) -> Union[torch.Tensor, np.ndarray, float, int]:
     """
     Construct a np.ndarray from tensor; otherwise return the input as is
     :type v: torch.Tensor
