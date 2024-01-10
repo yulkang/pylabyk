@@ -43,7 +43,7 @@ import numpy as np
 
 from . import zipPickle
 from collections import OrderedDict as odict
-from .argsutil import dict2fname, fname2title, kwdef, fullpath2hash
+from .argsutil import dict2fname, kwdef, fullpath2hash
 from typing import List, Union, Sequence, Dict, Any
 # from gzip import BadGzipFile
 
