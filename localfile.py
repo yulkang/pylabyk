@@ -4,7 +4,7 @@ from . import argsutil
 from .cacheutil import Cache
 import os, shutil
 from collections import OrderedDict as odict
-from typing import Union, Iterable
+from typing import Union, Iterable, Tuple
 from .cacheutil import mkdir4file
 from .argsutil import (dict2fname, fname2dict,
     kwdef, merge_fileargs, fullpath2hash)
@@ -122,7 +122,8 @@ class LocalFile(object):
         d: Union[Iterable[tuple], dict, odict, str, None] = None,
         ext=None, subdir=None,
         max_len=250,
-    ):
+        return_exists=False,
+    ) -> Union[str, Tuple[str, bool]]:
         """
         :type filekind: str
         :type kind: str
@@ -155,22 +156,30 @@ class LocalFile(object):
         if subdir is None and self.kind2subdir:
             subdir = filekind + '=' + kind
 
+        fullpath = os.path.join(
+            self.get_pth_out(subdir), fname + ext
+        )
+
         if len(fname) > max_len:
             fname0 = fname
             fname = fullpath2hash(fname0)
-            fname_short = os.path.join(
+            fullpath_short = os.path.join(
                 self.get_pth_out(subdir), fname + ext + '.hash.txt'
             )
-            mkdir4file(fname_short)
-            with open(fname_short, 'w') as f:
+            exists = os.path.exists(fullpath_short)
+            mkdir4file(fullpath_short)
+            with open(fullpath_short, 'w') as f:
                 f.write(fname0)
             print(f'File name too long: {fname0}\n'
                   f'    Writing instead to {fname}\n'
-                  f'    and recording the original name in {fname_short}')
+                  f'    and recording the original name in {fullpath_short}')
+        else:
+            exists = os.path.exists(fullpath)
 
-        return os.path.join(
-            self.get_pth_out(subdir), fname + ext
-        )
+        if return_exists:
+            return fullpath, exists
+        else:
+            return fullpath
 
     def get_cache(
             self, cache_kind: str,
