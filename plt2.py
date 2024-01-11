@@ -3199,6 +3199,7 @@ def plot_collage(
     crop: (slice, slice) = (slice(None), slice(None)),
     dpi: float = 300,
     kw_gridaxes: dict = (),
+    ignore_missing_file=False,
 ) -> GridAxes:
     """
 
@@ -3233,7 +3234,15 @@ def plot_collage(
             ax = axs[row, col]
             # noinspection PyTypeChecker
             fname = fnames[row, col]  # type: str
-            im = np.array(Image.open(fname))
+            try:
+                im = np.array(Image.open(fname))
+            except FileNotFoundError:
+                if ignore_missing_file:
+                    plt.sca(ax)
+                    box_off('all')
+                    continue
+                else:
+                    raise
             im = im[crop[0], crop[1]]
 
             plt.sca(ax)
