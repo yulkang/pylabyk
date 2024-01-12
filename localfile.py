@@ -164,15 +164,18 @@ class LocalFile(object):
             fname0 = fname
             fname = fullpath2hash(fname0)
             fullpath_short = os.path.join(
-                self.get_pth_out(subdir), fname + ext + '.hash.txt'
+                self.get_pth_out(subdir), fname + ext
             )
-            exists = os.path.exists(fullpath_short)
-            mkdir4file(fullpath_short)
-            with open(fullpath_short, 'w') as f:
+            fullpath_short_txt = fullpath_short + '.hash.txt'
+            exists = os.path.exists(fullpath_short + '.hash.txt')
+            mkdir4file(fullpath_short_txt)
+            with open(fullpath_short_txt, 'w') as f:
                 f.write(fname0)
             print(f'File name too long: {fname0}\n'
                   f'    Writing instead to {fname}\n'
-                  f'    and recording the original name in {fullpath_short}')
+                  f'    and recording the original name in '
+                  f'{fullpath_short_txt}')
+            fullpath = fullpath_short
         else:
             exists = os.path.exists(fullpath)
 
