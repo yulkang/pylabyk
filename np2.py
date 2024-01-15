@@ -511,6 +511,25 @@ def index_arg(v: np.ndarray, i: np.ndarray) -> np.ndarray:
     return v[indexes]
 
 
+def unique_stable(v: Iterable) -> Iterable:
+    """
+    Return unique elements of v in the order of first appearance
+    :param v:
+    :return: v_unique
+    """
+    try:
+        assert isinstance(v, np.ndarray)
+        _, idx = np.unique(v, return_index=True)
+        return v[np.sort(idx)]
+    except (TypeError, AssertionError):
+        res = []
+        for v1 in v:
+            if v1 not in res:
+                res.append(v1)
+        return res
+
+
+
 def ____COPY____():
     pass
 
