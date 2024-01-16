@@ -9,6 +9,7 @@ Created on Mon Mar 12 10:28:15 2018
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
 import dataclasses
+import multiprocessing
 from inspect import signature
 import numpy as np
 import torch
@@ -424,7 +425,9 @@ def DataFrame(dat):
     return pd.concat(l, axis=1)
 
 
-def permute2st(v, ndim_en=1):
+def permute2st(
+    v: Union[np.ndarray, torch.Tensor], ndim_en=1
+) -> Union[np.ndarray, torch.Tensor]:
     """
     Permute last ndim_en of tensor v to the first
     @type v: np.ndarray
@@ -432,19 +435,30 @@ def permute2st(v, ndim_en=1):
     @rtype: np.ndarray
     """
     nd = v.ndim
-    return v.transpose([*range(-ndim_en, 0)] + [*range(nd - ndim_en)])
+    dim_targ = [*range(-ndim_en, 0)] + [*range(nd - ndim_en)]
+    if isinstance(v, np.ndarray):
+        return v.transpose(dim_targ)
+    elif torch.is_tensor(v):
+        return v.permute(dim_targ)
+    else:
+        raise TypeError(f'v must be np.ndarray or torch.Tensor, not {type(v)}')
 p2st = permute2st
 
 
-def permute2en(v, ndim_st=1):
+def permute2en(
+    v: Union[np.ndarray, torch.Tensor], ndim_st=1
+) -> Union[np.ndarray, torch.Tensor]:
     """
     Permute last ndim_en of tensor v to the first
-    :type v: np.ndarray
-    :type ndim_st: int
-    :rtype: np.ndarray
     """
     nd = v.ndim
-    return v.transpose([*range(ndim_st, nd)] + [*range(ndim_st)])
+    dim_targ = [*range(ndim_st, nd)] + [*range(ndim_st)]
+    if isinstance(v, np.ndarray):
+        return v.transpose(dim_targ)
+    elif torch.is_tensor(v):
+        return v.permute(dim_targ)
+    else:
+        raise TypeError(f'v must be np.ndarray or torch.Tensor, not {type(v)}')
 p2en = permute2en
 
 
@@ -495,6 +509,25 @@ def index_arg(v: np.ndarray, i: np.ndarray) -> np.ndarray:
     )
     indexes = (*indexes, i)
     return v[indexes]
+
+
+def unique_stable(v: Iterable) -> Iterable:
+    """
+    Return unique elements of v in the order of first appearance
+    :param v:
+    :return: v_unique
+    """
+    try:
+        assert isinstance(v, np.ndarray)
+        _, idx = np.unique(v, return_index=True)
+        return v[np.sort(idx)]
+    except (TypeError, AssertionError):
+        res = []
+        for v1 in v:
+            if v1 not in res:
+                res.append(v1)
+        return res
+
 
 
 def ____COPY____():
@@ -2147,11 +2180,12 @@ def arrayobj(
     Useful for np.vectorize()
     :param inp:
     :param copy:
-    :param ndim_objarray: 
+    :param ndim_objarray: Use 0 to make all dimensions object arrays.
+        Use < 0 to make the last dimensions object arrays.
     :return: array
     """
     if not isinstance(inp, np.ndarray):
-        inp = np.array(inp)
+        inp = np.array(inp, dtype=object)
     return arrayobj1d(
         inp.reshape((-1,) + inp.shape[ndim_objarray:]),
         copy=copy
@@ -2239,6 +2273,10 @@ def fun_kw(f: Callable, kw: dict):
     return f(**kw)
 
 
+def is_daemon() -> bool:
+    return multiprocessing.current_process().daemon
+
+
 def vectorize_par(
     f: Callable, inputs: Iterable,
     pool: Pool = None, processes=None, chunksize=1,
@@ -2290,6 +2328,8 @@ def vectorize_par(
         if False, use np.broadcast() across inputs
     :return: (iterable of) outputs from f.
     """
+    processes = 1 if is_daemon() else processes
+
     if isinstance(inputs, dict):
         s = dict(signature(f).parameters)
         ks, ds = zip(*[(k, v.default) for k, v in s.items()])

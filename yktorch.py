@@ -429,6 +429,18 @@ class BoundedModule(nn.Module):
                 data0 = param.get_random_data0()
                 self.load_state_dict_data({k: data0})
 
+    def to(self, device):
+        super().to(device)
+        for name, param in self.named_modules():
+            if isinstance(param, BoundedParameter):
+                param.to(device)
+
+    def cpu(self):
+        super().cpu()
+        for name, param in self.named_modules():
+            if isinstance(param, BoundedParameter):
+                param.cpu()
+
     def setslice(self, name, index, value):
         v = self.__getattr__(name)
         v[index] = value
@@ -942,7 +954,7 @@ def enforce_float_tensor(v: Union[torch.Tensor, np.ndarray], device=None
     if device is None:
         device = default_device
     if not torch.is_tensor(v):
-        return npt.tensor(v, dtype=torch.get_default_dtype(), device=device)
+        return npt.tensor(v, device=device)
     elif not torch.is_floating_point(v):
         return v.float()
     else:
@@ -1114,8 +1126,8 @@ def flatten_dict(
 ModelType = Union[OverriddenParameter, BoundedModule, nn.Module]
 FunDataType = Callable[
     [str, int, int, int],
-    Tuple[Union[None, torch.Tensor, Tuple[torch.Tensor, ...]],
-          Union[None, torch.Tensor, Tuple[torch.Tensor, ...]]]
+    Tuple[Union[None, torch.Tensor, Tuple],
+          Union[None, torch.Tensor, Tuple]]
     # (mode='all'|'train'|'valid'|'train_valid'|'test', fold_valid=0, epoch=0,
     #  n_fold_valid=1)
     # -> (data, target)
@@ -1129,6 +1141,24 @@ PlotFunType = Callable[
     Tuple[plt.Figure, Dict[str, torch.Tensor]]
 ]
 PlotFunsType = Iterable[Tuple[str, PlotFunType]]
+
+
+def fun_seq(fun, seq):
+    if torch.is_tensor(seq) or isinstance(seq, np.ndarray):
+        return fun(seq)
+    else:
+        return [fun(v) for v in seq]
+
+
+def detach_seq(seq):
+    return fun_seq(lambda v: npt.tensor(npy(v)), seq)
+
+
+def is_nan_by_batch(v: torch.Tensor):
+    return (
+        torch.isnan(v.reshape(v.shape[0], -1)).any(-1)
+        if v.shape[0] > 0 else npt.zeros([0], dtype=bool)
+    )
 
 
 def optimize(
@@ -1156,14 +1186,18 @@ def optimize(
 ) -> (float, dict, dict, List[float], List[float]):
     """
 
-    :param model:
+    :param model: (data) -> out or (*data) -> out
     :param fun_data: (mode='all'|'train'|'valid'|'train_valid'|'test',
-    fold_valid=0, epoch=0, n_fold_valid=1) -> (data, target)
+    fold_valid=0, epoch=0, n_fold_valid=1)
+    -> (data[batch, ...], target[batch, ...])
+    or ((data1[batch1, ...], data2[batch2, ...], ...),
+        (target1[batch1, ...], target2[batch2, ...], ...)
+        where batch1 != batch2 ... in general.
     :param fun_loss: (out, target) -> loss
     :param plotfuns: [(name_plotfun: str, plotfun: PlotFunType)]
     where plotfun(model, d) -> (fgure, d)
     and d is as returned by optimize() itself
-    :param optimizer_kind:
+    :param optimizer_kind: 'SGD' | 'Adam' | 'LBFGS'
     :param max_epoch:
     :param patience:
     :param thres_patience:
@@ -1259,12 +1293,35 @@ def optimize(
     epoch = 0
 
     def loss_wo_nan(model1, data1, target1) -> torch.Tensor:
-        is_nan = (
-            torch.isnan(data1.reshape(data1.shape[0], -1)).any(-1)
-            | torch.isnan(target1.reshape(target1.shape[0], -1)).any(-1)
-        )
-        out1 = model1(data1[~is_nan])
-        return fun_loss(out1, target1[~is_nan]), out1
+        """
+
+        :param model1:
+        :param data1: [batch, ...] or ([batch1, ...], [batch2, ...]. ...)
+        :param target1: must match data1's format.
+        :return:
+        """
+        if torch.is_tensor(target1):
+            target1 = [target1]
+        is_target_nan = [is_nan_by_batch(d) for d in target1]
+
+        if torch.is_tensor(data1):
+            data1 = [data1]
+            assert torch.is_tensor(target1[0]) and len(target1) == 1
+        is_data_nan = [is_nan_by_batch(d) for d in data1]
+        is_target_or_data_nan = [
+            is_target_nan1 | is_data_nan1
+            for (is_target_nan1, is_data_nan1) in zip(
+                is_target_nan, is_data_nan
+            )
+        ]
+        data_wo_nan, target_wo_nan = zip(*[
+            (d[~is_target_or_data_nan1], t[~is_target_or_data_nan1])
+            for d, t, is_target_or_data_nan1
+            in zip(data1, target1, is_target_or_data_nan)
+        ])
+
+        out1 = model1(*data_wo_nan)
+        return fun_loss(out1, target_wo_nan), out1
 
     try:
         for epoch in range(max([max_epoch, 1])):
@@ -1283,7 +1340,7 @@ def optimize(
                 losses_fold_train.append(loss_train1)
 
                 if n_fold_valid == 1:
-                    out_valid = npt.tensor(npy(out_train))
+                    out_valid = detach_seq(out_train)
                     loss_valid1 = npt.tensor(npy(loss_train1))
                     data_valid = data_train
                     target_valid = target_train
@@ -1482,7 +1539,7 @@ def optimize(
 
         if not torch.is_tensor(data):
             p_unequal = npt.tensor([
-                (v1 != v0).double().mean() for v1, v0
+                (v1 != v0).float().mean() for v1, v0
                 in zip(data, data0)
             ])
             if (p_unequal > 0).any():
@@ -1578,7 +1635,7 @@ def optimize(
         d.update({
             'data_' + mode: data,
             'target_' + mode: target,
-            'out_' + mode: npt.tensor(npy(out)),
+            'out_' + mode: detach_seq(out),
             'loss_' + mode: npt.tensor(npy(loss))
         })
 

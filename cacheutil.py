@@ -43,11 +43,11 @@ import numpy as np
 
 from . import zipPickle
 from collections import OrderedDict as odict
-from .argsutil import dict2fname, fname2title, kwdef, fullpath2hash
+from .argsutil import dict2fname, kwdef, fullpath2hash
 from typing import List, Union, Sequence, Dict, Any
 # from gzip import BadGzipFile
 
-from .numpytorch import npy
+from .numpytorch import npy, get_default_gpu_device
 
 ignore_cache = False
 ignored_once = []
@@ -183,7 +183,13 @@ class Cache(object):
     @property
     def dict(self):
         if self._dict is None:
-            if os.path.exists(self.fullpath):
+            if os.path.exists(self.fullpath) and (
+                (
+                    self.fullpath == self.fullpath_orig
+                ) or os.path.exists(self.get_fname_txt_fullpath_orig())
+                # so that when the text file containing the original name is
+                # deleted, the cache is ignored
+            ):
                 if ignore_cache and self.fullpath not in ignored_once:
                     ignored_once.append(self.fullpath)
                     self._dict = {}
@@ -290,7 +296,7 @@ class Cache(object):
 
             v1 = v[subkey]  # type: torch.Tensor
             if load_gpu and torch.is_tensor(v1) and torch.cuda.is_available():
-                v1 = v1.cuda()
+                v1 = v1.cuda(get_default_gpu_device())
             return v1
 
         if subkeys is None:
@@ -348,6 +354,10 @@ class Cache(object):
     def ____SAVE____(self):
         pass
 
+    def get_fname_txt_fullpath_orig(self) -> str:
+        txt_file = os.path.splitext(self.fullpath)[0] + '.txt'
+        return txt_file
+
     def save(self):
         self.dict['_fullpath_orig'] = self.fullpath_orig
 
@@ -377,7 +387,7 @@ class Cache(object):
                 name_orig = os.path.basename(self.fullpath_orig)
                 fieldnames = ['name_short', 'name_orig']
 
-                txt_file = os.path.splitext(self.fullpath)[0] + '.txt'
+                txt_file = self.get_fname_txt_fullpath_orig()
                 with open(txt_file, 'w') as file:
                     file.write(name_orig)
                 print('Original long name saved to %s' % txt_file)

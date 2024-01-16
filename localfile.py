@@ -4,7 +4,7 @@ from . import argsutil
 from .cacheutil import Cache
 import os, shutil
 from collections import OrderedDict as odict
-from typing import Union, Iterable
+from typing import Union, Iterable, Tuple
 from .cacheutil import mkdir4file
 from .argsutil import (dict2fname, fname2dict,
     kwdef, merge_fileargs, fullpath2hash)
@@ -122,7 +122,9 @@ class LocalFile(object):
         d: Union[Iterable[tuple], dict, odict, str, None] = None,
         ext=None, subdir=None,
         max_len=250,
-    ):
+        return_exists=False,
+        return_fname0=False,
+    ) -> Union[str, Tuple[str, bool]]:
         """
         :type filekind: str
         :type kind: str
@@ -152,27 +154,52 @@ class LocalFile(object):
         if len(filekind) > 0 or len(kind) > 0:
             fname = '%s=%s+%s' % (filekind, kind, fname)
 
-        if subdir is None and self.kind2subdir:
-            subdir = filekind + '=' + kind
+        if self.kind2subdir:
+            subdir0 = filekind + '=' + kind
+        else:
+            subdir0 = ''
+        if isinstance(subdir, dict):
+            subdir = self.dict2fname(d)
+        elif subdir is None:
+            subdir = ''
+        else:
+            assert isinstance(subdir, str)
+        subdir = os.path.join(subdir, subdir0)
 
+        fullpath = os.path.join(
+            self.get_pth_out(subdir), fname + ext
+        )
+        fullpath = fullpath.replace('\\\\', '\\')  # remove duplicate backslashes in Windows
+
+        fname0 = fname
         if len(fname) > max_len:
-            fname0 = fname
             fname = fullpath2hash(fname0)
-            fname_short = os.path.join(
-                self.get_pth_out(subdir), fname + ext + '.hash.txt'
+            fullpath_short = os.path.join(
+                self.get_pth_out(subdir), fname + ext
             )
-            mkdir4file(fname_short)
-            with open(fname_short, 'w') as f:
+            fullpath_short_txt = fullpath_short + '.hash.txt'
+            exists = os.path.exists(fullpath_short + '.hash.txt')
+
+			fullpath_short_txt = fullpath_short_txt.replace('\\\\', '\\')  # remove duplicate backslashes in Windows
+            mkdir4file(fullpath_short_txt)
+            with open(fullpath_short_txt, 'w') as f:
                 f.write(fname0)
             print(f'File name too long: {fname0}\n'
                   f'    Writing instead to {fname}\n'
-                  f'    and recording the original name in {fname_short}')
+                  f'    and recording the original name in '
+                  f'{fullpath_short_txt}')
+            fullpath = fullpath_short
+        else:
+            exists = os.path.exists(fullpath)
 
-        fname_full = os.path.join(
-            self.get_pth_out(subdir), fname + ext
-        )
-        fname_full = fname_full.replace('\\\\', '\\')
-        return fname_full
+        assert not (return_exists and return_fname0)
+
+        if return_exists:
+            return fullpath, exists
+        elif return_fname0:
+            return fullpath, fname0
+        else:
+            return fullpath
 
     def get_cache(
             self, cache_kind: str,
