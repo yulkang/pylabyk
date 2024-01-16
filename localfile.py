@@ -153,8 +153,18 @@ class LocalFile(object):
         if len(filekind) > 0 or len(kind) > 0:
             fname = '%s=%s+%s' % (filekind, kind, fname)
 
-        if subdir is None and self.kind2subdir:
-            subdir = filekind + '=' + kind
+        if self.kind2subdir:
+            subdir0 = filekind + '=' + kind
+        else:
+            subdir0 = ''
+
+        if isinstance(subdir, dict):
+            subdir = self.dict2fname(d)
+        elif subdir is None:
+            subdir = ''
+        else:
+            assert isinstance(subdir, str)
+        subdir = os.path.join(subdir0, subdir)
 
         fullpath = os.path.join(
             self.get_pth_out(subdir), fname + ext
