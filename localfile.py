@@ -123,6 +123,7 @@ class LocalFile(object):
         ext=None, subdir=None,
         max_len=250,
         return_exists=False,
+        return_fname0=False,
     ) -> Union[str, Tuple[str, bool]]:
         """
         :type filekind: str
@@ -170,8 +171,8 @@ class LocalFile(object):
             self.get_pth_out(subdir), fname + ext
         )
 
+        fname0 = fname
         if len(fname) > max_len:
-            fname0 = fname
             fname = fullpath2hash(fname0)
             fullpath_short = os.path.join(
                 self.get_pth_out(subdir), fname + ext
@@ -189,8 +190,12 @@ class LocalFile(object):
         else:
             exists = os.path.exists(fullpath)
 
+        assert not (return_exists and return_fname0)
+
         if return_exists:
             return fullpath, exists
+        elif return_fname0:
+            return fullpath, fname0
         else:
             return fullpath
 
