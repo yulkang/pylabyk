@@ -168,9 +168,11 @@ class LocalFile(object):
                   f'    Writing instead to {fname}\n'
                   f'    and recording the original name in {fname_short}')
 
-        return os.path.join(
+        fname_full = os.path.join(
             self.get_pth_out(subdir), fname + ext
         )
+        fname_full = fname_full.replace('\\\\', '\\')
+        return fname_full
 
     def get_cache(
             self, cache_kind: str,
