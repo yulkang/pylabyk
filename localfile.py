@@ -158,14 +158,13 @@ class LocalFile(object):
             subdir0 = filekind + '=' + kind
         else:
             subdir0 = ''
-
         if isinstance(subdir, dict):
             subdir = self.dict2fname(d)
         elif subdir is None:
             subdir = ''
         else:
             assert isinstance(subdir, str)
-        subdir = os.path.join(subdir0, subdir)
+        subdir = os.path.join(subdir, subdir0)
 
         fullpath = os.path.join(
             self.get_pth_out(subdir), fname + ext
