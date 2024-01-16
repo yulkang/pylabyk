@@ -169,6 +169,7 @@ class LocalFile(object):
         fullpath = os.path.join(
             self.get_pth_out(subdir), fname + ext
         )
+        fullpath = fullpath.replace('\\\\', '\\')  # remove duplicate backslashes in Windows
 
         fname0 = fname
         if len(fname) > max_len:
@@ -178,6 +179,8 @@ class LocalFile(object):
             )
             fullpath_short_txt = fullpath_short + '.hash.txt'
             exists = os.path.exists(fullpath_short + '.hash.txt')
+
+            fullpath_short_txt = fullpath_short_txt.replace('\\\\', '\\')  # remove duplicate backslashes in Windows
             mkdir4file(fullpath_short_txt)
             with open(fullpath_short_txt, 'w') as f:
                 f.write(fname0)
