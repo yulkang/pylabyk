@@ -1,8 +1,11 @@
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
+from datetime import datetime, timedelta
+import time
+
 from . import cacheutil, np2
 from . import argsutil
 from .cacheutil import Cache
-import os, shutil
+import os, shutil, sys
 from collections import OrderedDict as odict
 from typing import Union, Iterable, Tuple
 from .cacheutil import mkdir4file
@@ -242,3 +245,53 @@ class LocalFile(object):
         if self.kind2subdir and subdir is None:
             subdir = 'tab=' + kind
         return self.get_file('tab', kind, d, ext='.csv', subdir=subdir)
+
+
+def get_utc_offset():
+    # Getting the current local time
+    local_time = datetime.now()
+
+    # Getting the current UTC time
+    utc_time = datetime.utcnow()
+
+    # Calculating the offset
+    offset = local_time - utc_time
+
+    # Adjusting for daylight saving time
+    if time.localtime().tm_isdst:
+        offset += timedelta(hours=1)
+
+    # Formatting the offset
+    hours_offset = int(offset.total_seconds() / 3600)
+    offset_str = f"UTC{'+' if hours_offset >= 0 else ''}{hours_offset}"
+    return offset_str
+
+
+class DualOutput(object):
+    """
+    make it such that stdout is written to both the terminal and a file
+
+    Usage:
+    with DualOutput('out.txt'):
+        print('hello')
+    """
+    def __init__(self, filename):
+        self.file = open(filename, 'a')
+        self.stdout = sys.stdout
+
+    def write(self, text):
+        self.file.write(text)
+        self.stdout.write(text)
+
+    def flush(self):
+        self.file.flush()
+        self.stdout.flush()
+
+    def __enter__(self):
+        sys.stdout = self
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout = self.stdout
+        self.file.close()
+
