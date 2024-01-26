@@ -50,6 +50,10 @@ def copy2subdir(fullpath: str, subdir: str = None, verbose=True) -> str:
     return dst
 
 
+def fname_only(fullpath: str) -> str:
+    return os.path.split(fullpath)[1]
+
+
 class LocalFile(object):
     replace_ext = replace_ext
 

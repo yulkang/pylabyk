@@ -3204,7 +3204,7 @@ def plot_collage(
     """
 
     :param fnames: [row, col] = str
-    :param crop:
+    :param crop: (slice(y_top, y_bottom), slice(x_left, x_right))
     :param dpi:
     :return:
     """
