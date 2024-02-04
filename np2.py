@@ -481,6 +481,22 @@ def ____INDEXING___():
     pass
 
 
+def extract_subarray(a: np.ndarray, index: np.ndarray):
+    """
+    Extract subarray given an index along the last axis of an array
+    The index could come from, e.g., argmin(a, axis=-1)
+    :param a:
+    :param index:
+    :return: a[..., index[...]]
+    """
+    assert index.ndim == a.ndim - 1
+    a = arrayobj(a, ndim_objarray=a.ndim - 1)
+    a_indexed = np.vectorize(
+        lambda a1, i: a1[i]
+    )(a, index)
+    return a_indexed
+
+
 def filter_by_match(df: pd.DataFrame, d: dict) -> np.ndarray:
     """
     Return (df[key0] == value0) & (df[key1] == value1) & ...
