@@ -971,7 +971,7 @@ def same_clim(
     images: Union[mpl.image.AxesImage, Iterable[plt.Axes]],
     img0: Union[mpl.image.AxesImage, plt.Axes] = None,
     clim=None, symmetric=False
-):
+) -> Sequence[float]:
     """
     Unify color axis
     :param images: images whose clim will be unified
