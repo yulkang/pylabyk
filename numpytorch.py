@@ -7,6 +7,7 @@ from torch.nn import functional as F
 import numpy_groupies as npg
 from matplotlib import pyplot as plt
 from typing import Union, Iterable, Tuple, Dict, Sequence, List
+from numpy import typing as nptyp
 
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
     Categorical, OneHotCategorical, VonMises, Gamma
@@ -190,7 +191,7 @@ def list_tensors(device=None) -> List[torch.Tensor]:
 
 
 def tensor(
-    v: Union[float, np.ndarray, torch.Tensor],
+    v: nptyp.ArrayLike,
     min_ndim=1,
     device=None,
     dtype=None,
