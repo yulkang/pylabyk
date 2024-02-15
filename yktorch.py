@@ -21,7 +21,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch import optim
 
-from pytorchobjective.obj_torch import PyTorchObjective
+from .torch2scipy.obj import PyTorchObjective
 
 from . import numpytorch as npt, plt2
 from .numpytorch import npy
