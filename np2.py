@@ -291,7 +291,7 @@ def listdict2dictlist(listdict: Sequence[dict], to_array=False) -> dict:
 
 def create_or_append_to_key(
     d: dict, k, v,
-    number_in_key=True
+    number_in_key=False
 ) -> dict:
     """
     :param d: dict
