@@ -3200,6 +3200,9 @@ def plot_collage(
     dpi: float = 300,
     kw_gridaxes: dict = (),
     ignore_missing_file=False,
+    rowtitles: Sequence[str] = None,
+    coltitles: Sequence[str] = None,
+    suptitle: str = None,
 ) -> GridAxes:
     """
 
@@ -3248,6 +3251,13 @@ def plot_collage(
             plt.sca(ax)
             plt.imshow(im)
             box_off('all')
+
+    if rowtitles is not None:
+        axs.rowtitle(rowtitles)
+    if coltitles is not None:
+        axs.coltitle(coltitles)
+    if suptitle is not None:
+        axs.suptitle(suptitle)
     return axs
 
 

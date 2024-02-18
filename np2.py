@@ -289,6 +289,20 @@ def listdict2dictlist(listdict: Sequence[dict], to_array=False) -> dict:
     return d
 
 
+def create_or_append_to_key(d: dict, k, v) -> dict:
+    """
+    :param d: dict
+    :param k: key
+    :param v: value
+    :return: dict
+    """
+    if k in d:
+        d[k].append(v)
+    else:
+        d[k] = [v]
+    return d
+
+
 def dictlist2listdict(dictlist: Dict[str, Sequence]) -> List[Dict[str, Any]]:
     keys = list(dictlist.keys())
     return [{k: dictlist[k][i] for k in keys}
