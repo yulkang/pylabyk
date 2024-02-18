@@ -195,7 +195,10 @@ class Cache(object):
                     self._dict = {}
                 else:
                     try:
-                        self._dict = zipPickle.load(self.fullpath)
+                        try:
+                            self._dict = zipPickle.load(self.fullpath)
+                        except EOFError:
+                            raise KeyError('Trashed corrupted cache file')
                     except:
                         print(f'Loading {self.fullpath} failed!')
                         raise

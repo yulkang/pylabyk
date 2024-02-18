@@ -37,8 +37,14 @@ def load(filename, map_location='cpu', use_torch=True):
     if use_torch:
         try:
             import torch
-            with gzip.GzipFile(filename, 'rb') as file:
-                object = torch.load(file, map_location=map_location)
+            try:
+                with gzip.GzipFile(filename, 'rb') as file:
+                    object = torch.load(file, map_location=map_location)
+            except EOFError:
+                from send2trash import send2trash
+                send2trash(filename)
+                print(f'Trashed the corrupted file: {filename}')
+                raise
         except RuntimeError:
             print('Failed to load with torch.load(); trying pickle.load()')
             with gzip.GzipFile(filename, 'rb') as file:
