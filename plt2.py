@@ -3238,8 +3238,11 @@ def plot_collage(
             # noinspection PyTypeChecker
             fname = fnames[row, col]  # type: str
             try:
-                im = np.array(Image.open(fname))
-            except FileNotFoundError:
+                if fname == '':
+                    raise FileNotFoundError
+                else:
+                    im = np.array(Image.open(fname))
+            except (FileNotFoundError, IsADirectoryError):
                 if ignore_missing_file:
                     plt.sca(ax)
                     box_off('all')
