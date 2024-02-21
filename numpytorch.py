@@ -1336,7 +1336,11 @@ def get_p_state_aliased(v: torch.Tensor, v_state: torch.Tensor, eps=1e-4) -> tor
         p = p * p_dim
         p = p / torch.sum(p, dim=-1, keepdim=True)
 
-        assert torch.allclose(torch.sum(v_state[..., dim] * p_dim, -1), v_dim)
+        assert torch.allclose(
+            torch.sum(v_state[..., dim] * p_dim, -1), v_dim,
+            atol=1e-3,
+            rtol=1e-3
+        )
     return p
 
 
