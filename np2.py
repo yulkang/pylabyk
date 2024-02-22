@@ -183,8 +183,14 @@ def shapes(d, verbose=True, return_shape=False):
     :return: shapes[k] = shape and (d)type of d[k]
         if d is not iterable, shapes[None] = type of d.
     """
-    if is_dataclass_instance(d):
+    if verbose:
+        print(f'type: {type(d).__name__}')
+
+    is_dataclass = is_dataclass_instance(d)
+    if is_dataclass:
         d = dataclasses.asdict(d)
+    elif isinstance(d, dict):
+        d = {f"'{k}'": v for k, v in d.items()}
     elif not is_iter(d):
         d = {None: d}
     elif not isinstance(d, dict):
