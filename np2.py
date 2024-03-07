@@ -343,7 +343,7 @@ def arraydict2dictarray(
     }
 
 
-def dictarray2arraydict(d: Dict, to_meshgrid=True) -> nptyp.NDArray[dict]:
+def dictarray2arraydict(d: Dict, to_meshgrid=False) -> nptyp.NDArray[dict]:
     """
 
     :param d: dicts of lists or arrays
