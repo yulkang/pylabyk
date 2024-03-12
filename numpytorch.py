@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 from typing import Union, Iterable, Tuple, Dict, Sequence, List
 
 from torch.distributions import MultivariateNormal, Uniform, Normal, \
-    Categorical, OneHotCategorical, VonMises, Gamma
+    Categorical, OneHotCategorical, VonMises, Gamma, distribution, Distribution
 
 _device0 = torch.device('cpu')  # CHECKED
 # _device0 = None  # should be used as a default
@@ -1308,6 +1308,19 @@ def get_p_state_aliased(v: torch.Tensor, v_state: torch.Tensor, eps=1e-4) -> tor
 
         assert torch.allclose(torch.sum(v_state[..., dim] * p_dim, -1), v_dim)
     return p
+
+
+def gamma_ms(
+    m: torch.Tensor, s: torch.Tensor
+) -> Distribution:
+    """
+        :param m: mean
+        :param s: stdev
+        :return: gamma distribution object
+        """
+    rate = m / s ** 2
+    conc = m * rate
+    return Gamma(conc, rate)
 
 
 def gamma_logpdf_ms(
