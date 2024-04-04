@@ -38,6 +38,7 @@ val1, val2 = cache.getvalue([subkey1, subkey2])
 # TODO: pickle dict_filename
 
 import os
+from gzip import BadGzipFile
 
 import numpy as np
 
@@ -197,7 +198,7 @@ class Cache(object):
                     try:
                         try:
                             self._dict = zipPickle.load(self.fullpath)
-                        except EOFError:
+                        except (EOFError, BadGzipFile):
                             from send2trash import send2trash
                             send2trash(self.fullpath)
                             raise KeyError('Trashed corrupted cache file')
