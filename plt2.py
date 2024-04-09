@@ -1707,13 +1707,18 @@ def colorbar(
             plt.plot(
                 np.mean(cb.ax.xaxis.get_data_interval()) + np.zeros(2),
                 range_lim,
-                **dict(kw_mark_range)
+                **{
+                    'marker': '|',
+                    **dict(kw_mark_range)
+                }
             )
         else:
             plt.plot(
                 range_lim,
-                np.mean(cb.ax.yaxis.get_data_interval()) + np.zeros(2),
-                **dict(kw_mark_range)
+                np.mean(cb.ax.yaxis.get_data_interval()) + np.zeros(2), **{
+                    'marker': '_',
+                    **dict(kw_mark_range)
+                }
             )
 
     for level in levels_to_mark:
