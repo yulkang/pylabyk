@@ -303,6 +303,6 @@ class DualOutput(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         sys.stdout = self.stdout
         self.file.close()
-        self.file.flush()
-        os.fsync(self.file.fileno())
+        # self.file.flush()
+        # os.fsync(self.file.fileno())
 
