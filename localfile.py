@@ -280,11 +280,16 @@ class DualOutput(object):
         print('hello')
     """
     def __init__(self, filename):
-        self.file = open(filename, 'a')
+        self.filename = filename
+        self.file = open(self.filename, 'a')
         self.stdout = sys.stdout
 
     def write(self, text):
         self.file.write(text)
+        self.file.flush()
+        os.fsync(self.file.fileno())
+        # self.file.close()
+        # self.file = open(self.filename, 'a')
         self.stdout.write(text)
 
     def flush(self):
@@ -298,4 +303,6 @@ class DualOutput(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         sys.stdout = self.stdout
         self.file.close()
+        self.file.flush()
+        os.fsync(self.file.fileno())
 
