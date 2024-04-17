@@ -2148,6 +2148,14 @@ class PoolParallel(Pool0):
         # print('Closed!')  # CHECKED
 
 
+@dataclasses.dataclass
+class AsyncResultSim():
+    res: Sequence = None
+
+    def get(self):
+        return self.res
+
+
 class PoolSim:
     def map(self, fun, iter, chunksize=1, **kwargs):
         # ignore chunksize
@@ -2156,7 +2164,16 @@ class PoolSim:
     def starmap(self, fun, iter, chunksize=1, **kwargs):
         # ignore chunksize
         from itertools import starmap
-        return list(starmap(fun, iter, **kwargs))
+        return list(starmap(fun, iter))
+
+    def map_async(self, fun, iter, chunksize=1, **kwargs):
+        # ignore chunksize
+        return AsyncResultSim(list(map(fun, iter, **kwargs)))
+
+    def starmap_async(self, fun, iter, chunksize=1, **kwargs):
+        # ignore chunksize
+        from itertools import starmap
+        return AsyncResultSim(list(starmap(fun, iter)))
 
     def close(self):
         pass
