@@ -14,6 +14,7 @@ Created on Sun Oct 16 12:38:07 2016
 
 import pickle
 import gzip
+import zlib
 
 def save(object, filename, protocol = -1):
     """Save an object to a compressed disk file.
@@ -40,7 +41,7 @@ def load(filename, map_location='cpu', use_torch=True):
             try:
                 with gzip.GzipFile(filename, 'rb') as file:
                     object = torch.load(file, map_location=map_location)
-            except EOFError:
+            except (EOFError, zlib.error):
                 from send2trash import send2trash
                 send2trash(filename)
                 print(f'Trashed the corrupted file: {filename}')
