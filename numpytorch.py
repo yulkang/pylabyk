@@ -306,7 +306,10 @@ def numpy(
             except TypeError:
                 return v.detach().clone().cpu().numpy()
         else:
-            return np.array(v)
+            try:
+                return np.array(v)
+            except ValueError:
+                return np.array(v, dtype=object)
 
 
 npy = numpy
