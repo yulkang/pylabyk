@@ -29,8 +29,13 @@ if __name__ == '__main__':
 
     args = [[0, 0, 0], [0, 1, 2]]
 
+    # res = np2.vectorize_par(
+    #     demo_fun, args, meshgrid_input=False)
+
     res = np2.vectorize_par(
-        demo_fun, args, meshgrid_input=False)
+        demo_fun, args, meshgrid_input=False,
+        processes=1
+    )
 
     # res = np2.vectorize_par(np2.TaskResult.run_task, [
     #     np2.arrayobj1d([demo_fun, v]) for v in args

@@ -2175,6 +2175,9 @@ class PoolSim:
         from itertools import starmap
         return AsyncResultSim(list(starmap(fun, iter)))
 
+    def join(self):
+        pass
+
     def close(self):
         pass
 
