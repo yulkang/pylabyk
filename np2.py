@@ -2324,6 +2324,24 @@ def is_daemon() -> bool:
     return multiprocessing.current_process().daemon
 
 
+@dataclasses.dataclass
+class TaskResult:
+    fun: Callable
+    args: Sequence
+    result: Any = None
+    exception: Exception = None
+
+    def rerun(self):
+        return self.fun(*self.args)
+
+    @staticmethod
+    def run_task(fun, args):
+        try:
+            return TaskResult(fun=fun, args=args, result=fun(*args))
+        except Exception as e:
+            return TaskResult(fun=fun, args=args, exception=e)
+
+
 def vectorize_par(
     f: Callable, inputs: Iterable,
     pool: Pool = None, processes=None, chunksize=1,
@@ -2418,19 +2436,45 @@ def vectorize_par(
         ])
 
     if use_starmap:
-        try:
-            outs = pool.starmap(f, m, chunksize=chunksize)
-        except EOFError:
-            print('EOFError from starmap! Trying again..')
-            # Just try again - this seems to fix the issue
-            try:
-                outs = pool.starmap(f, m, chunksize=chunksize)
-            except EOFError:
-                print('EOFError again after trying again.. '
-                      'Not trying again this time.')
-                raise
+        ress0 = pool.starmap_async(
+            TaskResult.run_task, [(f, m1) for m1 in m],
+            chunksize=chunksize
+        )
+        pool.close()
+        pool.join()
+        ress = ress0.get()
+        outs = [res.result for res in ress]
+
+        for res in ress:
+            if res.exception is not None:
+                res.rerun()
+
+        # try:
+        #     outs = pool.starmap(f, m, chunksize=chunksize)
+        # except EOFError:
+        #     print('EOFError from starmap! Trying again..')
+        #     # Just try again - this seems to fix the issue
+        #     try:
+        #         outs = pool.starmap(f, m, chunksize=chunksize)
+        #     except EOFError:
+        #         print('EOFError again after trying again.. '
+        #               'Not trying again this time.')
+        #         raise
     else:
-        outs = pool.map(f, m, chunksize=chunksize)
+        ress0 = pool.map_async(
+            TaskResult.run_task, [(f, m1) for m1 in m],
+            chunksize=chunksize
+        )
+        pool.close()
+        pool.join()
+        ress = ress0.get()
+        outs = [res.result for res in ress]
+
+        for res in ress:
+            if res.exception is not None:
+                res.rerun()
+
+        # outs = pool.map(f, m, chunksize=chunksize)
 
     if nout is None:
         if otypes is not None and is_sequence(otypes):
