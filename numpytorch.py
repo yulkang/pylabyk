@@ -1263,70 +1263,40 @@ def ____DISTRIBUTIONS_SAMPLING____():
     pass
 
 
-def get_p_state_aliased(v: torch.Tensor, v_state: torch.Tensor, eps=1e-4) -> torch.Tensor:
+def get_p_state_aliased(
+    v: torch.Tensor, v_state: torch.Tensor, eps=1e-4,
+    period=None,
+) -> torch.Tensor:
     """
 
     :param v: [batch, dim]
     :param v_state: [state, dim]
     :return: [batch, state]
     """
-    n_dim_batch = len(v.shape) - 1
     n_state = v_state.shape[0]
     assert n_state > 1
     assert len(v_state.shape) == 2
-    assert v.shape[-1] == v_state.shape[-1]
+    ndim = v.shape[-1]
+    assert v_state.shape[-1] == ndim
+    if period is None:
+        period = tensor([np.nan] * ndim)
+    else:
+        period = zeros(ndim) + period
 
     p = ones(n_state)
-    for dim in range(v.shape[-1]):
+    for dim, period in enumerate(period):
         v_dim = v[..., dim]
-        v_state_dim = torch.unique(v_state[..., dim])
-        n_state_dim = len(v_state_dim)
-        i_nearest_nogreaterthan = torch.clamp(torch.searchsorted(
-            prepend_dim(v_state_dim, n_dim_batch),
-            v_dim,
-            side='right'
-        ), max=n_state_dim - 1, min=1) - 1
-        i_nearest_nolessthan = torch.clamp(
-            i_nearest_nogreaterthan + 1,
-            max=n_state_dim - 1,
+        v_state_dim0 = v_state[..., dim]
+
+        (
+            p_nogreaterthan, p_nolessthan, v_nogreaterthan, v_nolessthan
+        ) = find_neighbors_p_v(
+            v_dim, v_state_dim0, period, eps
         )
-        # print(f'{n_state_dim=}')
-        # print(f'{i_nearest_nogreaterthan=}')
-        # print(f'{i_nearest_nolessthan=}')
-        v_nogreaterthan = v_state_dim[i_nearest_nogreaterthan]
-        try:
-            # noinspection PyTypeChecker
-            assert torch.all(v_nogreaterthan - eps <= v_dim)
-        except AssertionError:
-            print(f'{v_nogreaterthan - eps} > {v_dim=}!')
-            raise
-
-        v_nolessthan = v_state_dim[i_nearest_nolessthan]
-        try:
-            # noinspection PyTypeChecker
-            assert torch.all(v_nolessthan + eps >= v_dim)
-        except AssertionError:
-            print(f'{v_nolessthan + eps=} < {v_dim=}!')
-            raise
-
-        dist_nogreaterthan = v_dim - v_nogreaterthan
-        dist_nolessthan = v_state_dim[i_nearest_nolessthan] - v_dim
-        try:
-            assert torch.all(dist_nogreaterthan + dist_nolessthan > 0.)
-        except AssertionError:
-            print(f'{dist_nogreaterthan=}')
-            print(f'{dist_nolessthan=}')
-            print('get_p_state_aliased: dist error')
-            raise
-
-        p_nogreaterthan = (
-            dist_nolessthan / (dist_nogreaterthan + dist_nolessthan)
-        )
-        p_nolessthan = 1. - p_nogreaterthan
 
         p_dim = torch.zeros(n_state)
-        incl_nogreaterthan = v_state[..., dim] == v_nogreaterthan
-        incl_nolessthan = v_state[..., dim] == v_nolessthan
+        incl_nogreaterthan = v_state_dim0 == v_nogreaterthan
+        incl_nolessthan = v_state_dim0 == v_nolessthan
         # noinspection PyTypeChecker
         p_dim[incl_nogreaterthan] = (
             p_nogreaterthan / torch.sum(incl_nogreaterthan)
@@ -1340,11 +1310,100 @@ def get_p_state_aliased(v: torch.Tensor, v_state: torch.Tensor, eps=1e-4) -> tor
         p = p / torch.sum(p, dim=-1, keepdim=True)
 
         assert torch.allclose(
-            torch.sum(v_state[..., dim] * p_dim, -1), v_dim,
+            torch.sum(v_state_dim0 * p_dim, -1), v_dim,
             atol=1e-3,
             rtol=1e-3
         )
     return p
+
+
+def find_neighbors_p_v(
+    v_dim, v_state_dim0,
+    period=np.nan,
+    eps=1e-4,
+    verbose=False,
+):
+    period = tensor(period)
+    n_dim_batch = v_dim.ndim
+
+    v_state_dim = torch.unique(v_state_dim0)
+    n_state_dim = len(v_state_dim)
+
+    dif = prepend_dim(v_state_dim, n_dim_batch) - v_dim
+    if not torch.isnan(period):
+        dif = (dif + period / 2) % period - period / 2
+        ix_v2dif = torch.argsort(dif)
+        dif = dif[ix_v2dif]
+        ix_dif2v = torch.argsort(ix_v2dif)
+    else:
+        ix_v2dif = arange(n_state_dim)
+        ix_dif2v = ix_v2dif
+
+    i_nearest_nogreaterthan = torch.clamp(
+        torch.searchsorted(
+            dif,
+            0,
+            side='right'
+        ), max=n_state_dim - 1, min=1
+    ) - 1
+    i_nearest_nolessthan = torch.clamp(
+        i_nearest_nogreaterthan + 1,
+        max=n_state_dim - 1,
+    )
+    # print(f'{n_state_dim=}')
+    # print(f'{i_nearest_nogreaterthan=}')
+    # print(f'{i_nearest_nolessthan=}')
+
+    dif_nogreaterthan = dif[i_nearest_nogreaterthan]
+    dif_nolessthan = dif[i_nearest_nolessthan]
+
+    if not torch.isnan(period):
+        i_nearest_nogreaterthan = ix_dif2v[i_nearest_nogreaterthan]
+        i_nearest_nolessthan = ix_dif2v[i_nearest_nolessthan]
+
+    v_nogreaterthan = v_state_dim[i_nearest_nogreaterthan]
+    v_nolessthan = v_state_dim[i_nearest_nolessthan]
+
+    dist_nogreaterthan = torch.clamp_min(-dif_nogreaterthan, 0.)
+    dist_nolessthan = torch.clamp_min(dif_nolessthan, 0.)
+
+    p_nogreaterthan = (
+        dist_nolessthan / (dist_nogreaterthan + dist_nolessthan)
+    )
+    p_nolessthan = 1. - p_nogreaterthan
+
+    if verbose:
+        print(
+            f'{v_dim=}\n'
+            f'{v_nogreaterthan=}\n'
+            f'{v_nolessthan=}\n'
+            f'{dif_nogreaterthan=}\n'
+            f'{dif_nolessthan=}\n'
+            f'{dist_nogreaterthan=}\n'
+            f'{dist_nolessthan=}\n'
+            f'{p_nogreaterthan=}\n'
+            f'{p_nolessthan=}\n'
+        )
+    try:
+        # noinspection PyTypeChecker
+        assert torch.all(dif_nogreaterthan - eps <= 0)
+    except AssertionError:
+        print(f'{dif_nogreaterthan - eps} > 0!')
+        raise
+    try:
+        # noinspection PyTypeChecker
+        assert torch.all(dif_nolessthan + eps >= 0)
+    except AssertionError:
+        print(f'{dif_nolessthan + eps=} < 0!')
+        raise
+    try:
+        assert torch.all(dist_nogreaterthan + dist_nolessthan > 0.)
+    except AssertionError:
+        print(f'{dist_nogreaterthan=}')
+        print(f'{dist_nolessthan=}')
+        print('get_p_state_aliased: dist error')
+        raise
+    return p_nogreaterthan, p_nolessthan, v_nogreaterthan, v_nolessthan
 
 
 def gamma_logpdf_ms(
