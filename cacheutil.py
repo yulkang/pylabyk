@@ -48,8 +48,6 @@ from .argsutil import dict2fname, kwdef, fullpath2hash
 from typing import List, Union, Sequence, Dict, Any
 # from gzip import BadGzipFile
 
-from .numpytorch import npy, get_default_gpu_device
-
 ignore_cache = False
 ignored_once = []
 
@@ -298,6 +296,7 @@ class Cache(object):
 
         def get_subitem(subkey):
             import torch
+            from .numpytorch import get_default_gpu_device
 
             v1 = v[subkey]  # type: torch.Tensor
             if load_gpu and torch.is_tensor(v1) and torch.cuda.is_available():
@@ -571,6 +570,8 @@ def skip_if_len0(v):
 
 
 def scalar_if_same(v):
+    from .numpytorch import npy
+
     v = npy(v)
     if len(v) == 0:
         return None
