@@ -154,22 +154,27 @@ class LocalFile(object):
         if len(filekind) > 0 or len(kind) > 0:
             fname = '%s=%s+%s' % (filekind, kind, fname)
 
-        if self.kind2subdir:
-            subdir0 = filekind + '=' + kind
-        else:
-            subdir0 = ''
-        if isinstance(subdir, dict):
+        if subdir is None:
+            if self.kind2subdir:
+                subdir = filekind + '=' + kind
+            else:
+                subdir = ''
+        elif isinstance(subdir, dict):
             subdir = self.dict2fname(d)
-        elif subdir is None:
-            subdir = ''
+            if self.kind2subdir:
+                subdir = os.path.join(subdir, filekind + '=' + kind)
         else:
             assert isinstance(subdir, str)
-        subdir = os.path.join(subdir, subdir0)
 
         fullpath = os.path.join(
             self.get_pth_out(subdir), fname + ext
         )
-        fullpath = fullpath.replace('\\\\', '\\')  # remove duplicate backslashes in Windows
+
+        if '\\\\?\\' in fullpath:
+            fullpath = '\\'+ fullpath.replace('\\\\', '\\')  # remove duplicate backslashes in Windows
+        else:
+            fullpath = fullpath.replace('\\\\', '\\')  # remove duplicate backslashes in Windows
+
 
         fname0 = fname
         if len(fname) > max_len:
@@ -180,7 +185,12 @@ class LocalFile(object):
             fullpath_short_txt = fullpath_short + '.hash.txt'
             exists = os.path.exists(fullpath_short + '.hash.txt')
 
-            fullpath_short_txt = fullpath_short_txt.replace('\\\\', '\\')  # remove duplicate backslashes in Windows
+            if '\\\\?\\' in fullpath_short_txt:
+                fullpath_short_txt = '\\' + fullpath_short_txt.replace('\\\\', '\\')  # remove duplicate backslashes in Windows
+            else:
+                fullpath_short_txt = fullpath_short_txt.replace('\\\\', '\\')  # remove duplicate backslashes in Windows
+            # fullpath_short_txt = fullpath_short_txt.replace('\\\\', '\\')  # remove duplicate backslashes in Windows
+
             mkdir4file(fullpath_short_txt)
             with open(fullpath_short_txt, 'w') as f:
                 f.write(fname0)
@@ -212,7 +222,9 @@ class LocalFile(object):
         :type d: Union[Iterable[tuple], dict, odict, None]
         """
         if subdir is None and self.kind2subdir:
+            print("Yes we are in subdir if statement.")
             subdir = 'cache=%s' % cache_kind
+            print("subdir is:", subdir)
 
         fname = self.get_file_cache(
             cache_kind=cache_kind, d=d, subdir=subdir

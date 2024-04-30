@@ -2010,4 +2010,4 @@ def rotate(v: torch.Tensor, rad: torch.Tensor) -> torch.Tensor:
     """
 
     rotmat = rotation_matrix(rad.unsqueeze(-1).unsqueeze(-1))
-    return (rotmat @ v.unsqueeze(-1)).squeeze(-1)
+    return (rotmat @ v.float().unsqueeze(-1)).squeeze(-1)

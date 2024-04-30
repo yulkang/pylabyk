@@ -38,7 +38,7 @@ val1, val2 = cache.getvalue([subkey1, subkey2])
 # TODO: pickle dict_filename
 
 import os
-
+from platform import system
 import numpy as np
 
 from . import zipPickle
@@ -52,11 +52,19 @@ from .numpytorch import npy, get_default_gpu_device
 ignore_cache = False
 ignored_once = []
 
+def get_abs_path(pth):
+    abs_path = os.path.abspath(pth)
+    if system() == 'Windows':
+        prefix = '\\\\?\\'
+        return prefix+abs_path
+    else:
+        return abs_path
 
 def mkdir4file(file):
     pth = os.path.dirname(file)
     try:
         if not os.path.exists(pth):
+            print(pth)
             os.mkdir(pth)
     except (FileNotFoundError, FileExistsError):
         if len(pth) > 0:
@@ -157,6 +165,8 @@ class Cache(object):
         else:
             self.fullpath_orig = fullpath
             self.fullpath = fullpath
+        if self.fullpath[:2] == '..':
+            self.fullpath = get_abs_path(self.fullpath)
         self.verbose = verbose
         self.save_to_cpu = save_to_cpu
 
@@ -365,7 +375,7 @@ class Cache(object):
             d = dict2device(self.dict, 'cpu')
         else:
             d = self.dict
-
+        print('here?',self.fullpath)
         mkdir4file(self.fullpath)
         zipPickle.save(d, self.fullpath)
         self.to_save = False

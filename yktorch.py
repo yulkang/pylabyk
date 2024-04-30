@@ -262,12 +262,13 @@ class BoundedParameter(OverriddenParameter):
             try:
                 data[too_small] = lb + self.epsilon
             except RuntimeError:
-                data[too_small] = (lb + self.epsilon)[too_small]
+                data[too_small] = ((lb + self.epsilon)[too_small]).double()
+
 
             try:
                 data[too_big] = ub - self.epsilon
             except RuntimeError:
-                data[too_big] = (ub - self.epsilon)[too_big]
+                data[too_big] = ((ub - self.epsilon)[too_big]).double()
 
             if self._fix_subset:
                 is_free = ~self._is_fixed

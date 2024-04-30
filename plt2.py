@@ -26,7 +26,15 @@ import numpy_groupies as npg
 from . import np2, plt_network as pltn
 from .cacheutil import mkdir4file, Cache
 from .argsutil import fname2title
+from platform import system
 
+def get_abs_path(pth):
+    abs_path = os.path.abspath(pth)
+    if system() == 'Windows':
+        prefix = '\\\\?\\'
+        return prefix+abs_path
+    else:
+        return abs_path
 
 def ____Settings____():
     pass
@@ -600,6 +608,7 @@ def savefig(
     :param kwargs:
     :return:
     """
+
     if ext is None:
         ext = ext_savefig
     if fig is None:
@@ -632,6 +641,8 @@ def savefig(
     else:
         assert np.all([isinstance(v, str) for v in ext1])
 
+    if fname1[:2] == "..":
+        fname1 = get_abs_path(fname1)
     mkdir4file(fname1)
     for ext11 in ext1:
         try:
