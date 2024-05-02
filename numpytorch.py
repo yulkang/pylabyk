@@ -1282,6 +1282,11 @@ def get_p_state_aliased(
         period = tensor([np.nan] * ndim)
     else:
         period = zeros(ndim) + period
+        if not torch.isnan(period).all():
+            raise NotImplementedError(
+                'Using period is not really useful unless the distribution is guaranteed to be'
+                'unimodal & have negligible dispersion, which are not being checked yet.'
+            )
 
     p = ones(n_state)
     for dim, period in enumerate(period):
