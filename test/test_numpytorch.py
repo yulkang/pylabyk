@@ -22,8 +22,8 @@ def test_get_p_state_aliased():
         print(f'{p.shape=}')
         print(f'{xys1.shape=}')
 
-        m = np2.npy(torch.sum(p[:, None] * xys1, 0))
-        assert np.all(np2.issimilar(np2.npy(a), m, verbose=True))
+        m = npt.npy(torch.sum(p[:, None] * xys1, 0))
+        assert np.all(np2.issimilar(npt.npy(a), m, verbose=True))
 
 
 def test_sum_log_prob():

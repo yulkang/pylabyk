@@ -12,25 +12,15 @@ import dataclasses
 import multiprocessing
 from inspect import signature
 import numpy as np
-import torch
-import weightedstats as ws
-from scipy import interpolate
-from scipy.interpolate import griddata
-from scipy import stats
-import numpy_groupies as npg
+
 import pandas as pd
 from copy import deepcopy
-from . import numpytorch
 from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List, \
     Dict, Any, Mapping
 from multiprocessing.pool import Pool as Pool0
 import numpy.typing as nptyp
 # from multiprocessing import Pool
 from pprint import pprint
-
-from .numpytorch import npy, npys
-
-npt = numpytorch.npt_torch # choose between torch and np
 
 
 def ____DEBUG____():
@@ -77,6 +67,8 @@ def enforce_array(v):
     :param v: scalar, iterable, or array
     :return: np.ndarray of ndim >= 1
     """
+    import torch
+
     if isinstance(v, torch.Tensor):
         v = npy(v)
     elif not isinstance(v, np.ndarray):
@@ -183,6 +175,8 @@ def shapes(d, verbose=True, return_shape=False):
     :return: shapes[k] = shape and (d)type of d[k]
         if d is not iterable, shapes[None] = type of d.
     """
+    import torch
+
     if verbose:
         print(f'type: {type(d).__name__}')
 
@@ -248,6 +242,8 @@ def filt_dict(d: dict, incl: np.ndarray,
     @type incl: np.ndarray
     @rtype: dict
     """
+    import torch
+
     assert np.issubdtype(incl.dtype, bool)
 
     if copy:
@@ -283,6 +279,9 @@ def listdict2dictlist(listdict: Sequence[dict], to_array=False) -> dict:
     @return: dictlist: dict of lists of the same lengths
     @rtype: dict
     """
+    from .numpytorch import npy
+    import torch
+
     d = {k: [d[k] for d in listdict] for k in listdict[0].keys()}
     if to_array:
         for k in d.keys():
@@ -384,6 +383,9 @@ def dict_diff(d0: dict, d1: dict, verbose=False) -> (dict, dict, dict):
         dict_d0_only[k] = d0[k] if k in d0 but not in d1
         dict_d1_only[k] = d1[k] if k in d1 but not in d0
     """
+    from .numpytorch import npy
+    import torch
+
     d = {}
     d0_only = {}
     d1_only = {}
@@ -457,14 +459,16 @@ def DataFrame(dat):
 
 
 def permute2st(
-    v: Union[np.ndarray, torch.Tensor], ndim_en=1
-) -> Union[np.ndarray, torch.Tensor]:
+    v: Union[np.ndarray, 'torch.Tensor'], ndim_en=1
+) -> Union[np.ndarray, 'torch.Tensor']:
     """
     Permute last ndim_en of tensor v to the first
     @type v: np.ndarray
     @type ndim_en: int
     @rtype: np.ndarray
     """
+    import torch
+
     nd = v.ndim
     dim_targ = [*range(-ndim_en, 0)] + [*range(nd - ndim_en)]
     if isinstance(v, np.ndarray):
@@ -477,11 +481,13 @@ p2st = permute2st
 
 
 def permute2en(
-    v: Union[np.ndarray, torch.Tensor], ndim_st=1
-) -> Union[np.ndarray, torch.Tensor]:
+    v: Union[np.ndarray, 'torch.Tensor'], ndim_st=1
+) -> Union[np.ndarray, 'torch.Tensor']:
     """
     Permute last ndim_en of tensor v to the first
     """
+    import torch
+
     nd = v.ndim
     dim_targ = [*range(ndim_st, nd)] + [*range(ndim_st)]
     if isinstance(v, np.ndarray):
@@ -786,8 +792,8 @@ def ____ALGEBRA____():
 
 
 def issimilar(
-    a: Union[torch.Tensor, np.ndarray, float],
-    b: Union[torch.Tensor, np.ndarray, float],
+    a: Union['torch.Tensor', np.ndarray, float],
+    b: Union['torch.Tensor', np.ndarray, float],
     thres=1e-6,
     verbose=False,
 ) -> np.ndarray:
@@ -800,6 +806,8 @@ def issimilar(
     :return: is_similar: each element is True if the corresponding
         a and b are within thres
     """
+    import torch
+
     res = np.abs(a - b) < thres
     if verbose:
         if not np.all(npy(res)) or verbose > 1:
@@ -1037,9 +1045,11 @@ def quantilize(v, n_quantile=5, return_summary=False, fallback_to_unique=True):
     
     if (not fallback_to_unique) or len(x) > n_quantile:
         n = v.size
+        from scipy import stats
         ix = np.int32(np.ceil((stats.rankdata(v, method='ordinal') + 0.) \
                               / n * n_quantile) - 1)
-    
+
+    import numpy_groupies as npg
     if return_summary:
         x = npg.aggregate(ix, v, func='mean')
         return ix, x
@@ -1132,6 +1142,8 @@ def argmedian(v, axis=None) -> np.ndarray:
 
 
 def sumto1(v, axis=None, ignore_nan=True) -> np.ndarray:
+    import torch
+
     if is_iter(axis):
         axis = tuple(axis)
         if len(axis) == 1:
@@ -1156,6 +1168,8 @@ def sumto1(v, axis=None, ignore_nan=True) -> np.ndarray:
 
 
 def maxto1(v, axis=None, ignore_nan=True):
+    import torch
+
     if is_iter(axis):
         axis = tuple(axis)
         if len(axis) == 1:
@@ -1198,6 +1212,8 @@ def pearsonr_ci(x,y,alpha=0.05):
 
     from https://gist.github.com/zhiyzuo/d38159a7c48b575af3e3de7501462e04
     """
+    from scipy import stats
+
     r, p = stats.pearsonr(x,y)
     r_z = np.arctanh(r)
     se = 1/np.sqrt(x.size-3)
@@ -1315,6 +1331,8 @@ def wsum_rvs(mu: np.ndarray, cov: np.ndarray, w: np.ndarray
 def wpercentile(w: np.ndarray, prct, axis=None):
     """
     """
+    from scipy import interpolate
+
     if axis is not None:
         raise NotImplementedError()
     cw = np.concatenate([np.zeros(1), np.cumsum(w)])
@@ -1418,6 +1436,7 @@ def weighted_median_split(
     w_sum = w.sum()
     w = sumto1(w)
 
+    import weightedstats as ws
     m = ws.numpy_weighted_median(v, w)
 
     if to_sample:
@@ -1515,6 +1534,9 @@ def ____DISTRIBUTION____():
 
 
 def pdf_trapezoid(x, center, width_top, width_bottom):
+    from . import numpytorch
+    npt = numpytorch.npt_torch
+
     height = 1. / ((width_top + width_bottom) / 2.)
     proportion_between = ((width_bottom - width_top) / width_bottom)
     width2height = height / proportion_between
@@ -1829,6 +1851,8 @@ def logistic(v):
 
 
 def softmax(dv):
+    import torch
+
     if type(dv) is torch.Tensor:
         edv = torch.exp(dv)
         p = edv / torch.sum(edv)
@@ -1867,6 +1891,7 @@ def inverse_transform(xy0: np.ndarray, xy1: np.ndarray) -> np.ndarray:
     :return: xy2: [(x, y), ix, iy]: inverse-transformed original grid
     """
     from scipy.interpolate import griddata
+
     if xy0.ndim == 3:
         xy2 = np.stack([
             np.stack([
@@ -2413,6 +2438,9 @@ def vectorize_par(
         if False, use np.broadcast() across inputs
     :return: (iterable of) outputs from f.
     """
+    from . import numpytorch
+    from .numpytorch import npy
+
     processes = 1 if is_daemon() else processes
 
     if isinstance(inputs, dict):
@@ -2660,6 +2688,8 @@ def griddata_fillnearest(
     :param kwargs: common for the first and second griddata()
     :return: values[ix_out] with NaNs replaced with nearest values
     """
+    from scipy.interpolate import griddata
+
     if not isinstance(coord_in, np.ndarray):
         coord_in = np.stack(coord_in, -1)
     if not isinstance(coord_out, np.ndarray):
@@ -2786,6 +2816,9 @@ def join_nonempty(v: Iterable[str], with_str: str) -> str:
 
 
 def joinformat(v: Iterable[str], fmt='%g', with_str=',') -> str:
+    from . import numpytorch
+    from .numpytorch import npy
+
     return with_str.join([fmt % v1 for v1 in npy(v).flatten()])
 
 
@@ -2879,6 +2912,9 @@ def shorten(
     :param src_dst: [(src1, dst1), (src2, dst2), ...]
     :return: string with srcX replaced with dstX, or printed '%g,%g,...'
     """
+    from . import numpytorch
+    from .numpytorch import npy
+
     if v is None:
         return None
     elif isinstance(v, str):
