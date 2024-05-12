@@ -70,6 +70,7 @@ def enforce_array(v):
     import torch
 
     if isinstance(v, torch.Tensor):
+        from pylabyk.numpytorch import npy
         v = npy(v)
     elif not isinstance(v, np.ndarray):
         v = np.array(v)
@@ -806,7 +807,7 @@ def issimilar(
     :return: is_similar: each element is True if the corresponding
         a and b are within thres
     """
-    import torch
+    from pylabyk.numpytorch import npy
 
     res = np.abs(a - b) < thres
     if verbose:
@@ -1522,6 +1523,8 @@ def weighted_crosstab(w: np.ndarray, v: np.ndarray, n_sample=0) -> np.ndarray:
     # while i < v.shape[-1]:
     #     i += 1
     #     a1, w, _, _, v = weighted_median_split(w, v[:, i], v)
+
+    import numpy_groupies as npg
 
     nj = npg.aggregate(a.T, w, 'sum', [2] * v.shape[1])
     # pj = sumto1(nj)
@@ -2650,6 +2653,8 @@ def nanautocorr(firing_rate: np.ndarray, thres_n=2) -> np.ndarray:
 
             incl = ~np.isnan(g1) & ~np.isnan(g2)
             if np.sum(incl) >= thres_n:
+                from scipy import stats
+
                 ac[i + fsh[0], j + fsh[1]] = stats.pearsonr(
                     g1[incl], g2[incl])[0]
     return ac
