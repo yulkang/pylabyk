@@ -1313,7 +1313,7 @@ def get_p_state_aliased(
             torch.sum(v_state_dim0 * p_dim, -1), v_dim,
             atol=1e-3,
             rtol=1e-3
-        )
+        ), f'{torch.sum(v_state_dim0 * p_dim, -1)=}, {v_dim=}'
     return p
 
 
