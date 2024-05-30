@@ -169,7 +169,9 @@ class LocalFile(object):
             assert isinstance(subdir, str)
 
         if self.kind2subdir:
-            subdir = os.path.join(subdir, filekind + '=' + kind)
+            kind_str = filekind + '=' + kind
+            if not os.path.split(subdir)[-1].endswith(kind_str):
+                subdir = os.path.join(subdir, kind_str)
 
         fullpath = os.path.join(
             self.get_pth_out(subdir), fname + ext
