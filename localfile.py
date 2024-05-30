@@ -162,16 +162,14 @@ class LocalFile(object):
             fname = '%s=%s+%s' % (filekind, kind, fname)
 
         if subdir is None:
-            if self.kind2subdir:
-                subdir = filekind + '=' + kind
-            else:
-                subdir = ''
+            subdir = ''
         elif isinstance(subdir, dict):
             subdir = self.dict2fname(d)
-            if self.kind2subdir:
-                subdir = os.path.join(subdir, filekind + '=' + kind)
         else:
             assert isinstance(subdir, str)
+
+        if self.kind2subdir:
+            subdir = os.path.join(subdir, filekind + '=' + kind)
 
         fullpath = os.path.join(
             self.get_pth_out(subdir), fname + ext
@@ -218,9 +216,6 @@ class LocalFile(object):
         :type cache_kind: str
         :type d: Union[Iterable[tuple], dict, odict, None]
         """
-        if subdir is None and self.kind2subdir:
-            subdir = 'cache=%s' % cache_kind
-
         fname = self.get_file_cache(
             cache_kind=cache_kind, d=d, subdir=subdir
         )
@@ -236,8 +231,6 @@ class LocalFile(object):
         """
         if ext is None:
             ext = self.ext_fig
-        if self.kind2subdir and subdir is None:
-            subdir = 'plt=' + fig_kind
         return self.get_file('plt', fig_kind, d=d, ext=ext, subdir=subdir)
 
 
@@ -246,8 +239,6 @@ class LocalFile(object):
                      ext='.csv', subdir=None) -> str:
         """
         """
-        if self.kind2subdir and subdir is None:
-            subdir = 'tab=' + kind
         return self.get_file('tab', kind, d, ext='.csv', subdir=subdir)
 
 
