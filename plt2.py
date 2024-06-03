@@ -405,7 +405,9 @@ class GridAxes:
 
         return plt.figtext(
             *self.supxy(xprop=xprop, yprop=yprop), txt,
-            ha=ha, va=va, fontsize=fontsize, **kwargs)
+            ha=ha, va=va, fontsize=fontsize,
+            figure=self.figure,
+            **kwargs)
 
     def rowtitle(self, row_titles: Sequence[str], **kwargs):
         return rowtitle(row_titles, self.axs, **kwargs)
