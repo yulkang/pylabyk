@@ -403,11 +403,17 @@ class GridAxes:
         else:
             raise ValueError()
 
-        return plt.figtext(
+        return self.figure.text(
             *self.supxy(xprop=xprop, yprop=yprop), txt,
             ha=ha, va=va, fontsize=fontsize,
             figure=self.figure,
-            **kwargs)
+            **kwargs
+        )
+        # return plt.figtext(
+        #     *self.supxy(xprop=xprop, yprop=yprop), txt,
+        #     ha=ha, va=va, fontsize=fontsize,
+        #     figure=self.figure,
+        #     **kwargs)
 
     def rowtitle(self, row_titles: Sequence[str], **kwargs):
         return rowtitle(row_titles, self.axs, **kwargs)
