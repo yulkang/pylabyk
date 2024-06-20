@@ -2296,15 +2296,19 @@ def scalararray(inp) -> np.ndarray:
     return np.array([None, inp], dtype=object)[[1]].reshape([])
 
 
-def meshgridflat(*args, copy=False):
+def meshgridflat(*args, copy=False, inverse=False):
     """
     flatten outputs from meshgrid, for use with np.vectorize()
     :param args:
     :param copy: whether to copy during meshgrid
     :return:
     """
-    outputs = np.meshgrid(*args, indexing='ij', copy=copy)  # type: Iterable[np.ndarray]
-    outputs = [v.flatten() for v in outputs]
+    if inverse:
+        outputs = [unique_stable(arg) for arg in args]
+    else:
+        outputs = np.meshgrid(*args, indexing='ij', copy=copy)  # type: Iterable[np.ndarray]
+        outputs = [v.flatten() for v in outputs]
+
     return outputs
 
 
