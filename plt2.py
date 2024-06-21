@@ -904,8 +904,8 @@ def break_axis(
 def sameaxes(
     ax: Union[AxesArray, GridAxes],
     ax0: plt.Axes = None, xy='xy',
-    lim: Sequence[Tuple[int, int]] = None
-) -> Sequence[Tuple[int, int]]:
+    lim: Sequence[Tuple[float, float]] = None
+) -> Sequence[Tuple[float, float]]:
     """
     Match the chosen limits of axes in ax to ax0's (if given) or the max range.
     Also consider: ax1.get_shared_x_axes().join(ax1, ax2)
