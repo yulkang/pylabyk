@@ -1962,11 +1962,11 @@ def ____IMAGE____():
 
 
 def nancrosscorr(
-        fr1: np.ndarray,
-        fr2: np.ndarray = None,
-        thres_n=2,
-        fillvalue=np.nan,
-        processes=1,
+    fr1: np.ndarray,
+    fr2: np.ndarray = None,
+    thres_n=2,
+    fillvalue=np.nan,
+    processes=None,
 ) -> np.ndarray:
     """
     Normalized cross-correlation ignoring NaNs.
