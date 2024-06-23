@@ -2947,7 +2947,7 @@ class LatexDocStandalone(LatexDoc):
             ) / ncol
         if np.isscalar(width_column):
             width_column = [width_column]
-        elif len(width_column) > ncol:
+        if len(width_column) > ncol:
             width_column = width_column[:ncol]
         elif len(width_column) < ncol:
             width_column = (
