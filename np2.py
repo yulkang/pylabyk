@@ -2935,7 +2935,11 @@ def shorten(
         return AliasStr('%d' % int(v), str(v))
     elif is_iter(v):
         try:
-            v = list(npy(v))
+            import torch
+            if isinstance(v, torch.Tensor):
+                v = list(npy(v))
+            else:
+                v = list(v)
             if isinstance(v[0], str):
                 return AliasStr(
                     ','.join([
