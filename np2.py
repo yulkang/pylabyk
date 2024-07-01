@@ -297,7 +297,8 @@ def listdict2dictlist(listdict: Sequence[dict], to_array=False) -> dict:
 
 def create_or_append_to_key(
     d: dict, k, v,
-    number_in_key=False
+    number_in_key=False,
+    add_v_if_list=True,
 ) -> dict:
     """
     :param d: dict
@@ -314,9 +315,15 @@ def create_or_append_to_key(
                     break
             else:
                 raise ValueError('Too many keys with the same name!')
-        d[k].append(v)
+        if add_v_if_list and isinstance(v, list):
+            d[k] += v
+        else:
+            d[k].append(v)
     else:
-        d[k] = [v]
+        if add_v_if_list and isinstance(v, list):
+            d[k] = v
+        else:
+           d[k] = [v]
     return d
 
 
