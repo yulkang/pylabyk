@@ -2822,6 +2822,22 @@ def ____STRING____():
     pass
 
 
+def e_to_10(s: str) -> str:
+    """
+    Convert 1.23e-4 to 1.23 * 10^-4, etc.
+    """
+    if 'e' in s:
+        if 'e-0' in s:
+            s = s.replace('e-0', r'\times 10^{-') + '}'
+        elif 'e-' in s:
+            s = s.replace('e-', r'\times 10^{-') + '}'
+        elif 'e+' in s:
+            s = s.replace('e+', r'\times 10^{') + '}'
+        if s.startswith(r'1\times'):
+            s = s.replace(r'1\times', '')
+    return s
+
+
 def simple_hash(v) -> str:
     import hashlib
     return hashlib.md5(v.__str__().encode('utf-8')).hexdigest()
