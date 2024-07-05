@@ -513,6 +513,7 @@ def savefig_w_data(
     to_plot=True,
     to_savefig=True,
     to_return_kw_fun=False,
+    to_save_cache=True,
 ):
     """
 
@@ -534,25 +535,25 @@ def savefig_w_data(
     :return: output of fun (, kw_fun if return_kw_fun)
     """
 
-    mkdir4file(fname)
-    with Cache(fname + '.zpkl', ignore_key=True) as cache:
-        if to_load_kw_fun_only:
-            if cache.exists():
-                kw_fun = cache.get()
-            else:
-                raise FileNotFoundError('Cache file does not exist.')
-            return kw_fun
+    if to_save_cache:
+        with Cache(fname + '.zpkl', ignore_key=True) as cache:
+            if to_load_kw_fun_only:
+                if cache.exists():
+                    kw_fun = cache.get()
+                else:
+                    raise FileNotFoundError('Cache file does not exist.')
+                return kw_fun
 
-        if kw_fun is None:
-            if cache.exists() and not to_overwrite_cache:
-                kw_fun = cache.get()
-            else:
-                if kw_fun_calc is None:
-                    kw_fun_calc = {}
-                kw_fun = fun_calc(**kw_fun_calc)
+            if kw_fun is None:
+                if cache.exists() and not to_overwrite_cache:
+                    kw_fun = cache.get()
+                else:
+                    if kw_fun_calc is None:
+                        kw_fun_calc = {}
+                    kw_fun = fun_calc(**kw_fun_calc)
+                    cache.set(kw_fun)
+            elif to_overwrite_cache or not cache.exists():
                 cache.set(kw_fun)
-        elif to_overwrite_cache or not cache.exists():
-            cache.set(kw_fun)
     # from pprint import pprint
     # pprint(kw_fun)  # CHECKED
     if to_plot:
