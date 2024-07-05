@@ -2180,6 +2180,7 @@ def significance(
     x_text=None,
     y_text=None,
     margin_axis='y',
+    margin_line=None,
     margin_text=0.05,
     baseline=0.,
 ) -> (plt.Line2D, plt.Text):
@@ -2203,55 +2204,70 @@ def significance(
         range of the axis
     :return: h_line, h_text
     """
+    if margin_line is None:
+        margin_line = margin_text
+
     if margin_axis in ['y', 'upper']:
         range_axis = np.diff(plt.ylim())
-        if x_text is None:
-            x_text = np.mean(x)
-        if y_text is None:
-            y_text = max([baseline, np.amax(y)]) + margin_text * range_axis
-        x_line = x
-        y_line = np.zeros(2) + y_text
-        va = 'bottom'
+        margin_sign = 1
+        v_across_bars = x
+        v_along_bar = y
         ha = 'center'
-
+        va = 'bottom'
     elif margin_axis in ['lower']:
         range_axis = np.diff(plt.ylim())
-        if x_text is None:
-            x_text = np.mean(x)
-        if y_text is None:
-            y_text = min([baseline, np.amin(y)]) - margin_text * range_axis
-        x_line = x
-        y_line = np.zeros(2) + y_text
-        va = 'top'
+        margin_sign = -1
+        v_across_bars = x
+        v_along_bar = y
         ha = 'center'
-
+        va = 'top'
     elif margin_axis in ['x', 'right']:
         range_axis = np.diff(plt.xlim())
-        if x_text is None:
-            x_text = max([baseline, np.amax(x)]) + margin_text * range_axis
-        if y_text is None:
-            y_text = np.mean(y)
-        x_line = np.zeros(2) + x_text
-        y_line = y
-        va = 'center'
+        margin_sign = 1
+        v_across_bars = y
+        v_along_bar = x
         ha = 'left'
-
+        va = 'center'
     elif margin_axis in ['left']:
         range_axis = np.diff(plt.xlim())
-        if x_text is None:
-            x_text = min([baseline, np.amin(x)]) - margin_text * range_axis
-        if y_text is None:
-            y_text = np.mean(y)
-        x_line = np.zeros(2) + x_text
-        y_line = y
-        va = 'center'
+        margin_sign = -1
+        v_across_bars = y
+        v_along_bar = x
         ha = 'right'
+        va = 'center'
+    else:
+        raise ValueError(f'Unknown margin_axis: {margin_axis}')
+
+    def add_margin(margin):
+        return margin_sign * (
+            max([
+                margin_sign * baseline,
+                np.amax(margin_sign * v_along_bar)
+            ]) + margin * range_axis)
+
+    v_text_along_bars = add_margin(margin_text)
+    v_line_along_bars = add_margin(margin_line) + np.zeros(2)
+    v_text_across_bars = np.mean(v_across_bars)
+
+    if margin_axis in ['y', 'upper', 'lower']:
+        x_text = v_text_across_bars if x_text is None else x_text
+        y_text = v_text_along_bars if y_text is None else y_text
+        x_line = v_across_bars
+        y_line = v_line_along_bars
+
+    elif margin_axis in ['x', 'right', 'left']:
+        x_text = v_text_along_bars if x_text is None else x_text
+        y_text = v_text_across_bars if y_text is None else y_text
+        x_line = v_line_along_bars
+        y_line = v_across_bars
 
     else:
         raise ValueError()
 
-    kw_line = {'color': 'k', 'linewidth': 0.5, 'linestyle': '-',
-        **dict(kw_line)}
+    kw_line = {
+        'color': 'k', 'linewidth': 0.5, 'linestyle': '-',
+        **dict(kw_line)
+    }
     kw_text = {'ha': ha, 'va': va, **dict(kw_text)}
     h_line = plt.plot(x_line, y_line, **kw_line)
     h_text = plt.text(x_text, y_text, text, **kw_text)
