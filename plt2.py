@@ -569,6 +569,7 @@ def savefig_w_data(
             fig = fig.figure
         if to_savefig and fig is not None:
             savefig(fname, fig=fig)
+            plt.close(fig.figure)
     else:
         out = None
 
