@@ -164,7 +164,7 @@ class LocalFile(object):
         if subdir is None:
             subdir = ''
         elif isinstance(subdir, dict):
-            subdir = self.dict2fname(d)
+            subdir = self.dict2fname(subdir)
         else:
             assert isinstance(subdir, str)
 
