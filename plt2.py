@@ -2288,6 +2288,9 @@ def significance_marker(
     :param markers:
     :return:
     """
+    if p is None:
+        return ''
+
     markers = np.array(markers)
     p = np.array(p)
     lessthan = np.stack([p < thres1 for thres1 in thres]).sum(0).astype(int)
