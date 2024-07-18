@@ -366,6 +366,7 @@ class GridAxes:
         pad=0.5, fontsize=12,
         xprop=None, yprop=None,
         va=None, ha=None,
+        rotation=None,
         **kwargs
     ):
         """
@@ -391,6 +392,8 @@ class GridAxes:
                 va = 'bottom'
             if ha is None:
                 ha = 'center'
+            if rotation is None:
+                rotation = 0
         elif preset == 'left':
             if xprop is None:
                 xprop = -pad / np.sum(self.w[1:-1])
@@ -400,12 +403,14 @@ class GridAxes:
                 va = 'center'
             if ha is None:
                 ha = 'right'
+            if rotation is None:
+                rotation = 90
         else:
             raise ValueError()
 
         return self.figure.text(
             *self.supxy(xprop=xprop, yprop=yprop), txt,
-            ha=ha, va=va, fontsize=fontsize,
+            ha=ha, va=va, fontsize=fontsize, rotation=rotation,
             figure=self.figure,
             **kwargs
         )
