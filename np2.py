@@ -2021,7 +2021,7 @@ def _ccorrs_given_dx(inp):
         g1 = g1.reshape([np.prod(g1.shape[:2]), -1])
         g2 = g2.reshape([np.prod(g2.shape[:2]), -1])
 
-        incl = np.all(~np.isnan(g1), -1) & np.all(~np.isnan(g2), -1)
+        incl = np.all(~np.isnan(g1), -1) & np.all(~np.isnan(g2), -1) # include bins which are not nan value in each maps for all cells.
         if np.sum(incl) >= thres_n:
             # cc0[dy + fsh[1]] = stats.pearsonr(g1[incl], g2[incl])[0]
             cc0[dy + fsh[1]] = pearsonr(g1[incl].T, g2[incl].T)
