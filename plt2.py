@@ -240,6 +240,7 @@ class GridAxes:
                     **kw_subplot[row, col])
 
         self.axs = axs
+        self.axs_array = None  # can be used to store children when panels are used as parent
 
     @property
     def w(self) -> np.array:
