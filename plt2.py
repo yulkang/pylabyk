@@ -2660,7 +2660,7 @@ class SimpleFilenameArray:
         for row in range(files.shape[0]):
             for col in range(files.shape[1]):
                 file0 = files[row, col]
-                if file0 is None:
+                if file0 is None or file0 == '':
                     files_rel[row, col] = None
                     files_abs[row, col] = None
                     continue
@@ -3021,11 +3021,16 @@ class LatexDocStandalone(LatexDoc):
                         if (not subcaption_on_top) and subcaptions is not None:
                             subfig.add_caption(subcaptions[row, col])
                         doc.append(ltx.VerticalSpace('%f cm' % hspace_cm))
-                if not to_add_newpage:
+                any_added_in_row = np.any([
+                    (f is not None and f != '') for f in files_rel[row, :]
+                ])
+                if not to_add_newpage and any_added_in_row:
                     doc.append(ltx.NewLine())
             if (not caption_on_top) and caption is not None:
                 fig.add_caption(caption)
-        if to_add_newpage:
+        if to_add_newpage and np.any(np.vectorize(
+            lambda f: f is not None and f != ''
+        )(files_rel)):
             doc.append(ltx.NewPage())
 
 def convert_unit(src, src_unit, dst_unit):
