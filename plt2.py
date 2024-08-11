@@ -11,6 +11,7 @@ import os
 from typing import List, Callable, Sequence, Mapping, Tuple, Dict, Any, Type
 import pickle
 
+import PIL
 import numpy as np
 from PIL import Image
 from numpy import typing as nptyp
@@ -3287,7 +3288,9 @@ def plot_collage(
                     raise FileNotFoundError
                 else:
                     im = np.array(Image.open(fname))
-            except (FileNotFoundError, IsADirectoryError):
+            except (
+                FileNotFoundError, IsADirectoryError, PIL.UnidentifiedImageError
+            ):
                 if ignore_missing_file:
                     plt.sca(ax)
                     box_off('all')
