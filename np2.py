@@ -273,7 +273,11 @@ def filt_dict(d: dict, incl: np.ndarray,
             return {k: v[incl] for k, v in d.items()}
 
 
-def listdict2dictlist(listdict: Sequence[dict], to_array=False) -> dict:
+def listdict2dictlist(
+    listdict: Sequence[dict],
+    to_array=False,
+    to_objarray=False,
+) -> dict:
     """
     @type listdict: list
     @param listdict: list of dicts with the same keys
@@ -283,12 +287,17 @@ def listdict2dictlist(listdict: Sequence[dict], to_array=False) -> dict:
     from .numpytorch import npy
     import torch
 
+    if to_objarray:
+        assert to_array
+
     d = {k: [d[k] for d in listdict] for k in listdict[0].keys()}
     if to_array:
         for k in d.keys():
             v = d[k]
             if torch.is_tensor(v[0]):
-                v = np.array([npy(v1) for v1 in v])
+                v = [npy(v1) for v1 in v]
+            if to_objarray:
+                v = arrayobj1d(v)
             else:
                 v = np.array(v)
             d[k] = v
@@ -334,7 +343,7 @@ def dictlist2listdict(dictlist: Dict[str, Sequence]) -> List[Dict[str, Any]]:
 
 
 def arraydict2dictarray(
-    arraydict: nptyp.NDArray[dict]
+    arraydict: nptyp.NDArray[dict], to_objarray=False,
 ) -> Dict[Any, nptyp.NDArray]:
     """
 
@@ -344,7 +353,9 @@ def arraydict2dictarray(
         i.e., [key][index, ...] = value
     """
     shape0 = arraydict.shape
-    dictlist = listdict2dictlist(arraydict.flatten(), to_array=True)
+    dictlist = listdict2dictlist(
+        arraydict.flatten(), to_array=True, to_objarray=to_objarray
+    )
     return {
         k: np.reshape(v, shape0) for k, v in dictlist.items()
     }
