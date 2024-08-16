@@ -66,6 +66,7 @@ class LocalFile(object):
         # ext_fig='.pdf',
         kind2subdir=False,
         shorten_dict=True,
+        fun_shorten_dict=None,
     ):
         self.pth_root = pth_root
         self.subdir_default = subdir_default
@@ -73,10 +74,14 @@ class LocalFile(object):
         self.ext_fig = ext_fig
         self.kind2subdir=kind2subdir
         self.shorten_dict = shorten_dict
+        self.fun_shorten_dict = fun_shorten_dict
 
     def dict2fname(self, d: dict) -> str:
         if self.shorten_dict:
-            d = np2.shorten_dict(d)
+            if self.fun_shorten_dict is not None:
+                d = self.fun_shorten_dict(d)
+            else:
+                d = np2.shorten_dict(d)
         return dict2fname(d)
 
     def fname2dict(self, fname: str, lengthen=False) -> dict:
