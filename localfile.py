@@ -78,7 +78,10 @@ class LocalFile(object):
 
     def dict2fname(self, d: dict) -> str:
         if self.shorten_dict:
-            if self.fun_shorten_dict is not None:
+            if (
+                hasattr(self, 'fun_shorten_dict')
+                and self.fun_shorten_dict is not None
+            ):
                 d = self.fun_shorten_dict(d)
             else:
                 d = np2.shorten_dict(d)
