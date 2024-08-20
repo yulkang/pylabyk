@@ -986,7 +986,7 @@ def ttest_mc(
     return pval, tstat, df
 
 
-def mean_distrib(p: np.ndarray, v=None, axis=None) -> np.ndarray:
+def mean_distrib(p: np.ndarray, v=None, axis=None) -> Union[float, np.ndarray]:
     if axis is None:
         kw = {}
     else:
@@ -995,6 +995,34 @@ def mean_distrib(p: np.ndarray, v=None, axis=None) -> np.ndarray:
         assert axis is not None
         v = vec_on(np.arange(p.shape[axis]), axis, n_dim=p.ndim)
     return (p * v).sum(**kw) / p.sum(**kw)
+
+
+def median_distrib(pmf: np.ndarray, v=None, axis=0) -> Union[float, np.ndarray]:
+    """
+    Calculate the value of array `v` corresponding to the median of the PMF
+    along a given axis.
+
+    :param: pmf (numpy.ndarray): Probability mass function as a numpy array.
+    :param: v (numpy.ndarray): Array from which to extract the median value.
+    :param: axis (int): The axis along which to find the median value.
+        Default is 0.
+
+    :return: The values from array `v` corresponding to the median index
+        along the specified axis.
+    """
+
+    # Compute the cumulative distribution function (CDF)
+    # along the specified axis
+    cdf = np.cumsum(pmf, axis=axis)
+
+    # Find the index where the CDF first exceeds or equals 0.5 (the median)
+    median_idx = np.argmax(cdf >= 0.5, axis=axis)
+
+    # Use numpy's advanced indexing to select the value from v
+    # at the median index
+    return np.take_along_axis(
+        v, np.expand_dims(median_idx, axis=axis), axis=axis
+    ).squeeze()
 
 
 def var_distrib(p, v, axis=None):
