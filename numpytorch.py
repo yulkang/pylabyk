@@ -218,8 +218,8 @@ def tensor(
         else:
             if not isinstance(v, np.ndarray):
                 v = np.array(v)
-            if dtype is None and v.dtype == float:
-                dtype = torch.float
+            # if dtype is None and v.dtype == float:
+            #     dtype = torch.float  # UNUSED because it causes type mismatch between float32 and float64
             v = torch.tensor(v, device=device, dtype=dtype, **kwargs)
         if v.ndimension() < min_ndim:
             v = v.expand(v.shape

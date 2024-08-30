@@ -104,7 +104,7 @@ class LocalFile(object):
     def get_file_cache(
             self,
             cache_kind: str,
-            d: [Iterable[tuple], dict, odict, None],
+            d: [Iterable[tuple], dict, odict, None] = None,
             subdir=None,
             # cache_dir=None
     ) -> str:
