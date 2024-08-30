@@ -107,7 +107,7 @@ def vec_on(arr, dim, n_dim=None):
     return np.reshape(arr, sh)
 
 
-def cell2mat(c: np.ndarray, dtype=np.float) -> np.ndarray:
+def cell2mat(c: np.ndarray, dtype=float) -> np.ndarray:
     """
     convert from object to numeric
     :param c:
@@ -179,7 +179,7 @@ def shapes(d, verbose=True, return_shape=False):
                 compo = type(v[0])
         elif type(v) is np.ndarray:
             sh1 = v.shape
-            if isinstance(v, np.object) and v.size > 0:
+            if isinstance(v, object) and v.size > 0:
                 compo = type(v.flatten()[0])
             else:
                 compo = v.dtype.type
@@ -220,7 +220,7 @@ def filt_dict(d: dict, incl: np.ndarray,
     @type incl: np.ndarray
     @rtype: dict
     """
-    assert np.issubdtype(incl.dtype, np.bool)
+    assert np.issubdtype(incl.dtype, bool)
 
     if copy:
         if ignore_diff_len:
@@ -445,7 +445,7 @@ def arrayfun(fun, *args: np.ndarray):
     shape = args[0].shape
     args_flatten = [v.flatten() for v in args]
     res = [fun(*v) for v in zip(*args_flatten)]
-    return np.array(res, dtype=np.object).reshape(shape)
+    return np.array(res, dtype=object).reshape(shape)
 
 
 def meshfun(fun, list_args, n_out=1, dtype=None, outshape_first=False):
@@ -545,7 +545,7 @@ def demo_meshfun():
         lambda a, b: ([a, a + b], [a, a + b]),
         [(1,2), (10, 20, 30)],
         n_out=2,
-        dtype=[None, np.object]
+        dtype=[None, object]
     )
     # out1[i,j], out2[i,j] = fun(arg0[i], arg1[j])
     print((out1, out1.shape, out1.dtype))
@@ -1785,12 +1785,12 @@ def fun_deal(f, inp):
 
 def arrayobj1d(inp: Iterable, copy=False) -> np.ndarray:
     """
-    Return a 1D np.ndarray of dtype=np.object.
-    Different from np.array(inp, dtype=np.object) because the latter may
+    Return a 1D np.ndarray of dtype=object.
+    Different from np.array(inp, dtype=object) because the latter may
     return a multidimensional array, which gets flattened when fed to
     np.meshgrid, unlike the output from this function.
     """
-    return np.array([None] + list(inp), dtype=np.object, copy=copy)[1:]
+    return np.array([None] + list(inp), dtype=object, copy=copy)[1:]
 
 
 def cell2array(v: np.ndarray) -> np.ndarray:
@@ -1810,7 +1810,7 @@ def arrayobj(
     ndim_objarray=1, copy=False
 ) -> np.ndarray:
     """
-    Return np.ndarray of dtype=np.object with shape=inp.shape[:up_to_dim]
+    Return np.ndarray of dtype=object with shape=inp.shape[:up_to_dim]
     Useful for np.vectorize()
     :param inp:
     :param copy:
@@ -1827,11 +1827,11 @@ def arrayobj(
 
 def scalararray(inp) -> np.ndarray:
     """
-    Return a scalar np.ndarray of dtype=np.object.
+    Return a scalar np.ndarray of dtype=object.
     :param inp:
     :return:
     """
-    return np.array([None, inp], dtype=np.object)[[1]].reshape([])
+    return np.array([None, inp], dtype=object)[[1]].reshape([])
 
 
 def meshgridflat(*args, copy=False):
@@ -1896,7 +1896,7 @@ def vectorize_par(
     """
     if meshgrid_input:
         inputs = [
-            inp if (isinstance(inp, np.ndarray) and type(inp[0]) is np.object)
+            inp if (isinstance(inp, np.ndarray) and type(inp[0]) is object)
             else (arrayobj1d(inp) if is_iter(inp)
                   else arrayobj1d([inp]))
             for inp in inputs]
@@ -1946,7 +1946,7 @@ def vectorize_par(
             nout = 1
 
     if otypes is None:
-        otypes = [np.object] * nout
+        otypes = [object] * nout
     elif not is_sequence(type(otypes)):
         otypes = [otypes] * nout
 
@@ -1969,7 +1969,7 @@ def vectorize_par(
 
     # --- outs3: set to a correct otype
     # DEF: outs3[argout][i_input1, i_input2, ...]
-    outs3 = [cell2mat(out, otype) if otype is not np.object
+    outs3 = [cell2mat(out, otype) if otype is not object
              else out
              for out, otype in zip(outs2, otypes)]
     return outs3
