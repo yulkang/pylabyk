@@ -16,6 +16,12 @@ from scipy import stats
 import numpy_groupies as npg
 import pandas as pd
 from copy import deepcopy
+from warnings import warn
+from numpy.linalg import inv
+
+from skimage.measure import EllipseModel
+from skimage.measure.fit import _check_data_dim
+
 from . import numpytorch
 from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List, \
     Dict, Any, Mapping
@@ -1411,6 +1417,144 @@ def distance_point_line(
         line_en - line_st, point - line_st
     ) / np.linalg.norm(line_en - line_st)
     return d
+
+
+class EllipseModelReal(EllipseModel):
+    def estimate(self, data: np.ndarray) -> bool:
+        """
+        Estimate ellipse model from data using total least squares.
+
+        A version that  resolves a numerical error
+        where a, b, c are estimated to be complex numbers,
+        where they are in fact real numbers. # YK
+
+        Parameters
+        ----------
+        data : (N, 2) array
+            N points with ``(x, y)`` coordinates, respectively.
+
+        Returns
+        -------
+        success : bool
+            True, if model estimation succeeds.
+
+
+        References
+        ----------
+        .. [1] Halir, R.; Flusser, J. "Numerically stable direct least squares
+               fitting of ellipses". In Proc. 6th International Conference in
+               Central Europe on Computer Graphics and Visualization.
+               WSCG (Vol. 98, pp. 125-132).
+
+        """
+        # Original Implementation: Ben Hammel, Nick Sullivan-Molina
+        # another REFERENCE: [2] http://mathworld.wolfram.com/Ellipse.html
+        _check_data_dim(data, dim=2)
+
+        # to prevent integer overflow, cast data to float, if it isn't already
+        float_type = np.promote_types(data.dtype, np.float32)
+        data = data.astype(float_type, copy=False)
+
+        # normalize value range to avoid misfitting due to numeric errors if
+        # the relative distanceses are small compared to absolute distances
+        origin = data.mean(axis=0)
+        data = data - origin
+        scale = data.std()
+        if scale < np.finfo(float_type).tiny:
+            warn(
+                "Standard deviation of data is too small to estimate "
+                "ellipse with meaningful precision.",
+                category=RuntimeWarning,
+                stacklevel=2,
+            )
+            return False
+        data /= scale
+
+        x = data[:, 0]
+        y = data[:, 1]
+
+        # Quadratic part of design matrix [eqn. 15] from [1]
+        D1 = np.vstack([x ** 2, x * y, y ** 2]).T
+        # Linear part of design matrix [eqn. 16] from [1]
+        D2 = np.vstack([x, y, np.ones_like(x)]).T
+
+        # forming scatter matrix [eqn. 17] from [1]
+        S1 = D1.T @ D1
+        S2 = D1.T @ D2
+        S3 = D2.T @ D2
+
+        # Constraint matrix [eqn. 18]
+        C1 = np.array([[0., 0., 2.], [0., -1., 0.], [2., 0., 0.]])
+
+        try:
+            # Reduced scatter matrix [eqn. 29]
+            M = inv(C1) @ (S1 - S2 @ inv(S3) @ S2.T)
+        except np.linalg.LinAlgError:  # LinAlgError: Singular matrix
+            return False
+
+        # M*|a b c >=l|a b c >. Find eigenvalues and eigenvectors
+        # from this equation [eqn. 28]
+        eig_vals, eig_vecs = np.linalg.eig(M)
+
+        # eigenvector must meet constraint 4ac - b^2 to be valid.
+        cond = 4 * np.multiply(eig_vecs[0, :], eig_vecs[2, :]) \
+               - np.power(eig_vecs[1, :], 2)
+        a1 = eig_vecs[:, (cond > 0)]
+        if np.all(np.imag(a1) < 1e-6):
+            a1 = np.real(a1)
+
+        # seeks for empty matrix
+        if 0 in a1.shape or len(a1.ravel()) != 3:
+            return False
+        a, b, c = a1.ravel()
+
+        # |d f g> = -S3^(-1)*S2^(T)*|a b c> [eqn. 24]
+        a2 = -inv(S3) @ S2.T @ a1
+        d, f, g = a2.ravel()
+
+        # eigenvectors are the coefficients of an ellipse in general form
+        # a*x^2 + 2*b*x*y + c*y^2 + 2*d*x + 2*f*y + g = 0 (eqn. 15) from [2]
+        b /= 2.
+        d /= 2.
+        f /= 2.
+
+        # finding center of ellipse [eqn.19 and 20] from [2]
+        x0 = (c * d - b * f) / (b ** 2. - a * c)
+        y0 = (a * f - b * d) / (b ** 2. - a * c)
+
+        # Find the semi-axes lengths [eqn. 21 and 22] from [2]
+        numerator = a * f ** 2 + c * d ** 2 + g * b ** 2 \
+                    - 2 * b * d * f - a * c * g
+        term = np.sqrt((a - c) ** 2 + 4 * b ** 2)
+        denominator1 = (b ** 2 - a * c) * (term - (a + c))
+        denominator2 = (b ** 2 - a * c) * (- term - (a + c))
+        width = np.sqrt(2 * numerator / denominator1)
+        height = np.sqrt(2 * numerator / denominator2)
+
+        # angle of counterclockwise rotation of major-axis of ellipse
+        # to x-axis [eqn. 23] from [2].
+        phi = 0.5 * np.arctan((2. * b) / (a - c))
+        if a > c:
+            phi += 0.5 * np.pi
+
+
+        # stabilize parameters:
+        # sometimes small fluctuations in data can cause
+        # height and width to swap
+        if width < height:
+            width, height = height, width
+            phi += np.pi / 2
+
+        phi %= np.pi
+
+        # revert normalization and set params
+        params = np.nan_to_num([x0, y0, width, height, phi]).real
+        params[:4] *= scale
+        params[:2] += origin
+
+        self.params = tuple(float(p) for p in params)
+
+        return True
 
 
 def ____TRANSFORM____():
