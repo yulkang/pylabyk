@@ -1841,7 +1841,7 @@ def optimize_scipy(
     model.load_state_dict(obj.unpack_parameters(out['x']))
     model.eval()
     if obj.separate_loss_for_jac:
-        _, loss_eval = model()
+        loss_eval, _ = model()
     else:
         loss_eval = model()
     loss_eval = npy(loss_eval)
