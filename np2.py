@@ -16,6 +16,13 @@ from scipy import stats
 import numpy_groupies as npg
 import pandas as pd
 from copy import deepcopy
+from numpy.linalg import inv
+
+from skimage.measure import EllipseModel
+from skimage.measure.fit import _check_data_dim
+from warnings import warn
+
+
 from . import numpytorch
 from typing import Union, Sequence, Iterable, Type, Callable, Tuple, List, \
     Dict, Any, Mapping
@@ -107,7 +114,7 @@ def vec_on(arr, dim, n_dim=None):
     return np.reshape(arr, sh)
 
 
-def cell2mat(c: np.ndarray, dtype=np.float) -> np.ndarray:
+def cell2mat(c: np.ndarray, dtype=float) -> np.ndarray:
     """
     convert from object to numeric
     :param c:
@@ -179,7 +186,7 @@ def shapes(d, verbose=True, return_shape=False):
                 compo = type(v[0])
         elif type(v) is np.ndarray:
             sh1 = v.shape
-            if isinstance(v, np.object) and v.size > 0:
+            if isinstance(v, object) and v.size > 0:
                 compo = type(v.flatten()[0])
             else:
                 compo = v.dtype.type
@@ -220,7 +227,7 @@ def filt_dict(d: dict, incl: np.ndarray,
     @type incl: np.ndarray
     @rtype: dict
     """
-    assert np.issubdtype(incl.dtype, np.bool)
+    assert np.issubdtype(incl.dtype, bool)
 
     if copy:
         if ignore_diff_len:
@@ -445,7 +452,7 @@ def arrayfun(fun, *args: np.ndarray):
     shape = args[0].shape
     args_flatten = [v.flatten() for v in args]
     res = [fun(*v) for v in zip(*args_flatten)]
-    return np.array(res, dtype=np.object).reshape(shape)
+    return np.array(res, dtype=object).reshape(shape)
 
 
 def meshfun(fun, list_args, n_out=1, dtype=None, outshape_first=False):
@@ -545,7 +552,7 @@ def demo_meshfun():
         lambda a, b: ([a, a + b], [a, a + b]),
         [(1,2), (10, 20, 30)],
         n_out=2,
-        dtype=[None, np.object]
+        dtype=[None, object]
     )
     # out1[i,j], out2[i,j] = fun(arg0[i], arg1[j])
     print((out1, out1.shape, out1.dtype))
@@ -1413,6 +1420,144 @@ def distance_point_line(
     return d
 
 
+class EllipseModelReal(EllipseModel):
+    def estimate(self, data: np.ndarray) -> bool:
+        """
+        Estimate ellipse model from data using total least squares.
+
+        A version that  resolves a numerical error
+        where a, b, c are estimated to be complex numbers,
+        where they are in fact real numbers. # YK
+
+        Parameters
+        ----------
+        data : (N, 2) array
+            N points with ``(x, y)`` coordinates, respectively.
+
+        Returns
+        -------
+        success : bool
+            True, if model estimation succeeds.
+
+
+        References
+        ----------
+        .. [1] Halir, R.; Flusser, J. "Numerically stable direct least squares
+               fitting of ellipses". In Proc. 6th International Conference in
+               Central Europe on Computer Graphics and Visualization.
+               WSCG (Vol. 98, pp. 125-132).
+
+        """
+        # Original Implementation: Ben Hammel, Nick Sullivan-Molina
+        # another REFERENCE: [2] http://mathworld.wolfram.com/Ellipse.html
+        _check_data_dim(data, dim=2)
+
+        # to prevent integer overflow, cast data to float, if it isn't already
+        float_type = np.promote_types(data.dtype, np.float32)
+        data = data.astype(float_type, copy=False)
+
+        # normalize value range to avoid misfitting due to numeric errors if
+        # the relative distanceses are small compared to absolute distances
+        origin = data.mean(axis=0)
+        data = data - origin
+        scale = data.std()
+        if scale < np.finfo(float_type).tiny:
+            warn(
+                "Standard deviation of data is too small to estimate "
+                "ellipse with meaningful precision.",
+                category=RuntimeWarning,
+                stacklevel=2,
+            )
+            return False
+        data /= scale
+
+        x = data[:, 0]
+        y = data[:, 1]
+
+        # Quadratic part of design matrix [eqn. 15] from [1]
+        D1 = np.vstack([x ** 2, x * y, y ** 2]).T
+        # Linear part of design matrix [eqn. 16] from [1]
+        D2 = np.vstack([x, y, np.ones_like(x)]).T
+
+        # forming scatter matrix [eqn. 17] from [1]
+        S1 = D1.T @ D1
+        S2 = D1.T @ D2
+        S3 = D2.T @ D2
+
+        # Constraint matrix [eqn. 18]
+        C1 = np.array([[0., 0., 2.], [0., -1., 0.], [2., 0., 0.]])
+
+        try:
+            # Reduced scatter matrix [eqn. 29]
+            M = inv(C1) @ (S1 - S2 @ inv(S3) @ S2.T)
+        except np.linalg.LinAlgError:  # LinAlgError: Singular matrix
+            return False
+
+        # M*|a b c >=l|a b c >. Find eigenvalues and eigenvectors
+        # from this equation [eqn. 28]
+        eig_vals, eig_vecs = np.linalg.eig(M)
+
+        # eigenvector must meet constraint 4ac - b^2 to be valid.
+        cond = 4 * np.multiply(eig_vecs[0, :], eig_vecs[2, :]) \
+               - np.power(eig_vecs[1, :], 2)
+        a1 = eig_vecs[:, (cond > 0)]
+        if np.all(np.imag(a1) < 1e-6):
+            a1 = np.real(a1)
+
+        # seeks for empty matrix
+        if 0 in a1.shape or len(a1.ravel()) != 3:
+            return False
+        a, b, c = a1.ravel()
+
+        # |d f g> = -S3^(-1)*S2^(T)*|a b c> [eqn. 24]
+        a2 = -inv(S3) @ S2.T @ a1
+        d, f, g = a2.ravel()
+
+        # eigenvectors are the coefficients of an ellipse in general form
+        # a*x^2 + 2*b*x*y + c*y^2 + 2*d*x + 2*f*y + g = 0 (eqn. 15) from [2]
+        b /= 2.
+        d /= 2.
+        f /= 2.
+
+        # finding center of ellipse [eqn.19 and 20] from [2]
+        x0 = (c * d - b * f) / (b ** 2. - a * c)
+        y0 = (a * f - b * d) / (b ** 2. - a * c)
+
+        # Find the semi-axes lengths [eqn. 21 and 22] from [2]
+        numerator = a * f ** 2 + c * d ** 2 + g * b ** 2 \
+                    - 2 * b * d * f - a * c * g
+        term = np.sqrt((a - c) ** 2 + 4 * b ** 2)
+        denominator1 = (b ** 2 - a * c) * (term - (a + c))
+        denominator2 = (b ** 2 - a * c) * (- term - (a + c))
+        width = np.sqrt(2 * numerator / denominator1)
+        height = np.sqrt(2 * numerator / denominator2)
+
+        # angle of counterclockwise rotation of major-axis of ellipse
+        # to x-axis [eqn. 23] from [2].
+        phi = 0.5 * np.arctan((2. * b) / (a - c))
+        if a > c:
+            phi += 0.5 * np.pi
+
+
+        # stabilize parameters:
+        # sometimes small fluctuations in data can cause
+        # height and width to swap
+        if width < height:
+            width, height = height, width
+            phi += np.pi / 2
+
+        phi %= np.pi
+
+        # revert normalization and set params
+        params = np.nan_to_num([x0, y0, width, height, phi]).real
+        params[:4] *= scale
+        params[:2] += origin
+
+        self.params = tuple(float(p) for p in params)
+
+        return True
+
+
 def ____TRANSFORM____():
     pass
 
@@ -1785,12 +1930,12 @@ def fun_deal(f, inp):
 
 def arrayobj1d(inp: Iterable, copy=False) -> np.ndarray:
     """
-    Return a 1D np.ndarray of dtype=np.object.
-    Different from np.array(inp, dtype=np.object) because the latter may
+    Return a 1D np.ndarray of dtype=object.
+    Different from np.array(inp, dtype=object) because the latter may
     return a multidimensional array, which gets flattened when fed to
     np.meshgrid, unlike the output from this function.
     """
-    return np.array([None] + list(inp), dtype=np.object, copy=copy)[1:]
+    return np.array([None] + list(inp), dtype=object, copy=copy)[1:]
 
 
 def cell2array(v: np.ndarray) -> np.ndarray:
@@ -1810,7 +1955,7 @@ def arrayobj(
     ndim_objarray=1, copy=False
 ) -> np.ndarray:
     """
-    Return np.ndarray of dtype=np.object with shape=inp.shape[:up_to_dim]
+    Return np.ndarray of dtype=object with shape=inp.shape[:up_to_dim]
     Useful for np.vectorize()
     :param inp:
     :param copy:
@@ -1827,11 +1972,11 @@ def arrayobj(
 
 def scalararray(inp) -> np.ndarray:
     """
-    Return a scalar np.ndarray of dtype=np.object.
+    Return a scalar np.ndarray of dtype=object.
     :param inp:
     :return:
     """
-    return np.array([None, inp], dtype=np.object)[[1]].reshape([])
+    return np.array([None, inp], dtype=object)[[1]].reshape([])
 
 
 def meshgridflat(*args, copy=False):
@@ -1896,7 +2041,7 @@ def vectorize_par(
     """
     if meshgrid_input:
         inputs = [
-            inp if (isinstance(inp, np.ndarray) and type(inp[0]) is np.object)
+            inp if (isinstance(inp, np.ndarray) and type(inp[0]) is object)
             else (arrayobj1d(inp) if is_iter(inp)
                   else arrayobj1d([inp]))
             for inp in inputs]
@@ -1946,7 +2091,7 @@ def vectorize_par(
             nout = 1
 
     if otypes is None:
-        otypes = [np.object] * nout
+        otypes = [object] * nout
     elif not is_sequence(type(otypes)):
         otypes = [otypes] * nout
 
@@ -1969,7 +2114,7 @@ def vectorize_par(
 
     # --- outs3: set to a correct otype
     # DEF: outs3[argout][i_input1, i_input2, ...]
-    outs3 = [cell2mat(out, otype) if otype is not np.object
+    outs3 = [cell2mat(out, otype) if otype is not object
              else out
              for out, otype in zip(outs2, otypes)]
     return outs3

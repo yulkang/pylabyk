@@ -317,7 +317,7 @@ class GridAxes:
         )
         self.gs = gs  # for backward compatibility
 
-        axs = np.empty([nrows, ncols], dtype=np.object)
+        axs = np.empty([nrows, ncols], dtype=object)
 
         for row in range(nrows):
             for col in range(ncols):
@@ -848,7 +848,7 @@ def same_clim(
         # clim = [np.amin(arrays), np.amax(arrays)]
 
         # # DEBUGGED: np.amax(clims) doesn't work when either clim is None.
-        clims = np.array([im.get_clim() for im in img0], dtype=np.object)
+        clims = np.array([im.get_clim() for im in img0], dtype=object)
         def fun_or_val(fun, v, im):
             if v is not None:
                 return v
@@ -2194,6 +2194,7 @@ class SimpleFilenameArray:
                     row, col, os.path.splitext(file0)[1])
                 files_rel[row, col] = os.path.join(temp_dir_rel, file_name1)
                 files_abs[row, col] = os.path.join(temp_dir_abs, file_name1)
+                mkdir4file(files_abs[row, col])
                 try:
                     shutil.copy(file0, files_abs[row, col])
                 except FileNotFoundError:
