@@ -1939,7 +1939,7 @@ def optimize_scipy(
         **{
             'method': 'BFGS',
             # method='L-BFGS-B',
-            # callback=verbose,
+            'callback': (lambda xk: print('Loss:', obj.fun(xk))),
             **kw_optim
         }, options={
             # 'gtol': 1e-16, # 12,
