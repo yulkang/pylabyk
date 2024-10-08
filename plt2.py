@@ -515,6 +515,7 @@ def savefig_w_data(
     fun_calc: Callable[..., Dict[str, Any]] = None,
     kw_fun_calc: Dict[str, Any] = None,
     kw_fun_nocache: Dict[str, Any] = None,
+    kw_savefig: Dict[str, Any] = None,
     to_load_kw_fun_only=False,
     to_overwrite_cache=False,
     to_plot=True,
@@ -541,6 +542,8 @@ def savefig_w_data(
     :param to_return_kw_fun: if True, return kw_fun
     :return: output of fun (, kw_fun if return_kw_fun)
     """
+    if kw_savefig is None:
+        kw_savefig = {}
 
     if to_save_cache:
         with Cache(fname + '.zpkl', ignore_key=True) as cache:
@@ -575,7 +578,7 @@ def savefig_w_data(
         if hasattr(fig, 'figure'):
             fig = fig.figure
         if to_savefig and fig is not None:
-            savefig(fname, fig=fig)
+            savefig(fname, fig=fig, **kw_savefig)
             plt.close(fig.figure)
     else:
         out = None
@@ -769,10 +772,10 @@ def lim_margin(
 
 
 def break_axis(
-        amin, amax=None, xy='x', ax: plt.Axes = None,
-        fun_draw: Callable = None,
-        margin=0.05,
-        prop=0.5,
+    amin, amax=None, xy='x', ax: plt.Axes = None,
+    fun_draw: Callable[[plt.Axes], None] = None,
+    margin=0.05,
+    prop=0.5,
 ) -> (plt.Axes, plt.Axes):
     """
     :param amin: data coordinate to start breaking from
