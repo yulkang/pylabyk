@@ -66,7 +66,9 @@ def rc_sanslatex(rc: Callable = None):
                 r'\usepackage{sansmath}',
                 # load up the sansmath so that math -> helvet
                 r'\sansmath'  # <- tricky! -- gotta actually tell tex to use!
-            ]))
+            ]
+        )
+    )
 
 
 def ____Subplots____():
@@ -145,7 +147,7 @@ class GridAxes:
         if kw_subplot is None:
             kw_subplot = [[{}]]
         kw_subplot = np.broadcast_to(np.array(kw_subplot), [nrows, ncols])
-        
+
         # repeat and truncate if too long for convenience
         wspace, hspace, widths, heights = [
             np.array(v)[np.arange(l) % len(v)]
@@ -182,10 +184,12 @@ class GridAxes:
         self._close_on_del = close_on_del
 
         if parent is None:
-            parent = plt.figure(**{
-                **dict(kw_fig),
-                'figsize': [w.sum(), h.sum()]
-            })
+            parent = plt.figure(
+                **{
+                    **dict(kw_fig),
+                    'figsize': [w.sum(), h.sum()]
+                }
+            )
 
         kw_gridspec = dict(
             nrows=nrows * 2 + 1, ncols=ncols * 2 + 1,
@@ -238,7 +242,8 @@ class GridAxes:
             for col in range(ncols):
                 axs[row, col] = plt.subplot(
                     gs[row * 2 + 1, col * 2 + 1],
-                    **kw_subplot[row, col])
+                    **kw_subplot[row, col]
+                )
 
         self.axs = axs
         self.axs_array = None  # can be used to store children when panels are used as parent
@@ -441,9 +446,9 @@ def subplotRC(nrow, ncol, row, col, **kwargs):
 
 def subplotRCs(nrow, ncol, **kwargs):
     ax = np.empty([nrow, ncol], dtype=object)
-    for row in range(1, nrow+1):
-        for col in range(1, ncol+1):
-            ax[row-1, col-1] = subplotRC(nrow, ncol, row, col, **kwargs)
+    for row in range(1, nrow + 1):
+        for col in range(1, ncol + 1):
+            ax[row - 1, col - 1] = subplotRC(nrow, ncol, row, col, **kwargs)
     return ax
 
 
@@ -460,7 +465,7 @@ def coltitle(
     :return: array of title handles
     """
     h = []
-    for ax, col in zip(axes[0,:], col_titles):
+    for ax, col in zip(axes[0, :], col_titles):
         h.append(ax.set_title(col, **kwargs))
     return np.array(h)
 
@@ -487,7 +492,8 @@ def rowtitle(
             row,
             xy=(0, 0.5), xytext=(-ax.yaxis.labelpad - pad, 0),
             xycoords=ax.yaxis.label, textcoords='offset points',
-            size='large', ha=ha, va='center', **kwargs)
+            size='large', ha=ha, va='center', **kwargs
+        )
         labels.append(label)
 
     # fig = axes[0,0].get_figure()
@@ -508,13 +514,14 @@ def ____Saving____():
 def savefig_w_data(
     fname: str,
     fun: Callable[..., Union[
-            plt.Figure, GridAxes,
-            Tuple[Union[plt.Figure, GridAxes], ...]
-        ]] = None,
+        plt.Figure, GridAxes,
+        Tuple[Union[plt.Figure, GridAxes], ...]
+    ]] = None,
     kw_fun: Dict[str, Any] = None,
     fun_calc: Callable[..., Dict[str, Any]] = None,
     kw_fun_calc: Dict[str, Any] = None,
     kw_fun_nocache: Dict[str, Any] = None,
+    kw_savefig: Dict[str, Any] = None,
     to_load_kw_fun_only=False,
     to_overwrite_cache=False,
     to_plot=True,
@@ -541,6 +548,8 @@ def savefig_w_data(
     :param to_return_kw_fun: if True, return kw_fun
     :return: output of fun (, kw_fun if return_kw_fun)
     """
+    if kw_savefig is None:
+        kw_savefig = {}
 
     if to_save_cache:
         with Cache(fname + '.zpkl', ignore_key=True) as cache:
@@ -575,7 +584,7 @@ def savefig_w_data(
         if hasattr(fig, 'figure'):
             fig = fig.figure
         if to_savefig and fig is not None:
-            savefig(fname, fig=fig)
+            savefig(fname, fig=fig, **kw_savefig)
             plt.close(fig.figure)
     else:
         out = None
@@ -587,6 +596,7 @@ def savefig_w_data(
 
 
 from sys import platform
+
 ext_savefig = ('.pdf', '.png')  # if platform == 'darwin' else ('.png',)
 """
 Default extensions that can be changed using plt2.ext_savefig = default
@@ -769,10 +779,10 @@ def lim_margin(
 
 
 def break_axis(
-        amin, amax=None, xy='x', ax: plt.Axes = None,
-        fun_draw: Callable = None,
-        margin=0.05,
-        prop=0.5,
+    amin, amax=None, xy='x', ax: plt.Axes = None,
+    fun_draw: Callable[[plt.Axes], None] = None,
+    margin=0.05,
+    prop=0.5,
 ) -> (plt.Axes, plt.Axes):
     """
     :param amin: data coordinate to start breaking from
@@ -800,21 +810,25 @@ def break_axis(
             # prop_min = (amin - lim[0]) / (lim[1] - lim[0])
             # prop_max = (amax - lim[0]) / (lim[1] - lim[0])
 
-        rect1 = np.array([
-            rect[0],
-            rect[1],
-            rect[2] * (prop - margin / 2),
-            # rect[2] * (prop_min - margin / 2),
-            rect[3]
-        ])
-        rect2 = np.array([
-            rect[0] + rect[2] * (prop + margin / 2),
-            # rect[0] + rect[2] * (prop_max + margin / 2),
-            rect[1],
-            rect[2] * (1. - prop - margin / 2),
-            # rect[2] * (1 - prop_max),
-            rect[3]
-        ])
+        rect1 = np.array(
+            [
+                rect[0],
+                rect[1],
+                rect[2] * (prop - margin / 2),
+                # rect[2] * (prop_min - margin / 2),
+                rect[3]
+            ]
+        )
+        rect2 = np.array(
+            [
+                rect[0] + rect[2] * (prop + margin / 2),
+                # rect[0] + rect[2] * (prop_max + margin / 2),
+                rect[1],
+                rect[2] * (1. - prop - margin / 2),
+                # rect[2] * (1 - prop_max),
+                rect[3]
+            ]
+        )
 
         fig = ax.figure  # type: plt.Figure
         ax1 = fig.add_axes(plt.Axes(fig=fig, rect=rect1))
@@ -853,7 +867,8 @@ def break_axis(
         # ax.set_yticks(ytick0)
         # ax.set_yticklabels(yticklabels0, color='w')
 
-        box_off('all', ax=ax,
+        box_off(
+            'all', ax=ax,
             # remove_ticklabels=False, remove_ticks=False,
         )
         # ax.tick_params(axis='x', color='w')
@@ -869,12 +884,14 @@ def break_axis(
         prop_all = ((amin - lim[0]) + (lim[1] - amax)) / (1 - margin)
         prop_min = (amin - lim[0]) / prop_all
         prop_max = (lim[1] - amax) / prop_all
-        rect1 = np.array([
-            rect[0],
-            rect[1],
-            rect[2],
-            rect[3] * prop_min
-        ])
+        rect1 = np.array(
+            [
+                rect[0],
+                rect[1],
+                rect[2],
+                rect[3] * prop_min
+            ]
+        )
         rect2 = [
             rect[0],
             rect[1] + rect[3] * (1 - prop_max),
@@ -931,7 +948,7 @@ def sameaxes(
         ax = ax.flatten()
 
     def cat_lims(lims):
-        return np.concatenate([np.array(v1).reshape(1,2) for v1 in lims])
+        return np.concatenate([np.array(v1).reshape(1, 2) for v1 in lims])
 
     if lim is not None:
         if np2.is_iter(lim[0]):
@@ -957,9 +974,9 @@ def sameaxes(
                         except AttributeError:
                             is_inverted = ax[0].yaxis_inverted()
                     if is_inverted:
-                        lims0 = [np.max(lims[:,0]), np.min(lims[:,1])]
+                        lims0 = [np.max(lims[:, 0]), np.min(lims[:, 1])]
                     else:
-                        lims0 = [np.min(lims[:,0]), np.max(lims[:,1])]
+                        lims0 = [np.min(lims[:, 0]), np.max(lims[:, 1])]
                 else:
                     if xy1 == 'x':
                         lims0 = ax0.get_xlim()
@@ -1031,6 +1048,7 @@ def same_clim(
 
         # # DEBUGGED: np.amax(clims) doesn't work when either clim is None.
         clims = np.array([im.get_clim() for im in img0], dtype=object)
+
         def fun_or_val(fun, v, im):
             if v is not None:
                 return v
@@ -1040,12 +1058,13 @@ def same_clim(
                     return fun(a)
                 else:
                     return np.nan
+
         clims[:, 0] = [fun_or_val(np.nanmin, v, im)
-                       for v, im in zip(clims[:, 0], images)]
+            for v, im in zip(clims[:, 0], images)]
         clims[:, 1] = [fun_or_val(np.nanmax, v, im)
-                       for v, im in zip(clims[:, 1], images)]
+            for v, im in zip(clims[:, 1], images)]
         clims = clims.astype(float)
-        clim = [np.nanmin(clims[:,0]), np.nanmax(clims[:,1])]
+        clim = [np.nanmin(clims[:, 0]), np.nanmax(clims[:, 1])]
 
     if symmetric:
         cmax = np.amax(np.abs(clim))
@@ -1076,14 +1095,16 @@ def lim_symmetric(xy='y', lim=None, ax=None):
         ax.set_ylim(-lim, +lim)
 
 
-def beautify_psychometric(ax=None,
-                          ylim=[0, 1],
-                          y_margin=0.05,
-                          axvline=False,
-                          axhline=False):
+def beautify_psychometric(
+    ax=None,
+    ylim=[0, 1],
+    y_margin=0.05,
+    axvline=False,
+    axhline=False
+):
     if ax is None:
         ax = plt.gca()
-        
+
     dylim = ylim[1] - ylim[0]
     ylim_actual = [ylim[0] - dylim * y_margin, ylim[1] + dylim * y_margin]
     plt.ylim(ylim_actual)
@@ -1092,28 +1113,33 @@ def beautify_psychometric(ax=None,
         plt.yticks([0.5, 0.75, 1])
     elif ylim[0] == 0 and ylim[1] == 1:
         plt.yticks([0, 0.5, 1])
-    
+
     box_off()
     if axvline:
-        plt.axvline(x=0, 
-                    color=[.9, .9, .9], 
-                    linestyle='-', zorder=-1,
-                    linewidth=0.5)
+        plt.axvline(
+            x=0,
+            color=[.9, .9, .9],
+            linestyle='-', zorder=-1,
+            linewidth=0.5
+        )
     if axhline:
-        plt.axhline(y=0.5, 
-                    color=[.9, .9, .9], 
-                    linestyle='-', zorder=-1,
-                    linewidth=0.5)
+        plt.axhline(
+            y=0.5,
+            color=[.9, .9, .9],
+            linestyle='-', zorder=-1,
+            linewidth=0.5
+        )
+
 
 def detach_axis(xy='xy', amin=0., amax=None, ax=None, spine=None):
     if xy == 'xy':
         for xy1 in ['x', 'y']:
             detach_axis(xy1, amin, amax, ax)
         return
-            
+
     if ax is None:
         ax = plt.gca()
-        
+
     if xy == 'x':
         if spine is None:
             spine = 'bottom'
@@ -1141,10 +1167,10 @@ def detach_yaxis(ymin=0, ymax=None, ax=None):
 
 
 def box_prop(
-        linewidth=3,
-        color='r',
-        spines: Union[str, Iterable[str]] = 'all',
-        ax: plt.Axes = None
+    linewidth=3,
+    color='r',
+    spines: Union[str, Iterable[str]] = 'all',
+    ax: plt.Axes = None
 ):
     if isinstance(spines, str) and spines == 'all':
         spines = ('left', 'right', 'top', 'bottom')
@@ -1156,10 +1182,12 @@ def box_prop(
         s.set_linewidth(linewidth)
 
 
-def box_off(remove_spines: Union[str, Iterable[str]] = ('right', 'top'),
-            remove_ticklabels=True,
-            remove_ticks=True,
-            ax=None):
+def box_off(
+    remove_spines: Union[str, Iterable[str]] = ('right', 'top'),
+    remove_ticklabels=True,
+    remove_ticks=True,
+    ax=None
+):
     """
     :param remove_spines: 'all': remove all spines and ticks; or a list
     of some/all of 'left', 'right', 'top', and/or 'bottom'.
@@ -1187,14 +1215,15 @@ def box_off(remove_spines: Union[str, Iterable[str]] = ('right', 'top'),
 
     for r in remove_spines:
         ax.spines[r].set_visible(False)
-        
+
+
 def axis_off(xy, ax=None):
     if ax is None:
         ax = plt.gca()
     if 'x' in xy:
         ax.spines['bottom'].set_visible(False)
         ax.get_xaxis().set_visible(False)
-    if 'y' in xy:        
+    if 'y' in xy:
         ax.spines['left'].set_visible(False)
         ax.get_yaxis().set_visible(False)
 
@@ -1203,9 +1232,11 @@ def ____Ticks____():
     pass
 
 
-def ticks(ax=None, xy='y',
-          major=True,
-          interval=None, format=None, length=None, **kwargs):
+def ticks(
+    ax=None, xy='y',
+    major=True,
+    interval=None, format=None, length=None, **kwargs
+):
 
     from matplotlib.ticker import (MultipleLocator, FormatStrFormatter)
 
@@ -1278,28 +1309,34 @@ CMapType = Callable[[int], Iterable[float]]
 def cool2(n_lev: int) -> CMapType:
     def cmap1(lev):
         return np.linspace([0.4, 0., 1.], [1., 0., 0.], n_lev)[lev]
+
     return cmap1
 
 
 def cool2_rev(n_lev: int) -> CMapType:
     def cmap1(lev):
         return np.linspace([1., 0., 0.], [0.4, 0., 1.], n_lev)[lev]
+
     return cmap1
 
 
 def winter2(n_lev: int) -> CMapType:
     def cmap1(lev):
         return np.linspace([0., 0.4, 1.], [0., 0.8, 0.25], n_lev)[lev]
+
     return cmap1
 
 
 def winter2_rev(n_lev: int) -> CMapType:
     def cmap1(lev):
         return np.linspace([0., 0.8, 0.25], [0., 0.4, 1.], n_lev)[lev]
+
     return cmap1
 
 
-def cmap2rgba(cmap: mpl.colors.Colormap, n: int = None, prop: Sequence[float] = None) -> np.ndarray:
+def cmap2rgba(
+    cmap: mpl.colors.Colormap, n: int = None, prop: Sequence[float] = None
+) -> np.ndarray:
     """
     Following https://stackoverflow.com/a/26109298/2565317
     :param cmap:
@@ -1317,11 +1354,12 @@ def cmap2rgba(cmap: mpl.colors.Colormap, n: int = None, prop: Sequence[float] = 
     return scalar_map.to_rgba(prop)
 
 
-def cmap_alpha(cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
-               n: int = None,
-               alpha_max=1.,
-               alpha_min=0.,
-               ) -> ListedColormap:
+def cmap_alpha(
+    cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
+    n: int = None,
+    alpha_max=1.,
+    alpha_min=0.,
+) -> ListedColormap:
     """
     Add linear alphas to a colormap
 
@@ -1349,11 +1387,11 @@ def cmap_alpha(cmap: Union[mpl.colors.Colormap, str, Iterable[float]],
 
 
 def cmap_gamma(
-        cmap: Union[mpl.colors.Colormap, str, Iterable[float]] = None,
-        n=256,
-        piecelin=(0.2, 0.8),
-        f: Callable[[np.ndarray,], np.ndarray] = None,
-        name='gamma',
+    cmap: Union[mpl.colors.Colormap, str, Iterable[float]] = None,
+    n=256,
+    piecelin=(0.2, 0.8),
+    f: Callable[[np.ndarray, ], np.ndarray] = None,
+    name='gamma',
 ) -> ListedColormap:
     """
     Add linear alphas to a colormap.
@@ -1375,7 +1413,8 @@ def cmap_gamma(
         f = np.vectorize(
             lambda v: v * y_control / x_control if v < x_control
             else (v - x_control) * (1 - y_control) / (
-                        1 - x_control) + y_control)
+                1 - x_control) + y_control
+        )
     elif f is None:
         f = lambda v: v
 
@@ -1390,7 +1429,7 @@ def cmap_gamma(
     return cmap1
 
 
-def colormap2arr(arr,cmap):
+def colormap2arr(arr, cmap):
     """
     https://stackoverflow.com/a/3722674/2565317
 
@@ -1410,22 +1449,22 @@ def colormap2arr(arr,cmap):
     import scipy.cluster.vq as scv
 
     # http://stackoverflow.com/questions/3720840/how-to-reverse-color-map-image-to-scalar-values/3722674#3722674
-    gradient = cmap(np.linspace(0.0,1.0,100))
+    gradient = cmap(np.linspace(0.0, 1.0, 100))
 
     # Reshape arr to something like (240*240, 4), all the 4-tuples in a long list...
-    arr2 = arr.reshape((arr.shape[0]*arr.shape[1],arr.shape[2]))
+    arr2 = arr.reshape((arr.shape[0] * arr.shape[1], arr.shape[2]))
 
     # Use vector quantization to shift the values in arr2 to the nearest point in
     # the code book (gradient).
-    code, dist = scv.vq(arr2,gradient)
+    code, dist = scv.vq(arr2, gradient)
 
     # code is an array of length arr2 (240*240), holding the code book index for
     # each observation. (arr2 are the "observations".)
     # Scale the values so they are from 0 to 1.
-    values = code.astype('float')/gradient.shape[0]
+    values = code.astype('float') / gradient.shape[0]
 
     # Reshape values back to (240,240)
-    values = values.reshape(arr.shape[0],arr.shape[1])
+    values = values.reshape(arr.shape[0], arr.shape[1])
     values = values[::-1]
     return values
 
@@ -1447,10 +1486,12 @@ def ____Heatmaps____():
 #     return cmap
 
 
-def imshow_discrete(x, shade=None,
-                    colors=((1, 0, 0), (0, 1, 0), (0, 0, 1)),
-                    color_shade=(1, 1, 1),
-                    **kw):
+def imshow_discrete(
+    x, shade=None,
+    colors=((1, 0, 0), (0, 1, 0), (0, 0, 1)),
+    color_shade=(1, 1, 1),
+    **kw
+):
     """
     Given index x[row, col], show color[x[row, col]]
     :param x:
@@ -1466,23 +1507,23 @@ def imshow_discrete(x, shade=None,
     if shade is None:
         shade = np.ones(list(x.shape[:-1]) + [1])
     else:
-        shade = shade[:,:,np.newaxis]
-    
+        shade = shade[:, :, np.newaxis]
+
     n_color = len(colors)
     c = np.zeros(list(x.shape) + [len(colors[0])])
     for i_color in range(n_color):
-        incl = np.float32(x == i_color)[:,:,np.newaxis]
+        incl = np.float32(x == i_color)[:, :, np.newaxis]
         c += incl * shade * np.float32(np2.vec_on(colors[i_color], 2, 3)) \
-            + incl * (1. - shade) * np.float32(np2.vec_on(color_shade, 2, 3))
-        
+             + incl * (1. - shade) * np.float32(np2.vec_on(color_shade, 2, 3))
+
     plt.imshow(c, **kw)
 
 
 def imshow_weights(
-        w, colors=((1, 0, 0), (0, 1, 0), (0, 0, 1)),
-        color_bkg=(1, 1, 1),
-        to_plot=True,
-        **kwargs
+    w, colors=((1, 0, 0), (0, 1, 0), (0, 0, 1)),
+    color_bkg=(1, 1, 1),
+    to_plot=True,
+    **kwargs
 ):
     """
     color[row, column] = sum_i(w[row, column, i] * (colors[i] - color_bkg))
@@ -1498,9 +1539,11 @@ def imshow_weights(
     from matplotlib.colors import to_rgba, to_rgba_array
     colors = to_rgba_array(colors)
     color_bkg = np.array(to_rgba(color_bkg))
-    dcolors = np.stack([
-        c - color_bkg for c in colors
-    ])[None, None, :, :]  # [1, 1, w, color]
+    dcolors = np.stack(
+        [
+            c - color_bkg for c in colors
+        ]
+    )[None, None, :, :]  # [1, 1, w, color]
     w = w / np.amax(np.sum(w, -1))
     color = np.sum(
         np.expand_dims(w, -1) * dcolors,
@@ -1888,25 +1931,30 @@ def multiheatmap(
         assert len(shape1) >= 4
         if len(shape1) == 4:
             # ignore wspace1 and hspace1
-            h, w = tuple(list(
-                np.array([inches_per_cell, inches_per_cell])
-                * np.array(shape1[-2:])
-            ))
+            h, w = tuple(
+                list(
+                    np.array([inches_per_cell, inches_per_cell])
+                    * np.array(shape1[-2:])
+                )
+            )
             # print (h, w)
             return h, w
         else:
-            h, w = tuple(list(
-                np.array(
-                    compute_cell_size(
-                        shape1[2:], hspace1[1:], wspace1[1:],
+            h, w = tuple(
+                list(
+                    np.array(
+                        compute_cell_size(
+                            shape1[2:], hspace1[1:], wspace1[1:],
+                        )
                     )
+                    * np.array(shape1[2:4])
+                    + np.array([hspace1[0], wspace1[0]])
+                    * (np.array(shape1[:2]) - 1)
                 )
-                * np.array(shape1[2:4])
-                + np.array([hspace1[0], wspace1[0]])
-                * (np.array(shape1[:2]) - 1)
-            ))
+            )
             # print (h, w)
             return h, w
+
     cell_height, cell_width = compute_cell_size(
         shape, hspace[1:], wspace[1:],
     )
@@ -1950,13 +1998,15 @@ def ____Errorbar____():
     pass
 
 
-def patch_wave(y_wave0, x_lim,
-               wave_margin=0.05,
-               wave_amplitude=0.05,
-               width_wave=0.82,
-               color='w',
-               axis_wave='x',
-               ax: plt.Axes = None) -> patches.Polygon:
+def patch_wave(
+    y_wave0, x_lim,
+    wave_margin=0.05,
+    wave_amplitude=0.05,
+    width_wave=0.82,
+    color='w',
+    axis_wave='x',
+    ax: plt.Axes = None
+) -> patches.Polygon:
     """
     Add a wavy occluding polygon to a bar graph to indicate out-of-limit values
     :param y_wave0:
@@ -1973,24 +2023,29 @@ def patch_wave(y_wave0, x_lim,
     wave_margin = x_lim * wave_margin
     wave_amplitude = -np.abs(x_lim) * wave_amplitude
     nxy_wave = 50
-    x_wave = np.concatenate([
-        np.array([x_lim]),
-        x_lim - wave_margin - wave_amplitude
-        + wave_amplitude * np.sin(np.linspace(0, 2 * np.pi, nxy_wave)),
-        np.array([x_lim])
-    ])
-    y_wave = np.concatenate([
-        np.array([y_wave0 - width_wave / 2]),
-        y_wave0 + np.linspace(-1, 1, nxy_wave) * width_wave / 2,
-        np.array([y_wave0 + width_wave / 2])
-    ])
+    x_wave = np.concatenate(
+        [
+            np.array([x_lim]),
+            x_lim - wave_margin - wave_amplitude
+            + wave_amplitude * np.sin(np.linspace(0, 2 * np.pi, nxy_wave)),
+            np.array([x_lim])
+        ]
+    )
+    y_wave = np.concatenate(
+        [
+            np.array([y_wave0 - width_wave / 2]),
+            y_wave0 + np.linspace(-1, 1, nxy_wave) * width_wave / 2,
+            np.array([y_wave0 + width_wave / 2])
+        ]
+    )
     xy_wave = np.stack([x_wave, y_wave], -1)
     if axis_wave == 'y':
         xy_wave = np.flip(xy_wave, -1)
 
     patch = patches.Polygon(
         xy_wave,
-        edgecolor='None', facecolor=color)
+        edgecolor='None', facecolor=color
+    )
 
     if ax is not None:
         ax.add_patch(patch)
@@ -1999,8 +2054,8 @@ def patch_wave(y_wave0, x_lim,
 
 
 def patch_chance_level(
-        level=None, signs=(-1, 1), ax: plt.Axes = None,
-        xy='y', color=(0.7, 0.7, 0.7)
+    level=None, signs=(-1, 1), ax: plt.Axes = None,
+    xy='y', color=(0.7, 0.7, 0.7)
 ):
     if level is None:
         level = np.log(10.)
@@ -2044,14 +2099,16 @@ def patch_chance_level(
     return hs
 
 
-def bar_group(y: np.ndarray, yerr: np.ndarray = None,
-              width=0.8, width_indiv=1.,
-              cmap: Union[
-                  mpl.colors.Colormap,
-                  Iterable[Union[str, Iterable[float]]]
-              ] = None,
-              kw_color=('color',),
-              **kwargs) -> (List[mpl.container.BarContainer], np.ndarray):
+def bar_group(
+    y: np.ndarray, yerr: np.ndarray = None,
+    width=0.8, width_indiv=1.,
+    cmap: Union[
+        mpl.colors.Colormap,
+        Iterable[Union[str, Iterable[float]]]
+    ] = None,
+    kw_color=('color',),
+    **kwargs
+) -> (List[mpl.container.BarContainer], np.ndarray):
     """
 
     :param y: [x, series]
@@ -2091,7 +2148,8 @@ def bar_group(y: np.ndarray, yerr: np.ndarray = None,
         kw = {k: color for k in kw_color}
         h = plt.bar(
             x + dx, height=y1, yerr=yerr1, width=width1,
-            **{**kwargs, **kw})
+            **{**kwargs, **kw}
+        )
         hs.append(h)
         xs.append(x + dx)
 
@@ -2110,31 +2168,35 @@ def errorbar_shade(x, y, yerr=None, **kw):
     :return:
     """
     if yerr is None:
-        y1 = y[0,:]
-        y2 = y[1,:]
+        y1 = y[0, :]
+        y2 = y[1, :]
     else:
         if yerr.ndim == 1:
-            yerr = np.concatenate([-yerr[np.newaxis,:],
-                                   yerr[np.newaxis,:]], axis=0)
+            yerr = np.concatenate(
+                [-yerr[np.newaxis, :],
+                    yerr[np.newaxis, :]], axis=0
+            )
         elif yerr.ndim == 2:
             pass
 
         else:
             raise ValueError()
-        
-        y1 = y + yerr[0,:]
-        y2 = y + yerr[1,:]
-        
+
+        y1 = y + yerr[0, :]
+        y2 = y + yerr[1, :]
+
         # print([x, y, y1, y2])
-    
+
     if not ('alpha' in kw.keys()):
         kw['alpha'] = 0.2
-    
+
     h = plt.fill_between(x, y1, y2, **kw)
     return h
 
+
 def ____Psychophysics____():
     pass
+
 
 def plot_binned_ch(x0, ch, n_bin=9, **kw):
     ix, x = np2.quantilize(x0, n_quantile=n_bin, return_summary=True)
@@ -2142,10 +2204,11 @@ def plot_binned_ch(x0, ch, n_bin=9, **kw):
     sd = npg.aggregate(ix, ch, func='std')
     n = npg.aggregate(ix, 1, func='sum')
     se = sd / np.sqrt(n)
-    
+
     h = plt.errorbar(x, p, yerr=se, **kw)
-    
+
     return h, x, p, se
+
 
 def ____Stats_Probability____():
     pass
@@ -2179,7 +2242,8 @@ def step_ecdf(
         # np.concatenate(
         #     [np.array([0.]), p, np.array([1.])
         #      ], 0),
-        *args, **kwargs)
+        *args, **kwargs
+    )
 
 
 def significance(
@@ -2249,10 +2313,12 @@ def significance(
 
     def add_margin(margin):
         return margin_sign * (
-            max([
-                margin_sign * baseline,
-                np.amax(margin_sign * v_along_bar)
-            ]) + margin * range_axis)
+            max(
+                [
+                    margin_sign * baseline,
+                    np.amax(margin_sign * v_along_bar)
+                ]
+            ) + margin * range_axis)
 
     v_text_along_bars = add_margin(margin_text)
     v_line_along_bars = add_margin(margin_line) + np.zeros(2)
@@ -2284,9 +2350,9 @@ def significance(
 
 
 def significance_marker(
-        p: Union[float, np.ndarray],
-        thres=(0.1, 0.05, 0.01, 0.001),
-        markers=('n.s.', '+', '*', '**', '***')
+    p: Union[float, np.ndarray],
+    thres=(0.1, 0.05, 0.01, 0.001),
+    markers=('n.s.', '+', '*', '**', '***')
 ) -> Union[str, np.ndarray]:
     """
 
@@ -2307,19 +2373,22 @@ def significance_marker(
 def ____Gaussian____():
     pass
 
-def plot_centroid(mu=np.zeros(2), cov=np.eye(2),
-                  add_axis=True, *args, **kwargs):
-    th = np.linspace(0, 2*np.pi, 100)[np.newaxis,:]
+
+def plot_centroid(
+    mu=np.zeros(2), cov=np.eye(2),
+    add_axis=True, *args, **kwargs
+):
+    th = np.linspace(0, 2 * np.pi, 100)[np.newaxis, :]
     u, s, _ = np.linalg.svd(cov)
     x = np.concatenate((np.cos(th), np.sin(th)), axis=0)
     us = u @ np.diag(np.sqrt(s))
-    x = us @ x + mu[:,np.newaxis]
-    h = plt.plot(x[0,:], x[1,:], *args, **kwargs)
+    x = us @ x + mu[:, np.newaxis]
+    h = plt.plot(x[0, :], x[1, :], *args, **kwargs)
     res = {
-        'u':u,
-        's':s,
-        'us':us,
-        'x':x,
+        'u': u,
+        's': s,
+        'us': us,
+        'x': x,
     }
 
     if add_axis:
@@ -2334,21 +2403,25 @@ def plot_centroid(mu=np.zeros(2), cov=np.eye(2),
 
     return h, res
 
+
 def ____Window_Management____():
     pass
 
+
 def use_interactive():
     mpl.use('Qt5Agg')
+
 
 def get_screen_size():
     from PyQt5 import QtGui
     return QtGui.QGuiApplication.screens()[0].geometry().getRect()[2:4]
 
+
 def subfigureRC(nr, nc, r, c, set_size=False, fig=None):
     from PyQt5.QtCore import QRect
     siz = np.array(get_screen_size())
     siz1 = siz / np.array([nc, nr])
-    st = siz1 * np.array([c-1, r-1])
+    st = siz1 * np.array([c - 1, r - 1])
     if fig is None:
         fig = plt.gcf()
     mgr = fig.canvas.manager
@@ -2357,6 +2430,7 @@ def subfigureRC(nr, nc, r, c, set_size=False, fig=None):
     else:
         c_size = mgr.window.geometry().getRect()
         mgr.window.setGeometry(QRect(st[0], st[1], c_size[2], c_size[3]))
+
 
 def ____ANIMATION____():
     pass
@@ -2410,10 +2484,12 @@ def arrays2gif(
     for arr in arrays:
         images.append(Image.fromarray(arr))
 
-    kwargs.update({
-        'duration': duration,
-        'loop': loop
-    })
+    kwargs.update(
+        {
+            'duration': duration,
+            'loop': loop
+        }
+    )
     if kwargs['loop'] is None:
         kwargs.pop('loop')
 
@@ -2489,8 +2565,10 @@ class Animator:
     def append_fig(self, fig: plt.Figure):
         self.frames.append(fig2array(fig))
 
-    def export(self, file, ext=('.gif', '.mp4'), duration=250, loop=0,
-               kw_gif=()) -> Iterable[str]:
+    def export(
+        self, file, ext=('.gif', '.mp4'), duration=250, loop=0,
+        kw_gif=()
+    ) -> Iterable[str]:
         """
 
         :param file:
@@ -2510,9 +2588,11 @@ class Animator:
 
         files = [file_gif]
 
-        arrays2gif(self.frames, file_gif,
-                   duration=duration, loop=loop,
-                   **dict(kw_gif))
+        arrays2gif(
+            self.frames, file_gif,
+            duration=duration, loop=loop,
+            **dict(kw_gif)
+        )
 
         for ext1 in ext:
             if ext1 != '.gif':
@@ -2555,6 +2635,7 @@ class SimpleFilename:
     """
     copy files to simple names as they are appended; clean them up on del.
     """
+
     def __init__(self, file_out: str, to_save_csv=True):
         self.file_out = file_out
         self.file_in = []
@@ -2563,7 +2644,8 @@ class SimpleFilename:
         self.temp_dir_rel = '_temp_SimpleFilename'
         self.temp_dir_abs = os.path.join(
             os.path.dirname(self.file_out),
-            self.temp_dir_rel)
+            self.temp_dir_rel
+        )
         self.to_save_csv = to_save_csv
         self._closed = False
 
@@ -2575,8 +2657,8 @@ class SimpleFilename:
         mkdir4file(os.path.join(self.temp_dir_abs, 'temp'))
 
         file_name1 = (
-                hashlib.md5(file_in.encode('utf-8')).hexdigest()
-                + os.path.splitext(file_in)[1])
+            hashlib.md5(file_in.encode('utf-8')).hexdigest()
+            + os.path.splitext(file_in)[1])
         file_temp_rel = os.path.join(self.temp_dir_rel, file_name1)
         file_temp_abs = os.path.join(self.temp_dir_abs, file_name1)
         shutil.copy(file_in, file_temp_abs)
@@ -2596,10 +2678,12 @@ class SimpleFilename:
 
             if self.to_save_csv:
                 import pandas as pd
-                df = pd.DataFrame(data={
-                    'file_in': self.file_in,
-                    'file_temp_rel': self.file_temp_rel
-                })
+                df = pd.DataFrame(
+                    data={
+                        'file_in': self.file_in,
+                        'file_temp_rel': self.file_temp_rel
+                    }
+                )
                 file_csv = os.path.splitext(self.file_out)[0] + '.csv'
                 df.to_csv(file_csv)
                 print('Saved original paths to %s' % file_csv)
@@ -2646,10 +2730,12 @@ class SimpleFilenameArray:
         files = self.files
         file_out = self.file_out
 
-        files_all = file_out + '\n'.join([
-            ('' if v is None else v)
-            for v in files.flatten()
-        ])
+        files_all = file_out + '\n'.join(
+            [
+                ('' if v is None else v)
+                for v in files.flatten()
+            ]
+        )
 
         import shutil, hashlib
         temp_name = hashlib.md5(files_all.encode('utf-8')).hexdigest()
@@ -2764,16 +2850,22 @@ class LatexDoc(ltx.Document, np2.ContextManager):
                     'font=scriptsize',
                     'labelfont=sf',
                     'textfont=sf',
-                ]))
+                ]
+            )
+        )
         doc.packages.append(ltx.Package('graphicx'))
         doc.append(
             ltx.Command(
                 'setlength', [
-                    ltx.Command('abovecaptionskip'), '0pt']))
+                    ltx.Command('abovecaptionskip'), '0pt']
+            )
+        )
         doc.append(
             ltx.Command(
                 'setlength', [
-                    ltx.Command('belowcaptionskip'), '0pt']))
+                    ltx.Command('belowcaptionskip'), '0pt']
+            )
+        )
 
         if len(title) > 0:
             doc.preamble.append(ltx.Command('title', title))
@@ -2795,7 +2887,7 @@ class LatexDoc(ltx.Document, np2.ContextManager):
                     clean_tex=True,
                 ),
                 **kwargs
-              }
+            }
         )
 
         # should close simple_filename after generate_pdf()
@@ -2833,17 +2925,19 @@ class Frame(ltx.base_classes.Environment):
 
 class Adjustbox(ltx.base_classes.Environment):
     def __init__(
-            self, *args,
-            arguments=ltx.NoEscape(
-                r'max width=\textwidth, '
-                r'max totalheight=\textheight-2\baselineskip,'
-                r'keepaspectratio'
-            ), **kwargs):
+        self, *args,
+        arguments=ltx.NoEscape(
+            r'max width=\textwidth, '
+            r'max totalheight=\textheight-2\baselineskip,'
+            r'keepaspectratio'
+        ), **kwargs
+    ):
         super().__init__(*args, arguments=arguments, **kwargs)
 
 
 def latex_table(
-        doc: LatexDoc, dicts: Sequence[Dict[str, str]]):
+    doc: LatexDoc, dicts: Sequence[Dict[str, str]]
+):
     """
     Use in, e.g., "with doc.create(ltx.Table()) as table:" block
     :param doc:
@@ -2852,11 +2946,12 @@ def latex_table(
     """
     # with doc.create(ltx.Center()):
     with doc.create(
-            ltx.Tabular(
-                    '|' +
-                    '|'.join(['c'] * len(dicts[0]))
-                    + '|'
-            )) as tabular:
+        ltx.Tabular(
+            '|' +
+            '|'.join(['c'] * len(dicts[0]))
+            + '|'
+        )
+    ) as tabular:
         tabular.add_hline()
         tabular.add_row(dicts[0].keys())
         for row in dicts:
@@ -2869,8 +2964,10 @@ class Figure(ltx.Figure):
     # TODO: add new SubFigure that accepts height:
     #  see subfig_rows() below and
     #  https://tex.stackexchange.com/questions/47245/set-a-maximum-width-and-height-for-an-image
-    def add_image(self, filename, *, width=ltx.NoEscape(r'0.8\textwidth'),
-                  placement=ltx.NoEscape(r'\centering'), height=None):
+    def add_image(
+        self, filename, *, width=ltx.NoEscape(r'0.8\textwidth'),
+        placement=ltx.NoEscape(r'\centering'), height=None
+    ):
         """Add an image to the figure.
 
         Args
@@ -2903,20 +3000,22 @@ class Figure(ltx.Figure):
         if placement is not None:
             self.append(placement)
 
-        self.append(ltx.StandAloneGraphic(
-            image_options=(
-                None if (width == '' and height == '') else
-                ', '.join([width, height, 'keepaspectratio'])
-            ),
-            filename=ltx.utils.fix_filename(filename)
-        ))
+        self.append(
+            ltx.StandAloneGraphic(
+                image_options=(
+                    None if (width == '' and height == '') else
+                    ', '.join([width, height, 'keepaspectratio'])
+                ),
+                filename=ltx.utils.fix_filename(filename)
+            )
+        )
 
 
 class LatexDocStandalone(LatexDoc):
     def __init__(self, *args, width_document_cm=21, **kwargs):
         super().__init__(
             *args, **{
-                 **dict(
+                **dict(
                     documentclass=('standalone',),
                     document_options=[
                         'varwidth=%fcm' % width_document_cm,
@@ -2971,8 +3070,8 @@ class LatexDocStandalone(LatexDoc):
 
         if width_column is None:
             width_column = (
-                self.width_document_cm - hspace_cm * (ncol - 1)
-            ) / ncol
+                               self.width_document_cm - hspace_cm * (ncol - 1)
+                           ) / ncol
         if np.isscalar(width_column):
             width_column = [width_column]
         if len(width_column) > ncol:
@@ -3022,17 +3121,22 @@ class LatexDocStandalone(LatexDoc):
                         if (not subcaption_on_top) and subcaptions is not None:
                             subfig.add_caption(subcaptions[row, col])
                         doc.append(ltx.VerticalSpace('%f cm' % hspace_cm))
-                any_added_in_row = np.any([
-                    (f is not None and f != '') for f in files_rel[row, :]
-                ])
+                any_added_in_row = np.any(
+                    [
+                        (f is not None and f != '') for f in files_rel[row, :]
+                    ]
+                )
                 if not to_add_newpage and any_added_in_row:
                     doc.append(ltx.NewLine())
             if (not caption_on_top) and caption is not None:
                 fig.add_caption(caption)
-        if to_add_newpage and np.any(np.vectorize(
-            lambda f: f is not None and f != ''
-        )(files_rel)):
+        if to_add_newpage and np.any(
+            np.vectorize(
+                lambda f: f is not None and f != ''
+            )(files_rel)
+        ):
             doc.append(ltx.NewPage())
+
 
 def convert_unit(src, src_unit, dst_unit):
     if src_unit == 'pt':
@@ -3091,7 +3195,8 @@ def subfigs(
     if width_document is None:
         files = np.array(files)
         width_document = np.sum(
-            np.array(width_column) + np.zeros(files.shape[1]))
+            np.array(width_column) + np.zeros(files.shape[1])
+        )
 
     with SimpleFilenameArray(
         file_out, files,
@@ -3130,16 +3235,17 @@ def reshape_ragged(v, ncol=None):
 
 
 def subfigs_from_template(
-        file_out: str, template: str,
-        srcs: Iterable[str],
-        dstss: Iterable[Union[
-            Mapping[Tuple[int, int], str],
-            np.ndarray
-        ]],
-        caption='',
-        caption_on_top=True,
-        subcaptions: Union[None, str, np.ndarray] = 'auto',
-        **kwargs) -> None:
+    file_out: str, template: str,
+    srcs: Iterable[str],
+    dstss: Iterable[Union[
+        Mapping[Tuple[int, int], str],
+        np.ndarray
+    ]],
+    caption='',
+    caption_on_top=True,
+    subcaptions: Union[None, str, np.ndarray] = 'auto',
+    **kwargs
+) -> None:
     """
 
     :param file_out: output file
@@ -3171,9 +3277,11 @@ def subfigs_from_template(
     """
     files = np.vectorize(
         lambda *dsts:
-            np2.replace(template, [
+        np2.replace(
+            template, [
                 (src, dst) for src, dst in zip(srcs, dsts)
-            ])
+            ]
+        )
     )(*dstss)
 
     if isinstance(subcaptions, str) and subcaptions == 'auto':
@@ -3223,7 +3331,8 @@ def subfig_rows(
                     + '+row=' + row['caption'] + file_fig_ext,
                     row.pop('files'),
                     to_save_csv=to_save_csv
-                ))
+                )
+            )
             for row in rows_out
         ]
         with LatexDocStandalone(
@@ -3356,18 +3465,18 @@ def plot_bipartite_recovery(mean_losses, model_labels=None, ax=None):
 
 
 def imshow_costs_by_subj_model(
-        costs_by_subj_model: np.ndarray,
-        model_names: Sequence[str] = None,
-        subjs: Union[Sequence[int], Sequence[str]] = None,
-        label_colorbar: str = None,
-        thres_colorbar: float = None,
-        axs: GridAxes = None,
-        size_per_cell: float = 0.35,
-        subtract_min_in_row = True,
-        offset=(0., 0.),
-        to_add_colorbar=True,
-        mask_below_thres=True,
-        # offset=(0.025, -0.004),
+    costs_by_subj_model: np.ndarray,
+    model_names: Sequence[str] = None,
+    subjs: Union[Sequence[int], Sequence[str]] = None,
+    label_colorbar: str = None,
+    thres_colorbar: float = None,
+    axs: GridAxes = None,
+    size_per_cell: float = 0.35,
+    subtract_min_in_row=True,
+    offset=(0., 0.),
+    to_add_colorbar=True,
+    mask_below_thres=True,
+    # offset=(0.025, -0.004),
 ) -> (GridAxes, mpl.colorbar.Colorbar):
     """
 
@@ -3382,8 +3491,8 @@ def imshow_costs_by_subj_model(
     """
     if subtract_min_in_row:
         costs_by_subj_model = (
-                costs_by_subj_model
-                - np.nanmin(costs_by_subj_model, -1, keepdims=True))
+            costs_by_subj_model
+            - np.nanmin(costs_by_subj_model, -1, keepdims=True))
     n_subj1, n_model1 = costs_by_subj_model.shape
     if axs is None:
         axs = GridAxes(
@@ -3399,18 +3508,21 @@ def imshow_costs_by_subj_model(
     if mask_below_thres and thres_colorbar is not None:
         cost_plot[cost_plot < thres_colorbar] = np.nan
     im = plt.imshow(
-        cost_plot, zorder=0, vmin=0.)
+        cost_plot, zorder=0, vmin=0.
+    )
     if subjs is not None:
         plt.yticks(np.arange(n_subj1), subjs)
     if model_names is not None:
         xticklabel_top(model_names, ax)
     for row, loss_subj in enumerate(costs_by_subj_model):
         best_model = np.nanargmin(loss_subj)
-        plt.text(best_model + offset[0], row + offset[1],
-                 '*',
-                 color='k' if mask_below_thres else 'w',
-                 zorder=2, fontsize=16,
-                 ha='center', va='center')
+        plt.text(
+            best_model + offset[0], row + offset[1],
+            '*',
+            color='k' if mask_below_thres else 'w',
+            zorder=2, fontsize=16,
+            ha='center', va='center'
+        )
     if to_add_colorbar:
         cb = colorbar(
             ax, im, height=f'{int(3 / n_subj1 * 100)}%',
@@ -3426,7 +3538,8 @@ def imshow_costs_by_subj_model(
                     (x_lim[0], 0), x_lim[1] - x_lim[0],
                     thres_colorbar, ls='None', fc='w',
                     zorder=2
-                ))
+                )
+            )
             # cb.ax.axhline(thres_colorbar, color='w', lw=0.5)
     else:
         cb = None
@@ -3499,7 +3612,8 @@ def imshow_confusion(
                 i_model_fit, i_model_sim,
                 f'{p_plot_fit_sim[i_model_sim, i_model_fit]:.2f}'
                 .lstrip('0'),
-                color='w', va='center', ha='center', fontsize=5)
+                color='w', va='center', ha='center', fontsize=5
+            )
 
     xticklabel_top(model_labels)
     plt.yticks(np.arange(n_model), model_labels)
@@ -3509,10 +3623,12 @@ def imshow_confusion(
 
     if kind == 'p_best_given_true':
         plt.ylabel(
-            r'$\mathrm{P}(\mathrm{best\ fit} \mid \mathrm{sim})$')
+            r'$\mathrm{P}(\mathrm{best\ fit} \mid \mathrm{sim})$'
+        )
     elif kind == 'p_true_given_best':
         plt.ylabel(
-            r'$\mathrm{P}(\mathrm{sim} \mid \mathrm{best\ fit})$')
+            r'$\mathrm{P}(\mathrm{sim} \mid \mathrm{best\ fit})$'
+        )
     else:
         raise ValueError()
 
