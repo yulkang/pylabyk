@@ -1863,15 +1863,6 @@ class ModuleWithData(BoundedModule):
         return self.module(*self.args_forward, **self.kwargs_forward)
 
 
-def ____Main____():
-    pass
-
-
-if __name__ == 'main':
-    model = DemoBoundedModule()
-    # demo_BoundedModule()
-
-
 def optimize_scipy(
     model: BoundedModule,
     maxiter=None,
@@ -2120,3 +2111,35 @@ class OverriddenParameterUpToBoundary(OverriddenParameter):
             return ((1 / (1 + torch.exp(-param)))
                     * ((ub + self.epsilon) - (lb - self.epsilon))
                     + (lb - self.epsilon))  # noqa
+
+
+def ____Main____():
+    pass
+
+
+if __name__ == 'main':
+    model = DemoBoundedModule()
+
+    class ChildModel(BoundedModule):
+        def __init__(self):
+            super().__init__()
+            self.th2 = BoundedParameter(data=[0.], lb=[-1.], ub=[1.])
+
+        def forward(self):
+            return self.th2[:] ** 2
+
+
+    class DemoModel(BoundedModule):
+        def __init__(self):
+            super().__init__()
+            self.th = BoundedParameter(
+                data=[1., 0.5], lb=[0., -1.], ub=[1., 2.]
+            )
+            self.child = ChildModel()
+
+        def forward(self):
+            return self.th[0] + self.th[1]
+
+    model = DemoModel()
+    out = optimize_scipy(model)
+    print(out)
