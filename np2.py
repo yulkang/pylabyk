@@ -2955,9 +2955,13 @@ def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
     :param s: string
     :param src_dst: [(src1, dst1), (src2, dst2), ...]
     :return: string with srcX replaced with dstX
+        None if src or dst is None
     """
     for src, dst in src_dst:
-        s = s.replace(src, dst)
+        if src is None or dst is None:
+            s = None
+        else:
+            s = s.replace(src, dst)
     return s
 
 
@@ -2990,6 +2994,8 @@ def shorten(
         return None
     elif isinstance(v, str):
         s = replace(v, src_dst)
+        if s is None:
+            return None
         if shorten_zero and s.startswith('0.'):
             s = s[1:]
         return AliasStr(s, v)
