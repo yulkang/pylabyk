@@ -2958,10 +2958,13 @@ def replace(s: str, src_dst: Iterable[Tuple[str, str]]) -> str:
         None if src or dst is None
     """
     for src, dst in src_dst:
-        if src is None or dst is None:
+        if src is None:
             s = None
         else:
-            s = s.replace(src, dst)
+            if dst is None:
+                s = None if s == src else s
+            else:
+                s = s.replace(src, dst)
     return s
 
 
