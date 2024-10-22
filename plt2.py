@@ -482,6 +482,7 @@ def rowtitle(
     :param axes: 2-D array of axes, as from subplotRCs()
     :param pad: in points.
     :param ha: horizontal alignment
+    :param kwargs: fed to Axes.annotate()
     :return: n_rows array of row title handles
     adapted from: https://stackoverflow.com/a/25814386/2565317
     """
@@ -490,9 +491,11 @@ def rowtitle(
     for ax, row in zip(axes[:, 0], row_titles):
         label = ax.annotate(
             row,
-            xy=(0, 0.5), xytext=(-ax.yaxis.labelpad - pad, 0),
-            xycoords=ax.yaxis.label, textcoords='offset points',
-            size='large', ha=ha, va='center', **kwargs
+            **{**dict(
+                xy=(0, 0.5), xytext=(-ax.yaxis.labelpad - pad, 0),
+                xycoords=ax.yaxis.label, textcoords='offset points',
+                fontsize='large', ha=ha, va='center',
+            ), **kwargs}
         )
         labels.append(label)
 
