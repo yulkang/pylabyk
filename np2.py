@@ -1819,11 +1819,13 @@ def intersection_lines(line1, line2):
 
     div = det(xdiff, ydiff)
     if div == 0:
-       raise Exception('lines do not intersect')
-
-    d = (det(*line1), det(*line2))
-    x = det(d, xdiff) / div
-    y = det(d, ydiff) / div
+        x = np.nan
+        y = np.nan
+        # raise Exception('lines do not intersect')
+    else:
+        d = (det(*line1), det(*line2))
+        x = det(d, xdiff) / div
+        y = det(d, ydiff) / div
     return x, y
 
 
