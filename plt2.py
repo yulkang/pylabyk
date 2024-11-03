@@ -23,6 +23,7 @@ from typing import Union, Iterable
 from copy import copy
 import pylatex as ltx
 import numpy_groupies as npg
+from pdf2image import convert_from_path
 
 from . import np2, plt_network as pltn
 from .cacheutil import mkdir4file, Cache
@@ -3422,6 +3423,34 @@ def plot_collage(
     if suptitle is not None:
         axs.suptitle(suptitle)
     return axs
+
+
+def pdf_to_png(
+    pdf_path, output_folder=None,
+    skip_page_number=True,
+):
+    # Convert PDF to images
+    images = convert_from_path(pdf_path)
+
+    if output_folder is None:
+        output_folder = os.path.dirname(pdf_path)
+
+    output_fname = os.path.splitext(os.path.basename(pdf_path))[0]
+
+    if skip_page_number:
+        assert len(images) == 1, (
+            'Skipping page number, but there are multiple pages')
+        image = images[0]
+
+        output_path = os.path.join(output_folder, f'{output_fname}.png')
+        image.save(output_path, 'PNG')
+        print(f"Saved {output_path}")
+    else:
+        # Save each page as a PNG
+        for i, image in enumerate(images):
+            output_path = f"{output_folder}/{output_fname}_page_{i + 1}.png"
+            image.save(output_path, 'PNG')
+            print(f"Saved {output_path}")
 
 
 def ____MODEL_COMPARISON_PLOTS____():
