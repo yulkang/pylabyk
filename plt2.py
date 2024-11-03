@@ -1722,7 +1722,10 @@ def colorbar(
     if ax is None:
         ax = plt.gca()
     if mappable is None:
-        mappable = ax.findobj(mpl.image.AxesImage)[0]
+        try:
+            mappable = ax.findobj(mpl.image.AxesImage)[0]
+        except IndexError:
+            mappable = ax.findobj(mpl.collections.QuadMesh)[0]
     # if borderpad is not None:
     #     raise DeprecationWarning(
     #         'borderpad is used with inset_axes, '
