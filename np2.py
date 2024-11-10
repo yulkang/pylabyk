@@ -1745,7 +1745,7 @@ def rotation_matrix(rad, dim=(-2, -1)):
         cat((np.sin(rad), np.cos(rad)), dim[1])), dim[0])
 
 
-def rotate(v, rad: np.ndarray) -> np.ndarray:
+def rotate(v, rad: nptyp.ArrayLike) -> np.ndarray:
     """
 
     :param v: [batch_dims, (x0, y0)]
