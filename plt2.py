@@ -1744,14 +1744,6 @@ def colorbar(
     axins = add_inset(
         width=width, height=height, ax=ax, loc=loc, offset_inch=offset_inch
     )
-    # # UNUSED: produces an unpicklable object
-    # axins = inset_axes(
-    #     ax, width=width, height=height, loc=loc,
-    #     bbox_to_anchor=(0., 0., 1., 1.),
-    #     bbox_transform=ax.transAxes,
-    #     borderpad=borderpad,
-    #     **dict(kw_inset)
-    # )
 
     fig = ax.figure
     cb = fig.colorbar(
