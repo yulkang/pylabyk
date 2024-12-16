@@ -532,7 +532,7 @@ def savefig_w_data(
     to_savefig=True,
     to_return_kw_fun=False,
     to_save_cache=True,
-):
+) -> Union[Any, Tuple[Any, Dict[str, Any]]]:
     """
 
     :param fname: file name for figures.
