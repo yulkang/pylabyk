@@ -12,6 +12,7 @@ import dataclasses
 import multiprocessing
 from inspect import signature
 import numpy as np
+import hashlib
 
 import pandas as pd
 from copy import deepcopy
@@ -2861,6 +2862,26 @@ def nowstr():
 
 def ____STRING____():
     pass
+
+
+def seed_from_string(s, max_n_bit=32):
+    """
+    convert a string into a seed
+    :param s: any string
+    :param max_n_bit: max number of bits for seed
+    :return: int < 2**max_n_bit suitable for feeding np.random.seed()
+    """
+    # Encode the string to bytes
+    s_bytes = s.encode('utf-8')
+
+    # Compute the SHA-256 hash of the string
+    hash_object = hashlib.sha256(s_bytes)
+
+    # Convert the hash to a hexadecimal string
+    hex_digest = hash_object.hexdigest()
+
+    # Convert the first 8 characters of the hex digest to an integer
+    return int(hex_digest[:(max_n_bit // 4)], 16)
 
 
 def e_to_10(s: str) -> str:
