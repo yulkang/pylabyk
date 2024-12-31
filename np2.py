@@ -875,18 +875,21 @@ def ____STAT____():
     pass
 
 
-def cdf2pval(cdf: nptyp.ArrayLike, tail='both') -> nptyp.ArrayLike:
+def cdf2pval(
+    cdf: nptyp.ArrayLike,
+    tail: Union[str, int] = 'both'
+) -> nptyp.ArrayLike:
     """
     Convert cdf to p-value
     :param cdf: cumulative distribution function
-    :param tail: 'both', 'left', 'right'
+    :param tail: 'both'|0, 'left'|-1, 'right'|+1
     :return: p-value
     """
-    if tail == 'both':
+    if tail in ['both', 0]:
         return 2 * np.minimum(cdf, 1 - cdf)
-    elif tail == 'left':
+    elif tail in ['left', -1]:
         return cdf
-    elif tail == 'right':
+    elif tail in ['right', +1]:
         return 1 - cdf
     else:
         raise ValueError(f"tail={tail} not recognized")
