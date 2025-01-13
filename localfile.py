@@ -307,3 +307,7 @@ class DualOutput(object):
         # os.fsync(self.file.fileno())
         self.file.close()
 
+
+def list_files_in_folder(folder_path):
+    files = os.listdir(folder_path)
+    return [os.path.join(folder_path, f) for f in files if os.path.isfile(os.path.join(folder_path, f))]
