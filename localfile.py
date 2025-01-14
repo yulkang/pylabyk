@@ -2,8 +2,8 @@
 from datetime import datetime, timedelta
 import time
 
-from . import cacheutil, np2
-from . import argsutil
+from . import np2
+import platform
 from .cacheutil import Cache
 import os, shutil, sys
 from collections import OrderedDict as odict
@@ -311,3 +311,16 @@ class DualOutput(object):
 def list_files_in_folder(folder_path):
     files = os.listdir(folder_path)
     return [os.path.join(folder_path, f) for f in files if os.path.isfile(os.path.join(folder_path, f))]
+
+
+def get_trash_folder() -> str:
+    system = platform.system()
+
+    if system == 'Darwin':  # macOS
+        return os.path.expanduser('~/.Trash')
+    elif system == 'Linux':  # Linux (Ubuntu)
+        return os.path.expanduser('~/.local/share/Trash')
+    elif system == 'Windows':  # Windows
+        return os.path.join(os.environ['HOMEDRIVE'], os.environ['HOMEPATH'], 'Recycle Bin')
+    else:
+        return None
