@@ -319,7 +319,7 @@ def get_trash_folder() -> str:
     if system == 'Darwin':  # macOS
         return os.path.expanduser('~/.Trash')
     elif system == 'Linux':  # Linux (Ubuntu)
-        return os.path.expanduser('~/.local/share/Trash')
+        return os.path.expanduser('~/.local/share/Trash/files')
     elif system == 'Windows':  # Windows
         return os.path.join(os.environ['HOMEDRIVE'], os.environ['HOMEPATH'], 'Recycle Bin')
     else:
