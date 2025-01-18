@@ -5,7 +5,6 @@ Created on Tue Feb 13 10:42:06 2018
 
 @author: yulkang
 """
-
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 import os
 from typing import List, Callable, Sequence, Mapping, Tuple, Dict, Any, Type
@@ -91,6 +90,23 @@ def supxy(axs: AxesArray, xprop=0.5, yprop=0.5) -> Tuple[float, float]:
     return (x1 - x0) * xprop + x0, (y1 - y0) * yprop + y0
 
 
+def get_size_inches(ax: Union[plt.Figure, plt.Axes, 'GridAxes']) -> Tuple[float, float]:
+    if isinstance(ax, plt.Axes):
+        # Get the bounding box of the Axes in figure-relative coordinates
+        bbox = ax.get_position()
+
+        # Get the figure size in inches
+        fig_size = ax.get_figure().get_size_inches()
+
+        # Compute the Axes size in inches
+        axes_width = bbox.width * fig_size[0]
+        axes_height = bbox.height * fig_size[1]
+    else:
+        axes_width, axes_height = ax.get_size_inches()
+
+    return axes_width, axes_height
+
+
 AxesSlice = Union[plt.Axes, Sequence[plt.Axes], np.ndarray, AxesArray]
 
 
@@ -104,6 +120,8 @@ class GridAxes:
         hspace: Union[float, Sequence[float]] = 0.25,
         widths: Union[float, Sequence[float]] = 1.,
         heights: Union[float, Sequence[float]] = 0.75,
+        ha='center',
+        va='center',
         kw_fig=(),
         kw_subplot: Union[None, Sequence[Sequence[Dict[str, Any]]]] = None,
         close_on_del=True,
@@ -137,6 +155,8 @@ class GridAxes:
         :param hspace:
         :param widths: widths of columns in inches.
         :param heights: heights of rows in inches.
+        :param ha: horizontal alignment of the grid within the parent.
+        :param va: vertical alignment of the grid within the parent.
         :param kw_fig:
         :param kw_subplot: if not None, will be converted & broadcasted
             to an array of size [row, col] of kwargs for each subplot.
@@ -198,7 +218,68 @@ class GridAxes:
             width_ratios=w, height_ratios=h,
         )
 
+        self.ha = ha
+        self.va = va
+
+        w_inch, h_inch = get_size_inches(parent)
+        aspect_parent = w_inch / h_inch
+        w_sum_self = np.sum(w)
+        h_sum_self = np.sum(h)
+        aspect_self = w_sum_self / h_sum_self
+        if aspect_parent > aspect_self:
+            w_without_margin = h_inch * aspect_self
+            extra_prop = (w_inch - w_without_margin) / w_without_margin
+            total_w_prop_with_extra = 1. + extra_prop
+            total_h_prop_with_extra = 1.
+            extra_top = 0.
+            extra_bottom = 0.
+            if self.ha == 'left':
+                extra_left = 0.
+                extra_right = extra_prop
+            elif self.ha == 'center':
+                extra_left = extra_prop / 2
+                extra_right = extra_prop / 2
+            elif self.ha == 'right':
+                extra_left = extra_prop
+                extra_right = 0.
+            else:
+                raise ValueError(f'Unknown horizontal alignment: {self.ha}')
+        elif aspect_parent < aspect_self:
+            h_without_margin = w_inch / aspect_self
+            extra_prop = (h_inch - h_without_margin) / h_without_margin
+            total_w_prop_with_extra = 1.
+            total_h_prop_with_extra = 1. + extra_prop
+            extra_left = 0.
+            extra_right = 0.
+            if self.va == 'top':
+                extra_top = 0.
+                extra_bottom = extra_prop
+            elif self.va == 'center':
+                extra_top = extra_prop / 2
+                extra_bottom = extra_prop / 2
+            elif self.va == 'bottom':
+                extra_top = extra_prop
+                extra_bottom = 0.
+            else:
+                raise ValueError(f'Unknown vertical alignment: {self.va}')
+        else:
+            extra_left = 0.
+            extra_right = 0.
+            extra_top = 0.
+            extra_bottom = 0.
+            total_w_prop_with_extra = 1.
+            total_h_prop_with_extra = 1.
+
+        # print(f'{extra_left=:1.3g}, {extra_right=:1.3g}, '
+        #       f'{extra_top=:1.3g}, {extra_bottom=:1.3g}')  # CHECKED
+
         if isinstance(parent, plt.Figure):
+            # print('parent=figure')  # CHECKED
+            kw_gridspec['width_ratios'][0] += extra_left
+            kw_gridspec['width_ratios'][-1] += extra_right
+            kw_gridspec['height_ratios'][0] += extra_top
+            kw_gridspec['height_ratios'][-1] += extra_bottom
+
             gs = plt.GridSpec(
                 **kw_gridspec,
                 figure=parent,
@@ -206,48 +287,69 @@ class GridAxes:
             )
         else:
             if isinstance(parent, type(self)):
+                # print('parent=GridAxes')  # CHECKED
                 w_parent = parent.w.sum()
                 h_parent = parent.h.sum()
+
+                w_mid_parent = parent.w[1:-1].sum()
+                h_mid_parent = parent.h[1:-1].sum()
+
                 gs0 = plt.GridSpec(
                     nrows=1, ncols=1,
-                    left=parent.w[0] / w_parent,
-                    right=parent.w[:-1].sum() / w_parent,
-                    bottom=parent.h[-1] / h_parent,
-                    top=parent.h[1:].sum() / h_parent,
+                    left=parent.w[0] / w_parent + extra_left / total_w_prop_with_extra,
+                    right=parent.w[0] + w_mid_parent * (1 + extra_left) / total_w_prop_with_extra,
+                    bottom=parent.h[-1] / h_parent + extra_bottom / total_h_prop_with_extra,
+                    top=parent.h[-1] + h_mid_parent * (1 + extra_bottom) / total_h_prop_with_extra,
                     figure=parent.figure,
                 )
             elif isinstance(parent, plt.Axes):
-                # parent = plt.gca()  # type: plt.Axes
-                bbox = parent.get_position()
-                x0, y0, w, h = bbox.bounds
+                # print('parent=Axes')  # CHECKED
+                bbox = parent.get_position()  # position within figure
+                x0, y0, w_bbox, h_bbox = bbox.bounds
+                d = dict(
+                    left=x0 + extra_left / total_w_prop_with_extra * w_bbox,
+                    right=x0 + (extra_left + 1) / total_w_prop_with_extra * w_bbox,
+                    bottom=y0 + extra_bottom / total_h_prop_with_extra * h_bbox,
+                    top=y0 + (extra_bottom + 1) / total_h_prop_with_extra * h_bbox,
+                )
+                # if ncols == 3:
+                #     print(f'{extra_left=:1.3g}, {total_w_prop_with_extra=:1.3g}')
+                #     print(f'{extra_bottom=:1.3g}, {total_h_prop_with_extra=:1.3g}')
+                #     from pprint import pprint
+                #     pprint(d)  # CHECKED
+                #     print('--')
                 gs0 = plt.GridSpec(
                     nrows=1, ncols=1,
-                    left=x0, right=x0 + w,
-                    bottom=y0, top=y0 + h,
+                    **d,
                     figure=parent.figure,
                 )
             else:
                 raise ValueError()
-            # parent: if given, all units are relative to the size
-            #             of the parent, rather than in inches.
             gs = gridspec.GridSpecFromSubplotSpec(
                 subplot_spec=gs0[0],
-                **kw_gridspec
+                **kw_gridspec,
             )
 
         self.gs = gs  # for backward compatibility
 
         axs = np.empty([nrows, ncols], dtype=object)
+        figure = parent if isinstance(parent, plt.Figure) else parent.figure
 
         for row in range(nrows):
             for col in range(ncols):
-                axs[row, col] = plt.subplot(
+                # DEBUGGED: this ensures that the axes from GridSpecFromSubplotSpec()
+                #   is added to the parent's figure
+                axs[row, col] = figure.add_subplot(
                     gs[row * 2 + 1, col * 2 + 1],
                     **kw_subplot[row, col]
                 )
+                assert axs[row, col].figure == figure
 
         self.axs = axs
         self.axs_array = None  # can be used to store children when panels are used as parent
+
+    def get_size_inches(self) -> Tuple[float, float]:
+        return np.sum(self.w), np.sum(self.h)
 
     @property
     def w(self) -> np.array:
