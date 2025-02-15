@@ -1277,7 +1277,8 @@ def box_prop(
     linewidth=3,
     color='r',
     spines: Union[str, Iterable[str]] = 'all',
-    ax: plt.Axes = None
+    ax: plt.Axes = None,
+    visible=True,
 ):
     if isinstance(spines, str) and spines == 'all':
         spines = ('left', 'right', 'top', 'bottom')
@@ -1287,6 +1288,7 @@ def box_prop(
         s = ax.spines[spine]
         s.set_edgecolor(color)
         s.set_linewidth(linewidth)
+        s.set_visible(visible)
 
 
 def box_off(
