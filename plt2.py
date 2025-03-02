@@ -2367,6 +2367,7 @@ def significance(
     margin_line=None,
     margin_text=0.05,
     baseline=0.,
+    ax: plt.Axes = None,
 ) -> (plt.Line2D, plt.Text):
     """
     Plot a line spanning bars to mark the significance of the comparison
@@ -2388,6 +2389,9 @@ def significance(
         range of the axis
     :return: h_line, h_text
     """
+    if ax is None:
+        ax = plt.gca()
+
     if margin_line is None:
         margin_line = margin_text
 
@@ -2455,8 +2459,8 @@ def significance(
         **dict(kw_line)
     }
     kw_text = {'ha': ha, 'va': va, **dict(kw_text)}
-    h_line = plt.plot(x_line, y_line, **kw_line)
-    h_text = plt.text(x_text, y_text, text, **kw_text)
+    h_line = ax.plot(x_line, y_line, **kw_line)
+    h_text = ax.text(x_text, y_text, text, **kw_text)
     return h_line, h_text
 
 
