@@ -159,8 +159,10 @@ def fname2dict(
 
 
 def fname2title(fname: str, wrapat=30):
-    return '\n'.join(textwrap.wrap(
-        fname.replace('_', '-'), wrapat))
+    fname = fname.replace('_', '-')
+    if wrapat is not None:
+        fname = '\n'.join(textwrap.wrap(fname, wrapat))
+    return fname
 
 
 def rmkeys(d, keys):
