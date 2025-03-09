@@ -291,7 +291,10 @@ def listdict2dictlist(
     if to_objarray:
         assert to_array
 
-    d = {k: [d[k] for d in listdict] for k in listdict[0].keys()}
+    if len(listdict) > 0:
+        d = {k: [d[k] for d in listdict] for k in listdict[0].keys()}
+    else:
+        d = {}
     if to_array:
         for k in d.keys():
             v = d[k]
