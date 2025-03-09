@@ -351,6 +351,18 @@ class GridAxes:
     def get_size_inches(self) -> Tuple[float, float]:
         return np.sum(self.w), np.sum(self.h)
 
+    def get_bounds_inner_in_proportion_figure(self) -> Tuple[float, float, float, float]:
+        """
+
+        :return: (left, bottom, width, height) in proportion to the figure
+        """
+        return (
+            self.w[0] / np.sum(self.w),
+            self.h[-1] / np.sum(self.h),
+            np.sum(self.w[1:-1]) / np.sum(self.w),
+            np.sum(self.h[1:-1]) / np.sum(self.h),
+        )
+
     @property
     def w(self) -> np.array:
         """left, width[0], wspace[0], width[1], ..., right (inches)"""
@@ -379,35 +391,35 @@ class GridAxes:
 
     @property
     def top(self):
-        return self.h[0] * self.figure.get_size_inches()[1]
+        return self.h[0]
 
     @property
     def bottom(self):
-        return self.h[-1] * self.figure.get_size_inches()[1]
+        return self.h[-1]
 
     @property
     def left(self):
-        return self.w[0] * self.figure.get_size_inches()[0]
+        return self.w[0]
 
     @property
     def right(self):
-        return self.w[-1] * self.figure.get_size_inches()[0]
+        return self.w[-1]
 
     @property
     def hspace(self):
-        return self.h[2:-2:2] * self.figure.get_size_inches()[1]
+        return self.h[2:-2:2]
 
     @property
     def wspace(self):
-        return self.w[2:-2:2] * self.figure.get_size_inches()[0]
+        return self.w[2:-2:2]
 
     @property
     def widths(self):
-        return self.w[1::2] * self.figure.get_size_inches()[0]
+        return self.w[1::2]
 
     @property
     def heights(self):
-        return self.h[1::2] * self.figure.get_size_inches()[1]
+        return self.h[1::2]
 
     @property
     def nrows(self):
