@@ -878,6 +878,27 @@ def ____STAT____():
     pass
 
 
+def ecdf_to_samples(
+    ecdf_x: Sequence[float],
+    ecdf_y: Sequence[float]
+) -> Sequence[float]:
+    """
+    Convert an empirical CDF (ECDF) into samples by evaluating the ECDF at
+    quantiles k/(n-1) for k = 0, 1, ..., n-1.
+
+    Parameters:
+    - ecdf_x: array-like, sorted data points corresponding to the ECDF
+    - ecdf_y: array-like, cumulative probabilities (should be monotonic and range from 0 to 1)
+
+    Returns:
+    - samples: interpolated values at k/(n-1) quantiles
+    """
+    n = len(ecdf_x)
+    quantiles = np.linspace(0, 1, n)  # k/(n-1) for k=0..n-1
+    samples = np.interp(quantiles, ecdf_y, ecdf_x)  # Interpolate values
+    return samples
+
+
 def cdf2pval(
     cdf: nptyp.ArrayLike,
     tail: Union[str, int] = 'both'
