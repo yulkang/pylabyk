@@ -278,12 +278,12 @@ def listdict2dictlist(
     listdict: Sequence[dict],
     to_array=False,
     to_objarray=False,
+    fill_in_missing_keys=False,
+    value_for_missing_keys=None,
 ) -> dict:
     """
-    @type listdict: list
-    @param listdict: list of dicts with the same keys
-    @return: dictlist: dict of lists of the same lengths
-    @rtype: dict
+    :param listdict: list of dicts with the same keys
+    :return: dictlist: dict of lists of the same lengths
     """
     from .numpytorch import npy
     import torch
@@ -292,7 +292,25 @@ def listdict2dictlist(
         assert to_array
 
     if len(listdict) > 0:
-        d = {k: [d[k] for d in listdict] for k in listdict[0].keys()}
+        all_keys = []
+        listdict = [{} if d is None else d for d in listdict]
+        for d in listdict:
+            for k in d.keys():
+                if k not in all_keys:
+                    all_keys.append(k)
+
+        if fill_in_missing_keys:
+            for d in listdict:
+                for k in all_keys:
+                    if k not in d:
+                        d[k] = value_for_missing_keys
+
+        d = {
+            k: [
+                (d[k] if k in d else value_for_missing_keys)
+                for d in listdict
+            ] for k in all_keys
+        }
     else:
         d = {}
     if to_array:
@@ -347,7 +365,10 @@ def dictlist2listdict(dictlist: Dict[str, Sequence]) -> List[Dict[str, Any]]:
 
 
 def arraydict2dictarray(
-    arraydict: nptyp.NDArray[dict], to_objarray=False,
+    arraydict: nptyp.NDArray[dict],
+    to_objarray=False,
+    fill_in_missing_keys=False,
+    value_for_missing_keys=None,
 ) -> Dict[Any, nptyp.NDArray]:
     """
 
@@ -358,7 +379,10 @@ def arraydict2dictarray(
     """
     shape0 = arraydict.shape
     dictlist = listdict2dictlist(
-        arraydict.flatten(), to_array=True, to_objarray=to_objarray
+        arraydict.flatten(),
+        to_array=True, to_objarray=to_objarray,
+        fill_in_missing_keys=fill_in_missing_keys,
+        value_for_missing_keys=value_for_missing_keys
     )
     return {
         k: np.reshape(v, shape0) for k, v in dictlist.items()
