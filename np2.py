@@ -195,21 +195,30 @@ def shapes(d, verbose=True, return_shape=False):
     sh = {}
     for k in d.keys():
         v = d[k]
-        if type(v) is list:
-            sh1 = len(v)
-            if sh1 == 0:
-                compo = None
-            else:
-                compo = type(v[0])
-        elif type(v) is np.ndarray:
+        if isinstance(v, np.ndarray):
             sh1 = v.shape
-            if isinstance(v, object) and v.size > 0:
+            if isinstance(v, object) and v.size > 0 and v.ndim > 0:
                 compo = type(v.flatten()[0])
             else:
                 compo = v.dtype.type
         elif torch.is_tensor(v):
             sh1 = tuple(v.shape)
             compo = v.dtype
+        elif is_sequence(v):
+            sh1 = len(v)
+            if sh1 == 0:
+                compo = None
+            else:
+                if isinstance(v, dict):
+                    compo = [
+                        type(list(v.keys())[0]),
+                        type(list(v.values())[0])
+                    ]
+                else:
+                    try:
+                        compo = type(v[0])
+                    except KeyError:
+                        compo = None
         elif v is None:
             sh1 = 0
             compo = None
@@ -218,15 +227,21 @@ def shapes(d, verbose=True, return_shape=False):
             compo = None
         sh[k] = (sh1, type(v), compo)
 
+        def compo2str(c) -> str:
+            try:
+                str_compo = c.__name__
+            except AttributeError:
+                str_compo = c.__str__()
+            return str_compo
+
         if verbose:
             if compo is None:
                 str_compo = ''
             else:
-                try:
-                    str_compo = '[' + compo.__name__ + ']'
-                except AttributeError:
-                    str_compo = '[' + compo.__str__() + ']'
-            print('%15s: %s %s%s' % (k, sh1, type(v).__name__, str_compo))
+                if not isinstance(compo, list):
+                    compo = [compo]
+                str_compo = ','.join([compo2str(c) for c in compo])
+            print('%15s: %s %s[%s]' % (k, sh1, type(v).__name__, str_compo))
 
     if return_shape:
         return sh
@@ -278,38 +293,55 @@ def listdict2dictlist(
     listdict: Sequence[dict],
     to_array=False,
     to_objarray=False,
+    skip_missing_keys=False,
     fill_in_missing_keys=False,
     value_for_missing_keys=None,
 ) -> dict:
     """
+    :param value_for_missing_keys:
+    :param fill_in_missing_keys:
+    :param skip_missing_keys:
+    :param to_objarray:
+    :param to_array:
     :param listdict: list of dicts with the same keys
     :return: dictlist: dict of lists of the same lengths
     """
     from .numpytorch import npy
     import torch
+    if skip_missing_keys:
+        fill_in_missing_keys = False
 
     if to_objarray:
         assert to_array
 
     if len(listdict) > 0:
-        all_keys = []
         listdict = [{} if d is None else d for d in listdict]
-        for d in listdict:
-            for k in d.keys():
-                if k not in all_keys:
-                    all_keys.append(k)
-
-        if fill_in_missing_keys:
+        if skip_missing_keys:
+            all_keys = list(listdict[0].keys())
+            for d1 in listdict[1:]:
+                all_keys = [k1 for k1 in all_keys if k1 in d1]
+        else:
+            all_keys = []
             for d in listdict:
-                for k in all_keys:
-                    if k not in d:
-                        d[k] = value_for_missing_keys
-
+                for k in d.keys():
+                    if k not in all_keys:
+                        all_keys.append(k)
+            if fill_in_missing_keys:
+                for d in listdict:
+                    for k in all_keys:
+                        if k not in d:
+                            d[k] = value_for_missing_keys
         d = {
             k: [
-                (d[k] if k in d else value_for_missing_keys)
-                for d in listdict
-            ] for k in all_keys
+                (
+                    d1[k] if (k in d1 or (
+                        not fill_in_missing_keys
+                        and not skip_missing_keys
+                    ))
+                    else value_for_missing_keys
+                ) for d1 in listdict
+            ]
+            for k in all_keys
         }
     else:
         d = {}
@@ -367,6 +399,7 @@ def dictlist2listdict(dictlist: Dict[str, Sequence]) -> List[Dict[str, Any]]:
 def arraydict2dictarray(
     arraydict: nptyp.NDArray[dict],
     to_objarray=False,
+    skip_missing_keys=False,
     fill_in_missing_keys=False,
     value_for_missing_keys=None,
 ) -> Dict[Any, nptyp.NDArray]:
@@ -380,7 +413,9 @@ def arraydict2dictarray(
     shape0 = arraydict.shape
     dictlist = listdict2dictlist(
         arraydict.flatten(),
-        to_array=True, to_objarray=to_objarray,
+        to_array=True,
+        to_objarray=to_objarray,
+        skip_missing_keys=skip_missing_keys,
         fill_in_missing_keys=fill_in_missing_keys,
         value_for_missing_keys=value_for_missing_keys
     )
