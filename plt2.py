@@ -1291,6 +1291,7 @@ def box_prop(
     spines: Union[str, Iterable[str]] = 'all',
     ax: plt.Axes = None,
     visible=True,
+    zorder=None,
 ):
     if isinstance(spines, str) and spines == 'all':
         spines = ('left', 'right', 'top', 'bottom')
@@ -1301,6 +1302,8 @@ def box_prop(
         s.set_edgecolor(color)
         s.set_linewidth(linewidth)
         s.set_visible(visible)
+        if zorder is not None:
+            s.set_zorder(zorder)
 
 
 def box_off(
