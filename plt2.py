@@ -447,6 +447,9 @@ class GridAxes:
     def __setitem__(self, key, data: AxesSlice):
         self.axs[key] = data
 
+    def __len__(self) -> int:
+        return self.nrows
+
     def flatten(self) -> Sequence[plt.Axes]:
         return self.axs.flatten()
 
