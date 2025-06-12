@@ -2384,7 +2384,11 @@ def arrayobj1d(inp: Iterable, copy=False) -> np.ndarray:
     return a multidimensional array, which gets flattened when fed to
     np.meshgrid, unlike the output from this function.
     """
-    return np.array([None] + list(inp), dtype=object, copy=copy)[1:]
+    # Cannot avoid copy in certain cases
+    try:
+        return np.array([None] + list(inp), copy=copy, dtype=object)[1:]
+    except ValueError:
+        return np.asarray([None] + list(inp), dtype=object)[1:]
 
 
 def cell2array(v: Union[nptyp.ArrayLike, Sequence]) -> np.ndarray:
