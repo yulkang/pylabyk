@@ -10,6 +10,7 @@ Created on Mon Mar 12 10:28:15 2018
 
 import dataclasses
 import multiprocessing
+from enum import Enum
 from inspect import signature
 import numpy as np
 import hashlib
@@ -3105,6 +3106,9 @@ def shorten(
     """
     from . import numpytorch
     from .numpytorch import npy
+
+    if isinstance(v, Enum):
+        v = v.value
 
     if v is None:
         return None
