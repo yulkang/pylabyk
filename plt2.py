@@ -23,6 +23,7 @@ from copy import copy
 import pylatex as ltx
 import numpy_groupies as npg
 from pdf2image import convert_from_path
+from scipy.stats import gaussian_kde
 
 from . import np2, plt_network as pltn
 from .cacheutil import mkdir4file, Cache
@@ -1599,6 +1600,50 @@ def colormap2arr(arr, cmap):
 
 def ____Heatmaps____():
     pass
+
+
+def kde2d(
+    xy, xs=None, ys=None, nx=100, ny=100, ax=None,
+    to_plot=True,
+    **kwargs
+):
+    """
+
+    :param xy: [(x, y), ...]
+    :param xs:
+    :param ys:
+    :param kwargs:
+    :return:
+    """
+    assert xy.shape[0] == 2
+    kde = gaussian_kde(xy)
+    if xs is None:
+        xs = np.linspace(xy[0].min(), xy[0].max(), nx)
+    if ys is None:
+        ys = np.linspace(xy[1].min(), xy[1].max(), ny)
+
+    x_grid, y_grid = np.meshgrid(xs, ys)
+    positions = np.vstack([x_grid.ravel(), y_grid.ravel()])
+    z = np.reshape(kde(positions), x_grid.shape)
+
+    dx = xs[1] - xs[0]
+    dy = ys[1] - ys[1]
+
+    if to_plot:
+        if ax is None:
+            ax = plt.gca()
+        h = ax.imshow(
+            z.T, origin='lower',
+            extent=[
+                xs[0] - dx / 2, xs[-1] + dx / 2,
+                ys[0] - dy / 2, ys[-1] + dy / 2,
+            ],
+            **kwargs
+        )
+    else:
+        h = None
+
+    return h, z
 
 
 # # 'BuRd': use plt.get_cmap('RdBu_rev')
