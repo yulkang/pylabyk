@@ -346,7 +346,7 @@ class GridAxes:
                 assert axs[row, col].figure == figure
 
         self.axs = axs
-        self.axs_array = None  # can be used to store children when panels are used as parent
+        self.axs_array = np.empty([nrows, ncols], dtype=object)  # can be used to store children when panels are used as parent
 
     def get_size_inches(self) -> Tuple[float, float]:
         return np.sum(self.w), np.sum(self.h)
@@ -437,6 +437,7 @@ class GridAxes:
             gridaxes._close_on_del = False
             # to avoid closing the figure of the parent
             gridaxes.axs = axs
+            gridaxes.axs_array = gridaxes.axs_array[key]
             return gridaxes
 
         if isinstance(axs, GridAxes):
