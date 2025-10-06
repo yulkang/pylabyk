@@ -1622,7 +1622,7 @@ def kde2d(
     if ys is None:
         ys = np.linspace(xy[1].min(), xy[1].max(), ny)
 
-    x_grid, y_grid = np.meshgrid(xs, ys)
+    x_grid, y_grid = np.meshgrid(xs, ys, indexing='ij')
     positions = np.vstack([x_grid.ravel(), y_grid.ravel()])
     z = np.reshape(kde(positions), x_grid.shape)
 
