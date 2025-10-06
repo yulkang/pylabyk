@@ -38,6 +38,7 @@ val1, val2 = cache.getvalue([subkey1, subkey2])
 # TODO: pickle dict_filename
 
 import os
+import time
 from gzip import BadGzipFile
 
 import numpy as np
@@ -195,13 +196,17 @@ class Cache(object):
                 else:
                     try:
                         try:
+                            # get the current time
+                            t_st = time.time()
                             self._dict = zipPickle.load(self.fullpath)
+                            t_el = time.time() - t_st
                         except (EOFError, BadGzipFile):
                             from send2trash import send2trash
                             send2trash(self.fullpath)
                             raise KeyError('Trashed corrupted cache file')
                     except:
                         raise KeyError(f'Loading {self.fullpath} failed!')
+                    print(f'Loading {self.fullpath} took {t_el:.1f} sec')
             else:
                 self._dict = {}
         return self._dict
@@ -371,12 +376,14 @@ class Cache(object):
             d = self.dict
 
         mkdir4file(self.fullpath)
+        t_st = time.time()
         zipPickle.save(d, self.fullpath)
+        t_en = time.time()
         self.to_save = False
         if self.verbose:
             if self.fullpath_orig == self.fullpath:
-                print('Saved cache to %s'
-                      % self.fullpath)
+                print(f'Saved cache to {self.fullpath} '
+                      f'in {t_en - t_st:.1f} sec')
             else:
                 # import csv
                 # csv_in = os.path.join(
@@ -412,8 +419,11 @@ class Cache(object):
                 #     writer.writerow(row)
                 #     print('Appended to %s' % csv_in)
 
-                print('Saved cache to\n%s\n= %s'
-                      % (self.fullpath, self.fullpath_orig))
+                print(
+                    f'Saved cache to\n{self.fullpath}\n'
+                    f'= {self.fullpath_orig}\n'
+                    f'in {t_en - t_st:.1f} sec'
+                )
 
     def __del__(self):
         if self.to_save:
