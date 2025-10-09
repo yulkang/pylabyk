@@ -360,34 +360,43 @@ def listdict2dictlist(
 
 
 def create_or_append_to_key(
-    d: dict, k, v,
+    d: dict, key_or_dict, value=None,
     number_in_key=False,
     add_v_if_list=True,
 ) -> dict:
     """
     :param d: dict
-    :param k: key
-    :param v: value
+    :param key_or_dict: key or the whole dict
+    :param value: value
     :return: dict
     """
-    if k in d:
+    if isinstance(key_or_dict, dict):
+        for k1, v1 in key_or_dict.items():
+            d = create_or_append_to_key(
+                d, k1, v1,
+                number_in_key=number_in_key,
+                add_v_if_list=add_v_if_list
+            )
+        return d
+
+    if key_or_dict in d:
         if number_in_key:
             for i in range(100):
-                k1 = k + str(i)
+                k1 = key_or_dict + str(i)
                 if k1 not in d:
-                    k = k1
+                    key_or_dict = k1
                     break
             else:
                 raise ValueError('Too many keys with the same name!')
-        if add_v_if_list and isinstance(v, list):
-            d[k] += v
+        if add_v_if_list and isinstance(value, list):
+            d[key_or_dict] += value
         else:
-            d[k].append(v)
+            d[key_or_dict].append(value)
     else:
-        if add_v_if_list and isinstance(v, list):
-            d[k] = v
+        if add_v_if_list and isinstance(value, list):
+            d[key_or_dict] = value
         else:
-           d[k] = [v]
+           d[key_or_dict] = [value]
     return d
 
 
