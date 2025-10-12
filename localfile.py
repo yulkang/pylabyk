@@ -110,16 +110,17 @@ class LocalFile(object):
         return pth_cache
 
     def get_file_cache(
-            self,
-            cache_kind: str,
-            d: [Iterable[tuple], dict, odict, None],
-            subdir=None,
-            # cache_dir=None
+        self,
+        cache_kind: str,
+        d: [Iterable[tuple], dict, odict, None],
+        subdir=None,
+        file_kind='cache',
+        # cache_dir=None
     ) -> str:
         """
         """
         return self.get_file(
-            filekind='cache', kind=cache_kind,
+            filekind=file_kind, kind=cache_kind,
             d=d, ext='.zpkl', subdir=subdir
         )
         # return os.path.join(
@@ -217,17 +218,20 @@ class LocalFile(object):
             return fullpath
 
     def get_cache(
-            self, cache_kind: str,
-            d: Union[str, dict] = None,
-            subdir: Union[str, dict] = None,
-            ignore_key=True,
-            **kwargs) -> Cache:
+        self, cache_kind: str,
+        d: Union[str, dict] = None,
+        subdir: Union[str, dict] = None,
+        ignore_key=True,
+        file_kind='cache',
+        **kwargs
+    ) -> Cache:
         """
         :type cache_kind: str
         :type d: Union[Iterable[tuple], dict, odict, None]
         """
         fname = self.get_file_cache(
-            cache_kind=cache_kind, d=d, subdir=subdir
+            cache_kind=cache_kind, d=d, subdir=subdir,
+            file_kind=file_kind,
         )
         return Cache(fname, **{
             'ignore_key': ignore_key,

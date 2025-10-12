@@ -359,6 +359,13 @@ def listdict2dictlist(
     return d
 
 
+def scalar2item(a: np.ndarray):
+    if isinstance(a, np.ndarray) and a.ndim == 0:
+        return a.item()
+    else:
+        return a
+
+
 def create_or_append_to_key(
     d: dict, key_or_dict, value=None,
     number_in_key=False,
