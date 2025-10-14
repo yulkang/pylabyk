@@ -140,6 +140,7 @@ class LocalFile(object):
         max_len=250,
         return_exists=False,
         return_fname0=False,
+        kind2subdir=None,
     ) -> Union[str, Tuple[str, bool]]:
         """
         :type filekind: str
@@ -148,6 +149,9 @@ class LocalFile(object):
         :type ext: str
         :rtype: str
         """
+        if kind2subdir is None:
+            kind2subdir = self.kind2subdir
+
         if ext is None:
             ext = '.' + filekind
         if d is None:
@@ -177,7 +181,7 @@ class LocalFile(object):
         else:
             assert isinstance(subdir, str)
 
-        if self.kind2subdir:
+        if kind2subdir:
             kind_str = filekind + '=' + kind
             if not os.path.split(subdir)[-1].endswith(kind_str):
                 subdir = os.path.join(subdir, kind_str)
