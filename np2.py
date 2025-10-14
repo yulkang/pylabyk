@@ -663,7 +663,7 @@ def index_arg(v: np.ndarray, i: np.ndarray) -> np.ndarray:
     return v[indexes]
 
 
-def unique_stable(v: Iterable) -> Iterable:
+def unique_stable(v: Sequence) -> Sequence:
     """
     Return unique elements of v in the order of first appearance
     :param v:

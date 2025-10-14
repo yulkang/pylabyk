@@ -24,7 +24,7 @@ from numpy.lib.npyio import NpzFile
 
 from pylabyk import np2, plt2
 from pylabyk.argsutil import dict2fname
-from pylabyk.cacheutil import Cache, mkdir4file
+from pylabyk.cacheutil import mkdir4file
 from pylabyk.localfile import LocalFile
 
 
@@ -59,6 +59,9 @@ class Cacheable:
     so that __init__() can have required arguments. 
     """
 
+    exclude_from_cache=()
+    allow_pickle=False
+
     def get_dict_file(self) -> Dict[str, str]:
         return self.asdict()
 
@@ -67,46 +70,41 @@ class Cacheable:
             return dict2fname(self.get_dict_file())
         else:
             return localfile.get_file(
-                filekind=self.file_kind, kind=self.label,
+                filekind=self.file_kind,
+                kind=self.label,
                 d=self.get_dict_file(),
                 ext=self.file_ext,
             )
 
-    def get_cache(self, localfile: LocalFile, allow_pickle=False) -> NpzFile:
-        npz = np.load(self.get_fname(localfile), allow_pickle=allow_pickle)
+    def get_cache(self, localfile: LocalFile) -> NpzFile:
+        npz = np.load(self.get_fname(localfile), allow_pickle=self.allow_pickle)
         return npz
 
     def asdict(self) -> Dict[str, Any]:
         # noinspection PyTypeChecker
         return dataclasses.asdict(self)
 
-    def save(self, localfile: LocalFile, compress=True, allow_pickle=False):
+    def asdict_for_cache(self) -> Dict[str, Any]:
+        return np2.rmkeys(self.asdict(), self.exclude_from_cache)
+
+    def save(self, localfile: LocalFile, compress=True):
         fname = self.get_fname(localfile)
         mkdir4file(fname)
 
+        d = np2.rmkeys(self.asdict(), self.exclude_from_cache)
+
         if compress:
-            np.savez_compressed(
-                fname,
-                allow_pickle=allow_pickle,
-                **self.asdict(),
-            )
+            np.savez_compressed(fname, allow_pickle=self.allow_pickle, **d)
         else:
-            np.savez(
-                fname,
-                allow_pickle=allow_pickle,
-                **self.asdict(),
-            )
+            np.savez(fname, allow_pickle=self.allow_pickle, **d)
         # with self.get_cache(localfile) as cache:
         #     cache.set(self.asdict())
 
     def load(self, localfile: LocalFile):
         npz = self.get_cache(localfile)
         for k, v in npz.items():
-            setattr(
-                self,
-                k,
-                np2.scalar2item(v)
-            )
+            if k not in self.exclude_from_cache:
+                setattr(self, k, np2.scalar2item(v))
 
         # with self.get_cache(localfile) as cache:
         #     kw = cache.get()
@@ -130,27 +128,9 @@ class Results(Cacheable):
     Construct only with a single Command instance.
     """
     file_kind='res'
+    exclude_from_cache=('command',)
 
     command: Command
-
-    def asdict(self) -> Dict[str, Any]:
-        d = super().asdict()
-        d['command'] = self.command.asdict()
-        return d
-
-    def load(self, localfile):
-        npz = self.get_cache(localfile)
-        for k, v in npz.items():
-            if k == 'command':
-                v = np2.scalar2item(v)
-                for k1, v1 in v.items():
-                    setattr(self.command, k1, v1)
-            else:
-                setattr(
-                    self,
-                    k,
-                    np2.scalar2item(v)
-                )
 
     def get_dict_file(self) -> Dict[str, str]:
         return self.command.get_dict_file()
@@ -170,6 +150,7 @@ class Results(Cacheable):
 class Render(Results):
     """Human-readable plot, table, or text output"""
     file_kind='rdr'  # 'plt', 'tbl', 'txt', etc.
+    exclude_from_cache=('command', 'results',)
 
     results: Results
     """
@@ -184,7 +165,7 @@ class Render(Results):
 
 class Plot(Render):
     file_kind='plt'
-    axs: plt2.GridAxes
+    axs: plt2.GridAxes = None
 
     def savefig(self, localfile: LocalFile, **kwargs):
         plt2.savefig(
@@ -196,9 +177,9 @@ class Plot(Render):
 
 class Table(Render):
     file_kind='tbl'
-    tbl: pd.DataFrame
+    tbl: pd.DataFrame = None
 
 
 class Text(Render):
     file_kind='txt'
-    txt: str
+    txt: str = None
