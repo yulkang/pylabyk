@@ -60,19 +60,25 @@ class Cacheable:
     """
 
     exclude_from_cache=()
+    exclude_from_fname=()
     allow_pickle=False
 
     def get_dict_file(self) -> Dict[str, str]:
-        return self.asdict()
+        return np2.rmkeys(self.asdict(), self.exclude_from_fname)
 
-    def get_fname(self, localfile: LocalFile = None) -> str:
+    def get_fname(
+        self,
+        localfile: LocalFile = None,
+        dict_file: Dict[str, Any] = ()
+    ) -> str:
+        dict_file = {**self.get_dict_file(), **dict(dict_file)}
         if localfile is None:
-            return dict2fname(self.get_dict_file())
+            return dict2fname(dict_file)
         else:
             return localfile.get_file(
                 filekind=self.file_kind,
                 kind=self.label,
-                d=self.get_dict_file(),
+                d=dict_file,
                 ext=self.file_ext,
             )
 
@@ -151,6 +157,7 @@ class Render(Results):
     """Human-readable plot, table, or text output"""
     file_kind='rdr'  # 'plt', 'tbl', 'txt', etc.
     exclude_from_cache=('command', 'results',)
+    exclude_from_fname=('results',)
 
     results: Results
     """
@@ -165,6 +172,8 @@ class Render(Results):
 
 class Plot(Render):
     file_kind='plt'
+    file_ext = '.pdf'
+
     axs: plt2.GridAxes = None
 
     def savefig(self, localfile: LocalFile, **kwargs):
@@ -177,9 +186,13 @@ class Plot(Render):
 
 class Table(Render):
     file_kind='tbl'
+    file_ext = '.csv'
+
     tbl: pd.DataFrame = None
 
 
 class Text(Render):
     file_kind='txt'
+    file_ext = '.txt'
+
     txt: str = None
