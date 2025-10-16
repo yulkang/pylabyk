@@ -353,8 +353,8 @@ class Cache(object):
                 d0 = self.get(key)
             else:
                 d0 = {}
-            for key in data_dict.keys():
-                d0[key] = data_dict[key]
+            for key1 in data_dict.keys():
+                d0[key1] = data_dict[key1]
         else:
             d0 = data_dict
 

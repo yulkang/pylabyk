@@ -472,6 +472,25 @@ def dict2array(d, key) -> dict:
     return np.vectorize(lambda d1: d1[key])(d)
 
 
+def dict_union(d0: dict, d1: dict) -> dict:
+    """
+    :param d0:
+    :param d1:
+    :return: d = {**d0, **d1}, except that if a key is in both d0 and d1,
+        both are put in a list
+    """
+    d = {}
+    for k in d0.keys():
+        if k in d1:
+            d[k] = [d0[k], d1[k]]
+        else:
+            d[k] = d0[k]
+    for k in d1.keys():
+        if k not in d0:
+            d[k] = d1[k]
+    return d
+
+
 def dict_diff(d0: dict, d1: dict, verbose=False) -> (dict, dict, dict):
     """
 

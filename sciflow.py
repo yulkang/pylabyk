@@ -24,7 +24,7 @@ from numpy.lib.npyio import NpzFile
 
 from pylabyk import np2, plt2
 from pylabyk.argsutil import dict2fname
-from pylabyk.cacheutil import mkdir4file
+from pylabyk.cacheutil import mkdir4file, Cache
 from pylabyk.localfile import LocalFile
 
 
@@ -44,7 +44,7 @@ class Cacheable:
     so that __init__() can have required arguments. 
     """
 
-    file_ext='.npz'
+    file_ext='.zpkl'
 
     label = None
     """
@@ -82,9 +82,8 @@ class Cacheable:
                 ext=self.file_ext,
             )
 
-    def get_cache(self, localfile: LocalFile) -> NpzFile:
-        npz = np.load(self.get_fname(localfile), allow_pickle=self.allow_pickle)
-        return npz
+    def get_cache(self, localfile: LocalFile) -> Cache:
+        return Cache(self.get_fname(localfile))
 
     def asdict(self) -> Dict[str, Any]:
         # noinspection PyTypeChecker
@@ -94,23 +93,16 @@ class Cacheable:
         return np2.rmkeys(self.asdict(), self.exclude_from_cache)
 
     def save(self, localfile: LocalFile, compress=True):
-        fname = self.get_fname(localfile)
-        mkdir4file(fname)
-
-        d = np2.rmkeys(self.asdict(), self.exclude_from_cache)
-
-        if compress:
-            np.savez_compressed(fname, allow_pickle=self.allow_pickle, **d)
-        else:
-            np.savez(fname, allow_pickle=self.allow_pickle, **d)
-        # with self.get_cache(localfile) as cache:
-        #     cache.set(self.asdict())
+        with Cache(self.get_fname(localfile)) as cache:
+            cache.setdict(self.asdict_for_cache())
+            cache.save()
 
     def load(self, localfile: LocalFile):
-        npz = self.get_cache(localfile)
-        for k, v in npz.items():
-            if k not in self.exclude_from_cache:
-                setattr(self, k, np2.scalar2item(v))
+        with Cache(self.get_fname(localfile)) as cache:
+            ks = list(self.asdict_for_cache().keys())
+            vs = cache.getdict(ks)
+            for k, v in zip(ks, vs):
+                setattr(self, k, v)
 
         # with self.get_cache(localfile) as cache:
         #     kw = cache.get()
