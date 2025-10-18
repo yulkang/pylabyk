@@ -62,24 +62,38 @@ class Cacheable:
     exclude_from_cache=()
     exclude_from_fname=()
     allow_pickle=False
+    shorten_fname=(())
+    """Fed to np2.shorten_dict()"""
 
-    def get_dict_file(self) -> Dict[str, str]:
-        return np2.rmkeys(self.asdict(), self.exclude_from_fname)
+    def get_dict_file(self, dict_file: Dict[str, Any] = ()) -> Dict[str, str]:
+        return np2.shorten_dict({
+            **np2.rmkeys(self.asdict(), self.exclude_from_fname),
+            **dict(dict_file)
+        }, self.shorten_fname, shorten_key=True)
 
     def get_fname(
         self,
         localfile: LocalFile = None,
-        dict_file: Dict[str, Any] = ()
+        dict_file: Dict[str, Any] = (),
+        file_kind=None,
+        label=None,
+        ext=None,
     ) -> str:
-        dict_file = {**self.get_dict_file(), **dict(dict_file)}
+        if file_kind is None:
+            file_kind = self.file_kind
+        if label is None:
+            label = self.label
+        if ext is None:
+            ext = self.file_ext
+        dict_file = self.get_dict_file(dict_file)
         if localfile is None:
             return dict2fname(dict_file)
         else:
             return localfile.get_file(
-                filekind=self.file_kind,
-                kind=self.label,
+                filekind=file_kind,
+                kind=label,
                 d=dict_file,
-                ext=self.file_ext,
+                ext=ext,
             )
 
     def get_cache(self, localfile: LocalFile) -> Cache:
@@ -92,22 +106,17 @@ class Cacheable:
     def asdict_for_cache(self) -> Dict[str, Any]:
         return np2.rmkeys(self.asdict(), self.exclude_from_cache)
 
-    def save(self, localfile: LocalFile, compress=True):
-        with Cache(self.get_fname(localfile)) as cache:
+    def save(self, localfile: LocalFile, dict_file: Dict[str, Any] = ()):
+        with Cache(self.get_fname(localfile, dict_file=dict_file)) as cache:
             cache.setdict(self.asdict_for_cache())
             cache.save()
 
-    def load(self, localfile: LocalFile):
-        with Cache(self.get_fname(localfile)) as cache:
+    def load(self, localfile: LocalFile, dict_file: Dict[str, Any] = ()):
+        with Cache(self.get_fname(localfile, dict_file=dict_file)) as cache:
             ks = list(self.asdict_for_cache().keys())
             vs = cache.getdict(ks)
             for k, v in zip(ks, vs):
                 setattr(self, k, v)
-
-        # with self.get_cache(localfile) as cache:
-        #     kw = cache.get()
-        #     for k, v in kw.items():
-        #         setattr(self, k, v)
 
 
 @dataclass
@@ -130,8 +139,40 @@ class Results(Cacheable):
 
     command: Command
 
-    def get_dict_file(self) -> Dict[str, str]:
-        return self.command.get_dict_file()
+    def __post_init__(self):
+        if len(self.exclude_from_fname) > 0:
+            raise ValueError(
+                f'modify exclude_fname of {type(self.command)} '
+                f'instead of {type(self)}')
+        if len(self.shorten_fname) > 0:
+            raise ValueError(
+                f'modify shorten_fname of {type(self.command)} '
+                f'instead of {type(self)}')
+
+    def get_dict_file(self, dict_file: Dict[str, Any] = ()) -> Dict[str, str]:
+        return self.command.get_dict_file(dict_file=dict_file)
+
+    def get_fname(
+        self,
+        localfile: LocalFile = None,
+        dict_file: Dict[str, Any] = (),
+        file_kind=None,
+        label=None,
+        ext=None,
+    ) -> str:
+        if file_kind is None:
+            file_kind = self.file_kind
+        if label is None:
+            label = self.label
+        if ext is None:
+            ext = self.file_ext
+        return self.command.get_fname(
+            localfile=localfile,
+            dict_file=dict_file,
+            file_kind=file_kind,
+            label=label,
+            ext=ext,
+        )
 
     @property
     def label(self):
@@ -149,7 +190,6 @@ class Render(Results):
     """Human-readable plot, table, or text output"""
     file_kind='rdr'  # 'plt', 'tbl', 'txt', etc.
     exclude_from_cache=('command', 'results',)
-    exclude_from_fname=('results',)
 
     results: Results
     """
