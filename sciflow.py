@@ -198,7 +198,7 @@ class Render(Results):
     If you need multiple Results, make another Results class that contains them.
     """
 
-    def render(self):
+    def render(self, **kwargs):
         raise NotImplementedError()
 
 
@@ -207,6 +207,9 @@ class Plot(Render):
     file_ext = '.pdf'
 
     axs: plt2.GridAxes = None
+
+    def render(self, axs: plt2.GridAxes, **kwargs):
+        raise NotImplementedError()
 
     def savefig(self, localfile: LocalFile, **kwargs):
         plt2.savefig(
