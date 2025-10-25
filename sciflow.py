@@ -78,6 +78,7 @@ class Cacheable:
         file_kind=None,
         label=None,
         ext=None,
+        subdir=None
     ) -> str:
         if file_kind is None:
             file_kind = self.file_kind
@@ -85,6 +86,8 @@ class Cacheable:
             label = self.label
         if ext is None:
             ext = self.file_ext
+        if subdir is None:
+            subdir = self.get_subdir(subdir)
         dict_file = self.get_dict_file(dict_file)
         if localfile is None:
             return dict2fname(dict_file)
@@ -94,6 +97,7 @@ class Cacheable:
                 kind=label,
                 d=dict_file,
                 ext=ext,
+                subdir=subdir,
             )
 
     def get_cache(self, localfile: LocalFile) -> Cache:
@@ -106,13 +110,38 @@ class Cacheable:
     def asdict_for_cache(self) -> Dict[str, Any]:
         return np2.rmkeys(self.asdict(), self.exclude_from_cache)
 
-    def save(self, localfile: LocalFile, dict_file: Dict[str, Any] = ()):
-        with Cache(self.get_fname(localfile, dict_file=dict_file)) as cache:
+    def get_subdir(self, subdir: str = None) -> str:
+        if subdir is None:
+            subdir = (
+                f'{self.file_kind}={self.label}' if self.label is not None
+                else self.file_kind
+            )
+        return subdir
+
+    def save(
+        self,
+        localfile: LocalFile,
+        dict_file: Dict[str, Any] = (),
+        subdir: str = None
+    ):
+        with Cache(
+            self.get_fname(
+                localfile,
+                dict_file=dict_file,
+                subdir=self.get_subdir(subdir)
+            )
+        ) as cache:
             cache.setdict(self.asdict_for_cache())
             cache.save()
 
     def load(self, localfile: LocalFile, dict_file: Dict[str, Any] = ()):
-        with Cache(self.get_fname(localfile, dict_file=dict_file)) as cache:
+        with Cache(
+            self.get_fname(
+                localfile,
+                dict_file=dict_file,
+                subdir=self.get_subdir()
+            )
+        ) as cache:
             ks = list(self.asdict_for_cache().keys())
             vs = cache.getdict(ks)
             for k, v in zip(ks, vs):
@@ -151,28 +180,6 @@ class Results(Cacheable):
 
     def get_dict_file(self, dict_file: Dict[str, Any] = ()) -> Dict[str, str]:
         return self.command.get_dict_file(dict_file=dict_file)
-
-    def get_fname(
-        self,
-        localfile: LocalFile = None,
-        dict_file: Dict[str, Any] = (),
-        file_kind=None,
-        label=None,
-        ext=None,
-    ) -> str:
-        if file_kind is None:
-            file_kind = self.file_kind
-        if label is None:
-            label = self.label
-        if ext is None:
-            ext = self.file_ext
-        return self.command.get_fname(
-            localfile=localfile,
-            dict_file=dict_file,
-            file_kind=file_kind,
-            label=label,
-            ext=ext,
-        )
 
     @property
     def label(self):

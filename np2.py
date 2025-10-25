@@ -3219,3 +3219,19 @@ class ContextManager:
             import traceback
             traceback.print_exception(exc_type, exc_value, exc_traceback)
             raise RuntimeError('An exception occurred!')
+
+
+def vec2fname(
+    vec: Sequence[int],
+    use_last: bool = False,
+    use_count: bool = True,
+) -> str:
+    st = f'{vec[0]}'
+    en = f'{vec[-1]}'
+    count = f'({len(vec)})'
+    fname = st
+    if use_last:
+        fname = f'{fname}-{en}'
+    if use_count:
+        fname = f'{fname}{count}'
+    return fname
