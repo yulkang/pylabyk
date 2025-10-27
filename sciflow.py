@@ -65,9 +65,12 @@ class Cacheable:
     shorten_fname=(())
     """Fed to np2.shorten_dict()"""
 
+    def get_dict_file0(self) -> Dict[str, str]:
+        return self.asdict()
+
     def get_dict_file(self, dict_file: Dict[str, Any] = ()) -> Dict[str, str]:
         return np2.shorten_dict({
-            **np2.rmkeys(self.asdict(), self.exclude_from_fname),
+            **np2.rmkeys(self.get_dict_file0(), self.exclude_from_fname),
             **dict(dict_file)
         }, self.shorten_fname, shorten_key=True)
 
