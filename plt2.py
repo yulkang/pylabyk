@@ -1602,6 +1602,36 @@ def ____Heatmaps____():
     pass
 
 
+def kde1d(
+    x, xs=None, nx=100, ax=None,
+    to_plot=True,
+    **kwargs
+):
+    """
+
+    :param x: [...]
+    :param xs:
+    :param kwargs:
+    :return:
+    """
+    # assert x.shape[0] == 1
+    kde = gaussian_kde(x)
+    if xs is None:
+        xs = np.linspace(x[0].min(), x[0].max(), nx)
+
+    z = np.reshape(kde([xs]), xs.shape)
+
+    # dx = xs[1] - xs[0]
+
+    if to_plot:
+        if ax is None:
+            ax = plt.gca()
+        h = ax.area(xs, z, **kwargs)
+    else:
+        h = None
+
+    return h, z
+
 def kde2d(
     xy, xs=None, ys=None, nx=100, ny=100, ax=None,
     to_plot=True,
