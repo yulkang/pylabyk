@@ -3163,25 +3163,26 @@ def shorten(
                 v = list(npy(v))
             else:
                 v = list(v)
-            if isinstance(v[0], str):
-                return AliasStr(
-                    ','.join([
-                        (shorten(v1, src_dst))
-                        for v1 in v
-                    ]),
-                    ','.join(shorten(v1, src_dst).orig for v1 in v)
-                )
-            else:
-                return AliasStr(
-                    ','.join([
-                        (shorten(v1, src_dst))
-                        for v1 in npy(v).flatten()
-                    ]),
-                    ','.join([
-                        (shorten(v1, src_dst).orig)
-                        for v1 in npy(v).flatten()
-                    ])
-                )
+            if len(v) > 0:
+                if isinstance(v[0], str):
+                    return AliasStr(
+                        ','.join([
+                            (shorten(v1, src_dst))
+                            for v1 in v
+                        ]),
+                        ','.join(shorten(v1, src_dst).orig for v1 in v)
+                    )
+                else:
+                    return AliasStr(
+                        ','.join([
+                            (shorten(v1, src_dst))
+                            for v1 in npy(v).flatten()
+                        ]),
+                        ','.join([
+                            (shorten(v1, src_dst).orig)
+                            for v1 in npy(v).flatten()
+                        ])
+                    )
         except TypeError:
             return AliasStr('%g' % v)
     elif v is None:
