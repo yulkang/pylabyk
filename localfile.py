@@ -1,5 +1,5 @@
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import time
 
 from . import np2
@@ -279,6 +279,29 @@ def get_utc_offset():
     offset_str = f"UTC{'+' if hours_offset >= 0 else ''}{hours_offset}"
     return offset_str
 
+
+def print_time_st():
+    time_st = time.time()
+    time_st_utc = datetime.now(timezone.utc)
+    print(
+        f'Started at  {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time_st))} ({get_utc_offset()})\n'
+        f'            {time_st_utc.strftime("%Y-%m-%d %H:%M:%S")} (UTC)\n'
+    )
+    return time_st, time_st_utc
+
+
+def print_time_en(time_st, time_st_utc):
+    time_en = time.time()
+    time_en_utc = datetime.now(timezone.utc)
+    print(
+        f'Started at  {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time_st))} ({get_utc_offset()})\n'
+        f'            {time_st_utc.strftime("%Y-%m-%d %H:%M:%S")} (UTC)\n'
+        f'Finished at {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time_en))} ({get_utc_offset()})\n'
+        f'            {time_en_utc.strftime("%Y-%m-%d %H:%M:%S")} (UTC)\n'
+        f'Elapsed time: {((time_en - time_st) / 60):.2f} minutes'
+        '--- END get_out_w_cache ---\n'
+    )
+    return time_en, time_en_utc
 
 class DualOutput(object):
     """
