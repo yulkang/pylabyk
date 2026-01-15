@@ -299,7 +299,6 @@ def print_time_en(time_st, time_st_utc):
         f'Finished at {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time_en))} ({get_utc_offset()})\n'
         f'            {time_en_utc.strftime("%Y-%m-%d %H:%M:%S")} (UTC)\n'
         f'Elapsed time: {((time_en - time_st) / 60):.2f} minutes'
-        '--- END get_out_w_cache ---\n'
     )
     return time_en, time_en_utc
 
