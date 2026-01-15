@@ -42,6 +42,7 @@ import time
 from gzip import BadGzipFile
 
 import numpy as np
+import psutil
 
 from . import zipPickle
 from collections import OrderedDict as odict
@@ -591,3 +592,12 @@ def scalar_if_same(v):
         return '%g' % v[0]
     else:
         return '-'.join(['%g' % v1 for v1 in [v[0], v[-1]]])
+
+
+def print_memory_usage():
+    print(
+        f"Remaining RAM: {psutil.virtual_memory().available / 1e9:.2f} GB"
+    )
+    info = psutil.Process().memory_info()
+    print(f"RSS: {info.rss / 1e9:.2f} GB")
+    print(f"VMS: {info.vms / 1e9:.2f} GB")
