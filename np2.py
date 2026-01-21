@@ -2365,13 +2365,9 @@ class PoolSim:
         from itertools import starmap
         return list(starmap(fun, iter))
 
-    def map_async(self, fun, iter1, chunksize=1, **kwargs):
+    def map_async(self, fun, iter, chunksize=1, **kwargs):
         # ignore chunksize
-        res = [
-            fun(*v, **kwargs) for v in iter1
-        ]
-        return AsyncResultSim(res)
-        # return AsyncResultSim(list(map(fun, iter, **kwargs)))
+        return AsyncResultSim(list(map(fun, iter, **kwargs)))
 
     def starmap_async(self, fun, iter, chunksize=1, **kwargs):
         # ignore chunksize
@@ -2696,8 +2692,7 @@ def vectorize_par(
         #         raise
     else:
         ress0 = pool.map_async(
-            f, m,
-            # TaskResult.run_task, [(f, m1) for m1 in m],
+            TaskResult.run_task, [(f, m1) for m1 in m],
             chunksize=chunksize
         )
         pool.close()
