@@ -1,5 +1,7 @@
+
+
 # constorch
-Constrained optimization in PyTorch. Currently uses transformation-based constraints.
+Constrained optimization in PyTorch. Currently uses transformation-based constraints. Requires `numpy` and `matplotlib` for the example visualization.
 
 ## Example usage
 ```python
