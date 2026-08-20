@@ -7,6 +7,7 @@ Created on Tue Feb 13 10:42:06 2018
 """
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 import os
+import warnings
 from typing import List, Callable, Sequence, Mapping, Tuple, Dict, Any, Type
 import pickle
 
@@ -2737,7 +2738,10 @@ def convert_movie(src_file: str, ext_new='.mp4', fps=10) -> str:
 
     # def gif_to_mp4(gif_file, output_file):
     # Read the GIF file using imageio
-    gif = imageio.mimread(src_file)
+    # memtest=False: imageio refuses GIFs whose decoded frames exceed 256 MB,
+    # which a few hundred frames of a full-size figure easily do even when the
+    # file itself is only a couple of MB.
+    gif = imageio.mimread(src_file, memtest=False)
 
     # # Write the frames to a temporary directory as PNG files
     # with imageio.imiter(dst_file, format='png') as writer:
@@ -2805,8 +2809,16 @@ class Animator:
 
         for ext1 in ext:
             if ext1 != '.gif':
-                convert_movie(file_gif, ext1)
-                files.append(file_wo_ext + ext1)
+                # A failed format conversion must not abort the caller: the
+                # animation is a diagnostic, and the .gif is already written.
+                try:
+                    convert_movie(file_gif, ext1)
+                    files.append(file_wo_ext + ext1)
+                except Exception as e:
+                    warnings.warn(
+                        f'Could not convert {file_gif} to {ext1}: '
+                        f'{type(e).__name__}: {e}'
+                    )
 
         if '.gif' not in ext:
             os.remove(file_gif)
