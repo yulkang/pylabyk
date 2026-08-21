@@ -729,11 +729,66 @@ Use .pdf only on Mac (darwin)
 """
 
 
+def extract_fig_data(fig) -> dict:
+    """The numbers behind a figure, small enough to ship.
+
+    Walks the finished figure and pulls out what each artist was given: line
+    data, image arrays, scatter offsets, bar geometry, and the axis labels
+    needed to read them. This is what a .mpl pickle would yield on unpickling,
+    without carrying the rendered figure with it -- kilobytes instead of tens of
+    megabytes -- and it needs no cooperation from the call site.
+
+    :param fig: a matplotlib Figure (or anything with a .figure attribute)
+    :return: {'axes<i>': {...}} for every axes that holds data
+    """
+    if hasattr(fig, 'figure'):
+        fig = fig.figure
+    out = {}
+    for i, ax in enumerate(fig.axes):
+        d = {}
+        lines = [
+            {'label': l.get_label(), 'xydata': np.asarray(l.get_xydata())}
+            for l in ax.get_lines()
+        ]
+        if lines:
+            d['lines'] = lines
+        images = [np.asarray(im.get_array()) for im in ax.get_images()]
+        if images:
+            d['images'] = images
+        offsets = []
+        for c in ax.collections:
+            try:
+                offsets.append(np.asarray(c.get_offsets()))
+            except Exception:
+                pass
+        if offsets:
+            d['collections'] = offsets
+        bars = [
+            (p.get_x(), p.get_y(), p.get_width(), p.get_height())
+            for p in ax.patches if hasattr(p, 'get_height')
+        ]
+        if bars:
+            d['bars'] = np.asarray(bars)
+        texts = [t.get_text() for t in ax.texts if t.get_text().strip()]
+        if texts:
+            d['texts'] = texts
+        if not d:
+            continue  # an empty or purely decorative axes
+        d.update({
+            'title': ax.get_title(),
+            'xlabel': ax.get_xlabel(), 'ylabel': ax.get_ylabel(),
+            'xlim': ax.get_xlim(), 'ylim': ax.get_ylim(),
+        })
+        out['axes%d' % i] = d
+    return out
+
+
 def savefig(
     fname: str, *args,
     fig: Union[mpl.figure.Figure, GridAxes] = None,
     ext: Union[str, Iterable[str]] = None,
     to_pickle=True,
+    to_save_data=True,
     verbose=True,
     skip_pdf_on_error=True,
     **kwargs
@@ -797,6 +852,16 @@ def savefig(
                 pass
             else:
                 raise
+    if to_save_data:
+        # A small companion holding just the plotted values. Unlike .mpl this
+        # costs kilobytes, so it can be shipped for every figure.
+        try:
+            from . import zipPickle as _zpkl
+            _zpkl.save(extract_fig_data(fig), fname1 + '.data.zpkl')
+        except Exception as e:
+            warnings.warn(
+                f'Could not write {fname1}.data.zpkl: {type(e).__name__}: {e}')
+
     if to_pickle:
         # manager0 = fig.canvas.manager
         # fig.canvas.manager = None  # DEBUGGED: using this line seemed to help but it now runs without it
