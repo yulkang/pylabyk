@@ -2725,6 +2725,15 @@ def vectorize_par(
     #  to save memory.
     # DEF: outs1[argout][i_input_flattened]
     if nout > 1:
+        if any(o is None for o in outs):
+            ix_none = [i for i, o in enumerate(outs) if o is None]
+            raise RuntimeError(
+                f'vectorize_par: {len(ix_none)} of {len(outs)} parallel tasks '
+                f'returned None without raising, so the failure was not caught '
+                f'by the res.exception check above. Offending flattened input '
+                f'indices: {ix_none[:20]}'
+                + ('...' if len(ix_none) > 20 else '')
+            )
         outs1 = zip(*outs)
     else:
         if use_starmap:
