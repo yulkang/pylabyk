@@ -1949,7 +1949,7 @@ def colorbar(
     # borderpad=-1,
     offset_inch=0.1,
     label: str = '',
-    orientation: str = 'vertical',
+    orientation: str = None,
     # kw_inset=(),
     kw_cbar=(),
     to_mark_range=False,
