@@ -12,6 +12,7 @@ Created on Sun Oct 16 12:38:07 2016
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
+import os
 import pickle
 import gzip
 import zlib
@@ -19,17 +20,24 @@ import zlib
 def save(object, filename, protocol = -1):
     """Save an object to a compressed disk file.
        Works well with huge objects.
-    """
-    file = gzip.GzipFile(filename, 'wb')
-    try:
-        import torch
-        torch.save(object, file, pickle_protocol=protocol)
-    except RuntimeError:
-        print('Failed to save with torch.save(); trying pickle.dump()')
-        pickle.dump(object, file, protocol)
 
-    # torch.save(object, file, pickle_protocol=protocol)
-    file.close()
+       Written to a temporary file beside the target and renamed into place,
+       so a concurrent reader (another worker of the same parallel sweep)
+       sees either no file or a complete one, never a truncated gzip.
+       Added 2026-09-09 after a cold parallel run hit exactly that.
+    """
+    tmp = f'{filename}.tmp{os.getpid()}'
+    file = gzip.GzipFile(tmp, 'wb')
+    try:
+        try:
+            import torch
+            torch.save(object, file, pickle_protocol=protocol)
+        except RuntimeError:
+            print('Failed to save with torch.save(); trying pickle.dump()')
+            pickle.dump(object, file, protocol)
+    finally:
+        file.close()
+    os.replace(tmp, filename)
 
 
 def load(filename, map_location='cpu', use_torch=True):

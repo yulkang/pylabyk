@@ -2551,6 +2551,29 @@ def is_daemon() -> bool:
     return multiprocessing.current_process().daemon
 
 
+def rerun_failed_tasks(ress: Sequence['TaskResult']) -> list:
+    """Results of the tasks, with each task that raised in a worker rerun here.
+
+    run_task() swallows a worker's exception into TaskResult.exception and
+    sends back result=None. Rerunning in the main process reproduces a
+    deterministic failure with a full traceback. Before 2026-09-09 the rerun's
+    return value was discarded, so a *transient* worker failure (a cache
+    written by one worker while another read it, say) left a silent None that
+    surfaced much later as e.g. AttributeError on NoneType. The rerun's value
+    is now the result, and the worker's exception is printed so the transient
+    failure is on record.
+    """
+    outs = [res.result for res in ress]
+    for i, res in enumerate(ress):
+        if res.exception is not None:
+            print(f'vectorize_par: task {i} of {len(ress)} raised in a worker: '
+                  f'{type(res.exception).__name__}: {res.exception!s:.300}\n'
+                  f'  rerunning it in the main process..', flush=True)
+            outs[i] = res.rerun()
+            print(f'vectorize_par: task {i} succeeded on rerun.', flush=True)
+    return outs
+
+
 @dataclasses.dataclass
 class TaskResult:
     fun: Callable
@@ -2673,11 +2696,7 @@ def vectorize_par(
         pool.close()
         pool.join()
         ress = ress0.get()
-        outs = [res.result for res in ress]
-
-        for res in ress:
-            if res.exception is not None:
-                res.rerun()
+        outs = rerun_failed_tasks(ress)
 
         # try:
         #     outs = pool.starmap(f, m, chunksize=chunksize)
@@ -2698,11 +2717,7 @@ def vectorize_par(
         pool.close()
         pool.join()
         ress = ress0.get()
-        outs = [res.result for res in ress]
-
-        for res in ress:
-            if res.exception is not None:
-                res.rerun()
+        outs = rerun_failed_tasks(ress)
 
         # outs = pool.map(f, m, chunksize=chunksize)
 
