@@ -38,7 +38,7 @@ def load(filename, map_location='cpu', use_torch=True):
         try:
             import torch
             with gzip.GzipFile(filename, 'rb') as file:
-                object = torch.load(file, map_location=map_location)
+                object = torch.load(file, map_location=map_location, weights_only=False)
         except RuntimeError:
             print('Failed to load with torch.load(); trying pickle.load()')
             with gzip.GzipFile(filename, 'rb') as file:
