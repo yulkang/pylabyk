@@ -25,18 +25,26 @@ def save(object, filename, protocol = -1):
        so a concurrent reader (another worker of the same parallel sweep)
        sees either no file or a complete one, never a truncated gzip.
        Added 2026-09-09 after a cold parallel run hit exactly that.
+
+       The data is flushed to disk before the rename, so a crash or power
+       cut leaves either the previous state or the complete file under
+       `filename`, never an empty one: XFS and ext4 can commit a rename
+       before the data it points to. Added 2026-10-21.
     """
     tmp = f'{filename}.tmp{os.getpid()}'
-    file = gzip.GzipFile(tmp, 'wb')
-    try:
+    with open(tmp, 'wb') as raw:
+        file = gzip.GzipFile(fileobj=raw, mode='wb')
         try:
-            import torch
-            torch.save(object, file, pickle_protocol=protocol)
-        except RuntimeError:
-            print('Failed to save with torch.save(); trying pickle.dump()')
-            pickle.dump(object, file, protocol)
-    finally:
-        file.close()
+            try:
+                import torch
+                torch.save(object, file, pickle_protocol=protocol)
+            except RuntimeError:
+                print('Failed to save with torch.save(); trying pickle.dump()')
+                pickle.dump(object, file, protocol)
+        finally:
+            file.close()
+        raw.flush()
+        os.fsync(raw.fileno())
     os.replace(tmp, filename)
 
 
