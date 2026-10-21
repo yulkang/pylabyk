@@ -2406,7 +2406,36 @@ def Pool(
     if processes == 1:
         return PoolSim()
     else:
+        raise_nofile_limit()
         return PoolParallel(processes=processes, *args, **kwargs)
+
+
+def raise_nofile_limit():
+    """
+    Raise this process's soft limit on open files to its hard limit.
+
+    On Linux, torch.multiprocessing passes each tensor a worker returns as
+    an open file descriptor, and the parent keeps one per received storage
+    until the result is freed. A map holding more results than the soft
+    limit (often 1024) kills the pool's result thread with
+    "received 0 items of ancdata", after which join() never returns.
+    Added 2026-10-21 after a cold neural run hit exactly that; macOS shares
+    tensors by name and cannot.
+    """
+    try:
+        import resource
+    except ImportError:  # Windows
+        return
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    target = hard
+    if hard == resource.RLIM_INFINITY:
+        target = 65536  # macOS refuses an infinite soft limit
+    if soft == resource.RLIM_INFINITY or soft >= target:
+        return
+    try:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (target, hard))
+    except (ValueError, OSError):
+        pass  # above the kernel's per-process cap: keep the current limit
 
 
 def fun_deal(f, inp):
