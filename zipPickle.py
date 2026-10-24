@@ -12,6 +12,7 @@ Created on Sun Oct 16 12:38:07 2016
 
 #  Copyright (c) 2020 Yul HR Kang. hk2699 at caa dot columbia dot edu.
 
+import hashlib
 import os
 import pickle
 import gzip
@@ -30,8 +31,15 @@ def save(object, filename, protocol = -1):
        cut leaves either the previous state or the complete file under
        `filename`, never an empty one: XFS and ext4 can commit a rename
        before the data it points to. Added 2026-10-21.
+
+       The temporary file is named by a hash of the target rather than the
+       target plus a suffix: cache names run up to 253 bytes, and the
+       suffix took a 245-byte one past the 255-byte limit on a name
+       (coco1, 7-digit pids; 2026-10-24).
     """
-    tmp = f'{filename}.tmp{os.getpid()}'
+    folder, name = os.path.split(filename)
+    tag = hashlib.md5(name.encode()).hexdigest()[:16]
+    tmp = os.path.join(folder, f'.{tag}.tmp{os.getpid()}')
     with open(tmp, 'wb') as raw:
         file = gzip.GzipFile(fileobj=raw, mode='wb')
         try:
